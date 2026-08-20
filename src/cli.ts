@@ -6,9 +6,13 @@
  * is wrong.
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { checksCommand } from "./cli/checks-command.ts";
 import { consultCommand } from "./cli/consult-command.ts";
 import { doctorCommand } from "./cli/doctor-command.ts";
+import { MAGI_ROOT } from "./cli/environment.ts";
 import { skillCommand } from "./cli/skill-command.ts";
 import { triggersCommand } from "./cli/triggers-command.ts";
 
@@ -21,7 +25,8 @@ export const COMMAND_USAGE = `usage:
               [--excerpt <path[:start-end]>]... [--test-output <file>]
               [--waive-headroom] [--waive-backfill]
   magi checks <consult-id>
-  magi triggers [--base <ref>]`;
+  magi triggers [--base <ref>]
+  magi --version`;
 
 const USAGE = `${COMMAND_USAGE}
 
@@ -59,10 +64,26 @@ seed and prints which deterministic triggers propose a consult;
 proposing never convenes, and judgment may add proposals but not
 suppress these.`;
 
+/**
+ * The version this build reports, read from the manifest beside it instead of
+ * duplicated in source. Both the clone and the published tarball carry
+ * package.json at MAGI_ROOT, so the number a user sees cannot drift from the
+ * one that was published.
+ */
+function version(): string {
+  const manifest: unknown = JSON.parse(readFileSync(join(MAGI_ROOT, "package.json"), "utf8"));
+  const declared = (manifest as { version?: unknown }).version;
+  return typeof declared === "string" ? declared : "unknown";
+}
+
 export async function main(argv: readonly string[]): Promise<number> {
   const [command, ...rest] = argv;
   if (command === "--help" || command === "help") {
     console.log(USAGE);
+    return 0;
+  }
+  if (command === "--version" || command === "-v") {
+    console.log(version());
     return 0;
   }
   if (command === "doctor") return doctorCommand(rest);

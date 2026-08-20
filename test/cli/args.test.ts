@@ -99,6 +99,24 @@ test("subcommands reject arguments they do not understand", async () => {
   assert.equal(await main(["skill", "--harness", "gemini"]), 2);
 });
 
+test("version is a successful command that reports the shipped manifest", async () => {
+  const manifest = JSON.parse(readFileSync("package.json", "utf8")) as { version: string };
+  const printed: string[] = [];
+  const log = console.log;
+  console.log = (...args: unknown[]): void => {
+    printed.push(args.map(String).join(" "));
+  };
+  try {
+    assert.equal(await main(["--version"]), 0);
+    assert.equal(await main(["-v"]), 0);
+  } finally {
+    console.log = log;
+  }
+  // Read, never hardcoded: a literal here would pass while the published
+  // package reported something else.
+  assert.deepEqual(printed, [manifest.version, manifest.version]);
+});
+
 test("the README command reference stays identical to CLI usage", () => {
   const readme = readFileSync("README.md", "utf8");
   assert.ok(readme.includes(`\`\`\`\n${COMMAND_USAGE}\n\`\`\``));
