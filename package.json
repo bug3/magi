@@ -41,10 +41,12 @@
     "typecheck": "tsc --noEmit",
     "test": "node --test \"test/**/*.test.ts\"",
     "check": "npm run typecheck && npm run test",
-    "prepublishOnly": "npm run check"
+    "preflight": "publish-preflight",
+    "prepublishOnly": "npm run check && npm run preflight"
   },
   "devDependencies": {
     "@types/node": "26.2.0",
+    "publish-preflight": "0.1.0",
     "typescript": "5.9.3"
   }
 }

@@ -10,10 +10,12 @@ mechanism here implements.
 - TypeScript with no build step: source runs directly on Node's type
   stripping. Relative imports carry explicit `.ts` extensions.
 - Node is pinned by `.mise.toml`.
-- Zero runtime dependencies. Dev dependencies: `typescript` and
-  `@types/node`, both pinned exact.
+- Zero runtime dependencies. Dev dependencies: `typescript`,
+  `@types/node` and `publish-preflight`, all pinned exact.
 - `npm run check` = `tsc --noEmit` + every `test/**/*.test.ts` file. Green at
   every commit.
+- `npm run preflight` packs the package and installs it the way a consumer
+  would. `prepublishOnly` runs the check, then the preflight.
 
 ## Where things live
 
