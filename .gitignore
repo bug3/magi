@@ -1,0 +1,5 @@
+.magi/
+node_modules/
+*.log
+!fixtures/**/*.log
+.claude/

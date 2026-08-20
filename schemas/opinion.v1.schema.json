@@ -1,0 +1,173 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Council seat opinion",
+  "description": "The one contract every council seat's answer must validate against. Written flat, with no $ref and no $defs: the same file is handed verbatim to codex --output-schema and grok --json-schema, whose $ref support is unverified, so inline nesting is the only shape all three enforcement paths are known to share. Strict-engine rule: every object lists every property in required; optional strings are nullable unions with minLength 1 so an empty string can never masquerade as absent. Length bounds follow one rule: the smallest power of two at or above three times the longest value observed in live consults.",
+  "type": "object",
+  "required": [
+    "schema",
+    "mode",
+    "position",
+    "findings",
+    "answers",
+    "keep_list",
+    "assumptions",
+    "confidence"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "description": "Contract tag. A document without it is not an opinion, whatever else it contains.",
+      "enum": [
+        "magi/opinion.v1"
+      ]
+    },
+    "mode": {
+      "description": "Which seat brief this answers.",
+      "enum": [
+        "plan",
+        "review"
+      ]
+    },
+    "position": {
+      "description": "The seat's stance in prose: what it would do and why.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "findings": {
+      "description": "Falsifiable claims, each carrying its evidence citations. An empty array is a seat that found nothing, which is itself an answer.",
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "severity",
+          "claim",
+          "citations",
+          "check",
+          "fix"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Finding id, unique within this opinion.",
+            "type": "string",
+            "pattern": "^F[1-9][0-9]*$"
+          },
+          "severity": {
+            "enum": [
+              "blocker",
+              "major",
+              "minor"
+            ]
+          },
+          "claim": {
+            "description": "One sentence that could be shown to be false.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "citations": {
+            "description": "Evidence ids that must resolve inside the evidence pack.",
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 8,
+            "items": {
+              "type": "string",
+              "pattern": "^E[1-9][0-9]*$"
+            }
+          },
+          "check": {
+            "description": "A concrete command or falsification test the orchestrator can run; null when the seat offers none.",
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "fix": {
+            "description": "What the seat would change, offered as a claim rather than a directive; null when the seat offers none.",
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 2048
+          }
+        }
+      }
+    },
+    "answers": {
+      "description": "Answers to the questions the brief asked directly.",
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "required": [
+          "question",
+          "answer"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "question": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "answer": {
+            "type": "string",
+            "maxLength": 4096
+          }
+        }
+      }
+    },
+    "keep_list": {
+      "description": "Invariants that must not change, which the orchestrator checks the diff against.",
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "required": [
+          "claim",
+          "citations"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "claim": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "citations": {
+            "type": "array",
+            "minItems": 0,
+            "maxItems": 8,
+            "items": {
+              "type": "string",
+              "pattern": "^E[1-9][0-9]*$"
+            }
+          }
+        }
+      }
+    },
+    "assumptions": {
+      "description": "What the seat had to assume because the evidence pack did not settle it.",
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 10,
+      "items": {
+        "type": "string",
+        "maxLength": 1024
+      }
+    },
+    "confidence": {
+      "description": "Informative only. Synthesis weighs evidence, not confidence.",
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    }
+  }
+}

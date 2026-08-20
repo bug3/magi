@@ -1,0 +1,11 @@
+OpenAI Codex v0.148.0
+--------
+workdir: /work/magi
+model: gpt-5.6-sol
+provider: openai
+approval: on-request
+sandbox: read-only
+reasoning effort: max
+reasoning summaries: none
+session id: 01a01bd3-b0ff-7e11-83fe-118912e92c0a
+--------

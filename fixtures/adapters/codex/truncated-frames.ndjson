@@ -1,0 +1,4 @@
+{"type":"thread.started","thread_
+{"type":"turn.started
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"never finished
+{"type":"turn.completed","usage":{"input_tokens":900,

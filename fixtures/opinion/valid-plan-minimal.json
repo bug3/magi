@@ -1,0 +1,21 @@
+{
+  "schema": "magi/opinion.v1",
+  "mode": "plan",
+  "position": "Take the smaller shape: add the cache behind the existing repository interface rather than threading a new client through the call sites. Nothing in the plan needs to change outside src/store/.",
+  "findings": [],
+  "keep_list": [
+    {
+      "claim": "The repository interface keeps its current method set, so no call site changes.",
+      "citations": [
+        "E2"
+      ]
+    },
+    {
+      "claim": "Reads stay consistent within a single request.",
+      "citations": []
+    }
+  ],
+  "assumptions": [],
+  "confidence": 0.5,
+  "answers": []
+}

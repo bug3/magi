@@ -1,0 +1,50 @@
+{
+  "schema": "magi/opinion.v1",
+  "mode": "review",
+  "position": "The patch is sound apart from the token refresh path, where a concurrent refresh can hand two callers different tokens. I would land it once F1 is addressed; F2 is worth a follow-up but does not block.",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "blocker",
+      "claim": "Two concurrent callers of refreshToken() can each start a refresh, so the second write overwrites the first and one caller keeps a token that is already revoked.",
+      "citations": [
+        "E3",
+        "E4"
+      ],
+      "check": "node --test test/auth/refresh.test.ts -- --concurrency 2",
+      "fix": "Share one in-flight refresh promise per session key and have every caller await it, so the write happens once."
+    },
+    {
+      "id": "F2",
+      "severity": "minor",
+      "claim": "The retry loop logs the full authorization header at debug level, so a debug run writes bearer tokens to disk.",
+      "citations": [
+        "E7"
+      ],
+      "check": "grep -n 'authorization' src/net/retry.ts",
+      "fix": "Redact the header value before logging it."
+    }
+  ],
+  "answers": [
+    {
+      "question": "Does the change alter the on-disk session format?",
+      "answer": "No. The stored record keeps the same three fields; only the write path is reordered."
+    },
+    {
+      "question": "Is the added timeout observable by callers?",
+      "answer": "Yes, as a rejected promise with the existing TimeoutError, so no call site needs to change."
+    }
+  ],
+  "keep_list": [
+    {
+      "claim": "Session records stay readable by the previous release.",
+      "citations": [
+        "E1"
+      ]
+    }
+  ],
+  "assumptions": [
+    "The evidence pack shows the whole refresh path; no other module writes the session record."
+  ],
+  "confidence": 0.72
+}

@@ -1,0 +1,6 @@
+{"type":"thread.started","thread_id":"th_01JQ8Z6SPLIT"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"command_execution","command":"npm test","aggregated_output":"suite one
+suite two"}}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"kept the split frame as bytes"}}
+{"type":"turn.completed","usage":{"input_tokens":1200,"output_tokens":90}}

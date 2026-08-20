@@ -1,0 +1,4 @@
+{"type":"thread.started","thread_id":"th_01JQ8ZAFAILED"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"command_execution","command":"npm test","exit_code":0}}
+{"type":"turn.failed","error":{"message":"tool call loop"}}

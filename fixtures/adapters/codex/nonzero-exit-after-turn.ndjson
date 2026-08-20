@@ -1,0 +1,5 @@
+{"type":"thread.started","thread_id":"th_01JQ8Z8EXIT"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"command_execution","command":"npm test","exit_code":3,"aggregated_output":"3 failing\n"}}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"the retry test still fails"}}
+{"type":"turn.completed","usage":{"input_tokens":5100,"cached_input_tokens":1024,"output_tokens":220}}

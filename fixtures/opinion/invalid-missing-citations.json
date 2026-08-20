@@ -1,0 +1,18 @@
+{
+  "schema": "magi/opinion.v1",
+  "mode": "review",
+  "position": "The change is fine apart from one path; see the finding below.",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "major",
+      "claim": "The retry loop never resets its counter, so a long-lived client stops retrying after the first burst.",
+      "check": null,
+      "fix": null
+    }
+  ],
+  "keep_list": [],
+  "assumptions": [],
+  "confidence": 0.6,
+  "answers": []
+}

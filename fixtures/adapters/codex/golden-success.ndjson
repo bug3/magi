@@ -1,0 +1,5 @@
+{"type":"thread.started","thread_id":"th_01JQ8Z5GOLDEN"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"command_execution","command":"npm test","exit_code":0,"aggregated_output":"12 passing\n"}}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"added the retry policy"}}
+{"type":"turn.completed","usage":{"input_tokens":8000,"cached_input_tokens":2000,"output_tokens":640}}

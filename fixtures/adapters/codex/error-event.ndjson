@@ -1,0 +1,4 @@
+{"type":"thread.started","thread_id":"th_01JQ8Z9ERROR"}
+{"type":"turn.started"}
+{"type":"error","message":"the model refused to continue"}
+{"type":"turn.completed","usage":{"input_tokens":300,"output_tokens":12}}

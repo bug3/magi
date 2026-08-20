@@ -1,0 +1,47 @@
+{
+  "name": "magi",
+  "version": "0.1.0",
+  "description": "Multi-Advisor Grounded Inference: three AI coding harnesses answer one brief blind. The council thinks; the orchestrator works.",
+  "keywords": [
+    "ai",
+    "llm",
+    "code-review",
+    "second-opinion",
+    "multi-model",
+    "claude-code",
+    "codex",
+    "grok",
+    "cli"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bug3/magi.git"
+  },
+  "license": "MIT",
+  "author": "bug3 (https://github.com/bug3)",
+  "type": "module",
+  "bin": {
+    "magi": "bin/magi.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "prompts",
+    "schemas",
+    "skills",
+    "docs"
+  ],
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"test/**/*.test.ts\"",
+    "check": "npm run typecheck && npm run test",
+    "prepublishOnly": "npm run check"
+  },
+  "devDependencies": {
+    "@types/node": "26.2.0",
+    "typescript": "5.9.3"
+  }
+}
