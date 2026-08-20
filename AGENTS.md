@@ -7,8 +7,12 @@ mechanism here implements.
 
 ## Stack and commands
 
-- TypeScript with no build step: source runs directly on Node's type
-  stripping. Relative imports carry explicit `.ts` extensions.
+- TypeScript with no build step in development: source runs directly on
+  Node's type stripping, and relative imports carry explicit `.ts`
+  extensions. Publishing is the exception. Node refuses to strip types under
+  `node_modules`, so `npm run build` emits `dist/` through
+  `tsconfig.build.json` and the tarball ships that instead of the sources;
+  `prepack` runs it, and `bin/magi.js` prefers the build when it is there.
 - Node is pinned by `.mise.toml`.
 - Zero runtime dependencies. Dev dependencies: `typescript`,
   `@types/node` and `publish-preflight`, all pinned exact.

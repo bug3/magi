@@ -3,3 +3,4 @@ node_modules/
 *.log
 !fixtures/**/*.log
 .claude/
+dist/

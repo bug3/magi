@@ -1,0 +1,15 @@
+{
+  // Publishing only. Node refuses to type-strip files under node_modules, so
+  // an installed package cannot run the sources the way a clone does: the
+  // tarball ships this output instead. `rewriteRelativeImportExtensions` in
+  // the base config turns the explicit .ts specifiers into .js on the way out.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "dist",
+    "rootDir": "src",
+    "declaration": false,
+    "sourceMap": false
+  },
+  "include": ["src/**/*.ts"]
+}

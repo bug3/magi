@@ -68,8 +68,10 @@ editing your `.gitignore` for you.
 
 ## Requirements
 
-- Node 24 or newer. There is no build step: the TypeScript sources run
-  directly under Node's type stripping.
+- Node 24 or newer. Working from a clone there is no build step: the
+  TypeScript sources run directly under Node's type stripping. The published
+  package ships compiled JavaScript instead, because Node refuses to strip
+  types under `node_modules`.
 - The three CLIs installed and already logged in with their own
   subscriptions. A seat is passed `HOME` and `PATH` and nothing else: no API
   keys, no copied credentials.
