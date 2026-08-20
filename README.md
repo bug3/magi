@@ -79,21 +79,17 @@ editing your `.gitignore` for you.
 ## Install
 
 ```
-git clone <repository-url> magi
-cd magi
-npm install
-npm link
+npm install -g @bug3/magi
 ```
 
-`npm install` pulls dev dependencies only (`typescript`, `@types/node`).
-`npm link` puts `magi` on your PATH; running `node bin/magi.js` from the
-clone works just as well.
+That puts `magi` on your PATH. To work on MAGI itself instead of installing
+it, see [Development](#development).
 
 ### The skill
 
 The CLI is half of it. `skills/magi/` is the other half: it teaches an
 orchestrating assistant when to convene, what a brief must contain and what
-to do with the answers. Install it once, from the clone:
+to do with the answers. Install it once:
 
 ```
 magi skill --install
@@ -291,7 +287,8 @@ and proceeds only on your explicit decision.
 
 ## Development
 
-Node is pinned through mise:
+Node is pinned through mise, and `npm install` pulls dev dependencies only
+(`typescript`, `@types/node`):
 
 ```
 mise install
@@ -300,7 +297,10 @@ npm run check
 ```
 
 `npm run check` typechecks the tree and runs every `test/**/*.test.ts` file;
-`prepublishOnly` runs the same command.
+`prepublishOnly` runs the same command. `npm link` puts a checkout's `magi`
+on your PATH in place of the published one, and `node bin/magi.js` works just
+as well. If `npm run check` cannot find its test files, the shell is
+resolving an older `node` than the pinned one.
 
 ## Documentation
 

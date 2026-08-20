@@ -1,5 +1,5 @@
 {
-  "name": "magi",
+  "name": "@bug3/magi",
   "version": "0.1.0",
   "description": "Multi-Advisor Grounded Inference: three AI coding harnesses answer one brief blind. The council thinks; the orchestrator works.",
   "keywords": [
@@ -31,6 +31,9 @@
     "skills",
     "docs"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">=24.0.0"
   },
