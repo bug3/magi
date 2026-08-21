@@ -45,7 +45,7 @@ export async function consultCommand(
   const repoDir = process.cwd();
   const magiDir = join(repoDir, ".magi");
 
-  const checked = await checkInputs(args, repoDir);
+  const checked = await checkInputs(args, repoDir, mode);
   if (!checked.ok) {
     console.error(checked.problem);
     return 2;
@@ -71,11 +71,9 @@ export async function consultCommand(
     mode,
     path,
     excerpts: args.excerpts,
-    ...(args.patchFile === undefined ? {} : { patch: readFileSync(args.patchFile, "utf8") }),
+    ...(checked.patch === undefined ? {} : { patch: checked.patch }),
     ...(args.base === undefined ? {} : { base: args.base }),
-    ...(args.testOutputFile === undefined
-      ? {}
-      : { testOutput: readFileSync(args.testOutputFile, "utf8") }),
+    ...(checked.testOutput === undefined ? {} : { testOutput: checked.testOutput }),
   });
   const pack = buildEvidencePack(curated.pack);
   const renderedChars =

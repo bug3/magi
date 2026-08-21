@@ -96,6 +96,17 @@ test("an excerpt window past the end of its file is refused by name", async () =
   );
 });
 
+test("a review with nothing to review is refused before any seat", async () => {
+  const result = await checkInputs(args({ briefFile: world() }), REPO, "review");
+  assert.equal(result.ok, false);
+  assert.match(result.ok ? "" : result.problem, /^review needs something to review/u);
+});
+
+test("plan needs no target, and a review with one passes", async () => {
+  assert.equal((await checkInputs(args({ briefFile: world() }), REPO, "plan")).ok, true);
+  assert.equal((await checkInputs(args({ briefFile: world(), base: "HEAD" }), REPO, "review")).ok, true);
+});
+
 test("a base that is not a commit in this repository is refused by name", async () => {
   assert.match(
     await problem({ briefFile: world(), base: "no-such-ref-anywhere" }),
@@ -115,6 +126,7 @@ test("inputs that are all there come back with the brief that was checked", asyn
   const result = await checkInputs(
     args({ briefFile, base: "HEAD", excerpts: [{ path: "README.md", startLine: 1, endLine: 3 }] }),
     REPO,
+    "review",
   );
   assert.equal(result.ok, true);
   assert.equal(result.ok ? result.briefMd : "", "the question\n");

@@ -3,19 +3,23 @@
  * real and before either preflight runs.
  *
  * Argument parsing refuses a bad invocation by name; a file it cannot read, a
- * window past the end of that file, a slug no consult id could carry and a
- * base that is not a commit are the same kind of fact and belong beside it.
+ * window past the end of that file, a slug no consult id could carry, a base
+ * that is not a commit and a review with nothing to review are the same kind
+ * of fact and belong beside it.
  * Existence is the wrong question to ask of any of them: a directory and a
  * file with no read permission both answer it yes and then throw out of the
  * first reader, which is what put a `node:fs` stack trace in front of users.
  *
- * The brief is read here and handed back rather than read again later, so the
- * bytes that were checked are the bytes that are consulted.
+ * Every file read here is handed back rather than read again later, so the
+ * bytes that were checked are the bytes that are consulted. Reading twice is
+ * not only wasteful: between the two reads a file can change or vanish, and
+ * the second read is past the seam that turns that into a named refusal.
  */
 
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
+import type { ConsultMode } from "../core/consult.ts";
 import type { ExcerptRequest } from "../evidence/pack.ts";
 import { gitSucceeds } from "../runtime/git.ts";
 import type { ReviewArgs } from "./args.ts";
@@ -25,9 +29,19 @@ const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/u;
 
 export type InputCheck =
   | { readonly ok: false; readonly problem: string }
-  | { readonly ok: true; readonly briefMd: string };
+  | {
+      readonly ok: true;
+      readonly briefMd: string;
+      /** Read here when named, so curation consults the bytes that passed. */
+      readonly patch?: string;
+      readonly testOutput?: string;
+    };
 
-export async function checkInputs(args: ReviewArgs, repoDir: string): Promise<InputCheck> {
+export async function checkInputs(
+  args: ReviewArgs,
+  repoDir: string,
+  mode: ConsultMode = "review",
+): Promise<InputCheck> {
   if (!SLUG.test(args.slug)) {
     return refuse(`--slug: not a kebab slug: "${args.slug}" (a consult id is NNNN-slug)`);
   }
@@ -38,15 +52,17 @@ export async function checkInputs(args: ReviewArgs, repoDir: string): Promise<In
     return refuse(`--brief: ${args.briefFile} is empty; a consult needs a question to answer`);
   }
 
-  const optional: readonly (readonly [string, string])[] = [
-    ...(args.patchFile === undefined ? [] : [["--patch", args.patchFile] as const]),
-    ...(args.testOutputFile === undefined
-      ? []
-      : [["--test-output", args.testOutputFile] as const]),
-  ];
-  for (const [flag, path] of optional) {
-    const read = readNamed(flag, path);
+  let patch: string | undefined;
+  if (args.patchFile !== undefined) {
+    const read = readNamed("--patch", args.patchFile);
     if ("problem" in read) return refuse(read.problem);
+    patch = read.text;
+  }
+  let testOutput: string | undefined;
+  if (args.testOutputFile !== undefined) {
+    const read = readNamed("--test-output", args.testOutputFile);
+    if ("problem" in read) return refuse(read.problem);
+    testOutput = read.text;
   }
 
   for (const excerpt of args.excerpts) {
@@ -59,7 +75,23 @@ export async function checkInputs(args: ReviewArgs, repoDir: string): Promise<In
     if (problem !== undefined) return refuse(problem);
   }
 
-  return { ok: true, briefMd: brief.text };
+  // Last, so a path that cannot be read is named before this is: a review with
+  // no target ships the repository floor and nothing else, and three seats
+  // answer that they cannot review anything. That is a correct answer to a
+  // question the invocation already knew not to ask, at the cost of a fan-out.
+  if (mode === "review" && args.base === undefined && args.patchFile === undefined) {
+    return refuse(
+      "review needs something to review: pass --base <ref> to derive the patch from git, " +
+        "or --patch <file> to supply one",
+    );
+  }
+
+  return {
+    ok: true,
+    briefMd: brief.text,
+    ...(patch === undefined ? {} : { patch }),
+    ...(testOutput === undefined ? {} : { testOutput }),
+  };
 }
 
 function refuse(problem: string): InputCheck {
@@ -94,7 +126,7 @@ function excerptProblem(excerpt: ExcerptRequest, repoDir: string): string | unde
   if (startLine < 1 || endLine < startLine) {
     return `--excerpt: not a line window: ${excerpt.path}:${startLine}-${endLine}`;
   }
-  const lines = read.text.split("\n").length;
+  const lines = countLines(read.text);
   if (endLine > lines) {
     return (
       `--excerpt: ${excerpt.path} has ${lines} lines, ` +
@@ -102,6 +134,17 @@ function excerptProblem(excerpt: ExcerptRequest, repoDir: string): string | unde
     );
   }
   return undefined;
+}
+
+/**
+ * Lines the way a reader counts them, which is one fewer than `split` gives
+ * for the newline-terminated file almost every file is. The pack renders a
+ * whole file as `path:1-<count>`, and the two counts must agree or a window
+ * the pack would accept is refused here.
+ */
+function countLines(text: string): number {
+  if (text === "") return 0;
+  return text.replace(/\n$/u, "").split("\n").length;
 }
 
 /**
