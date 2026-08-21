@@ -19,7 +19,6 @@ import {
   formatCalibration,
   formatCalibrationHealth,
   formatCompleteness,
-  formatSkillLinks,
   formatSmokeResults,
   formatStaticReport,
   formatTelemetry,
@@ -30,7 +29,7 @@ import {
   staticChecks,
   valueFromLedger,
 } from "../doctor.ts";
-import { skillProblem, skillStatus } from "../skill.ts";
+import { skillStatus } from "../skill.ts";
 import { sha256Text } from "../util/fs.ts";
 import { MAGI_ROOT, SKILL_SOURCE, ambient } from "./environment.ts";
 
@@ -46,7 +45,11 @@ export async function doctorCommand(rest: readonly string[]): Promise<number> {
   const schemaPath = join(MAGI_ROOT, "schemas", "opinion.v1.schema.json");
   const ledgerFile = join(repoDir, ".magi", "ledger.jsonl");
 
+  // An installation that moved leaves the harness link behind, and nothing
+  // else notices until the orchestrator reaches for the skill.
+  const skills = SLOTS.map((definition) => skillStatus(definition.harness, home, SKILL_SOURCE));
   const report = await staticChecks({
+    skills,
     briefPath: "<consult>/brief.md",
     schemaPath,
     schemaJson: JSON.stringify(JSON.parse(readFileSync(schemaPath, "utf8"))),
@@ -57,11 +60,6 @@ export async function doctorCommand(rest: readonly string[]): Promise<number> {
   });
   console.log(formatStaticReport(report));
 
-  // An installation that moved leaves the harness link behind, and nothing
-  // else notices until the orchestrator reaches for the skill.
-  const skills = SLOTS.map((definition) => skillStatus(definition.harness, home, SKILL_SOURCE));
-  console.log(formatSkillLinks(skills));
-
   const consults = existsSync(ledgerFile)
     ? foldLedger(readFileSync(ledgerFile, "utf8").split("\n"))
     : [];
@@ -70,7 +68,7 @@ export async function doctorCommand(rest: readonly string[]): Promise<number> {
     formatCompleteness(completenessFromLedger(consults, gateExpectedReader(magiDir, consults))),
   );
   console.log(formatTelemetry(skewFromLedger(consults), valueFromLedger(consults)));
-  let healthy = report.healthy && !skills.some(skillProblem);
+  let healthy = report.healthy;
 
   if (live) {
     const workDir = join(repoDir, ".magi", "doctor");

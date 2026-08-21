@@ -14,6 +14,7 @@ const INPUTS = {
   repoDir: "/tmp/repo",
   home: "/work/home",
   path: "/usr/bin",
+  skills: [],
   ledgerPath: "/nonexistent/ledger.jsonl",
 };
 
@@ -71,4 +72,18 @@ test("chronic ledger failure turns the report unhealthy", async () => {
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("a skill link that stopped resolving makes the whole report unhealthy", async () => {
+  const report = await staticChecks(
+    {
+      ...INPUTS,
+      skills: [{ harness: "claude", path: "/h/.claude/skills/magi", state: "stale" }],
+    },
+    allDocumented(),
+  );
+  assert.equal(report.healthy, false);
+  const text = formatStaticReport(report);
+  assert.match(text, /STALE/u, "the link is named above the verdict");
+  assert.match(text, /PROBLEMS FOUND/u, "and the verdict is about it");
 });

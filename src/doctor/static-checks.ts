@@ -11,6 +11,7 @@ import type { SeatProfile } from "../core/profile.ts";
 import { stateIgnoreStatus, type StateIgnoreStatus } from "../consult.ts";
 import { tryCapture } from "../runtime/exec.ts";
 import { seatProfile, type SeatInputs } from "../seats/profiles.ts";
+import { skillProblem, type SkillReport } from "../skill.ts";
 import { undocumentedFlags } from "./drift.ts";
 import { healthFromLedger, type SeatHealth } from "./health.ts";
 
@@ -33,6 +34,8 @@ export interface StaticReport {
   readonly seats: readonly SeatStaticReport[];
   readonly ledgerHealth: readonly SeatHealth[];
   readonly stateIgnore: StateIgnoreStatus;
+  /** Where each harness would find the skill, and what stands there. */
+  readonly skills: readonly SkillReport[];
   readonly healthy: boolean;
 }
 
@@ -42,7 +45,10 @@ export interface StaticProbes {
 }
 
 export async function staticChecks(
-  inputs: SeatInputs & { readonly ledgerPath: string },
+  inputs: SeatInputs & {
+    readonly ledgerPath: string;
+    readonly skills: readonly SkillReport[];
+  },
   probes: StaticProbes = { capture: (argv) => tryCapture(argv) },
 ): Promise<StaticReport> {
   const seats: SeatStaticReport[] = [];
@@ -69,7 +75,8 @@ export async function staticChecks(
     ) &&
     ledgerHealth.every((seat) => !seat.chronic) &&
     stateIgnore !== "not-ignored" &&
-    stateIgnore !== "tracked";
+    stateIgnore !== "tracked" &&
+    !inputs.skills.some(skillProblem);
 
-  return { seats, ledgerHealth, stateIgnore, healthy };
+  return { seats, ledgerHealth, stateIgnore, skills: inputs.skills, healthy };
 }

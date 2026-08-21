@@ -48,6 +48,9 @@ export function formatStaticReport(report: StaticReport): string {
       lines.push(`ledger: ${seat.slot} ${seat.invalid}/${seat.appearances} invalid${flag}`);
     }
   }
+  // The skill links print inside this report so the verdict line below is
+  // about everything above it, rather than about a subset of it.
+  lines.push("", formatSkillLinks(report.skills).trimEnd());
   lines.push("", report.healthy ? "healthy" : "PROBLEMS FOUND", "");
   return lines.join("\n");
 }

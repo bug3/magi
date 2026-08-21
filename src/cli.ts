@@ -38,8 +38,9 @@ asserts the nonce surfaces without isolation and stays out with it, and
 records both directions in the ledger.
 skill reports where each harness would find the orchestrator skill and, on
 --install, links it there: a symlink to this clone so the installed skill
-cannot drift, never over anything this command did not create. Without
---harness it reports all three and installs for claude.
+cannot drift. A link to another copy of this same skill is repointed; a real
+file, a directory or a link to anything else is reported and left exactly as
+it was. Without --harness it reports all three and installs for claude.
 review and plan convene the council on the repo at the current working
 directory; review critiques a plan or diff, plan asks for independent
 approaches before one exists. Curation is rule-driven: conventions are
