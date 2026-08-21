@@ -14,7 +14,8 @@ export {
 } from "./doctor/calibrate.ts";
 export {
   RETRIEVAL_MARKERS,
-  beforeRetrieval,
+  RETRIEVAL_READABLE,
+  tokenWasFetched,
 } from "./doctor/calibration-evidence.ts";
 export {
   calibrationHealth,

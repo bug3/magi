@@ -1,0 +1,3 @@
+{"type":"item.started","item":{"id":"item_1","type":"command_execution","command":"/usr/bin/bash -lc \"rg --hidden --no-ignore -o 'magi-canary-[A-Za-z0-9._:-]+' .\"","aggregated_output":"","exit_code":null,"status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item_1","type":"command_execution","command":"/usr/bin/bash -lc \"rg --hidden --no-ignore -o 'magi-canary-[A-Za-z0-9._:-]+' .\"","aggregated_output":"./AGENTS.md:magi-canary-fixture1\n","exit_code":0,"status":"completed"}}
+{"type":"item.completed","item":{"id":"item_2","type":"agent_message","text":"{\"echo\":\"magi-canary-fixture1\"}"}}

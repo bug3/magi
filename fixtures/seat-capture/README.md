@@ -33,3 +33,16 @@ that the canary matches a real leak rather than its own author's idea of one.
 
 Read by `test/adapters/grok.test.ts`, `test/consult/gate.test.ts` and
 `test/seats/canaries.test.ts`.
+
+### balthasar-fetched-token.ndjson
+
+Three events from a codex exec run pointed at a directory holding a
+calibration nonce: the command it started, the same command completed with
+`./AGENTS.md:magi-canary-fixture1` in its own output, and the answer echoing
+that token back. The claim: a nonce a seat reached by tool is separable from
+one that reached it ambiently, and what separates them is where the token
+sits, not when it appears. The started event carries the retrieval marker
+with an empty output, which is why a line matching a marker is not on its own
+evidence of anything.
+
+Read by `test/doctor/calibrate.test.ts`.

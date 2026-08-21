@@ -5,23 +5,39 @@
  * its own. A seat with tools has a second path to the same bytes, and codex
  * takes it. Pointed at the repository its layer lives in, it greps the tree,
  * reads `AGENTS.md` itself and echoes the token: proof that the seat can read
- * the file, not that the layer was injected. So an injection claim rests only
- * on what the stream carried before the seat fetched anything.
+ * the file, not that the layer was injected.
  *
- * This is the second false positive this canary has produced. The first was
- * the brief echoing its own token, answered by never naming the token in the
- * brief; see `NONCE_PREFIX`.
+ * What separates the two is where the token turns up, not when. A retrieval
+ * event that carried it in its own output is the seat fetching it. A token
+ * anywhere else was in the seat's context, whatever the seat did before
+ * saying so. Cutting the stream at the first retrieval instead reads far too
+ * much: it clears a real leak the moment the seat touches a tool for any
+ * unrelated reason, which is a false negative in the one direction that must
+ * not have one.
+ *
+ * This is the second false positive this canary has produced; the first was a
+ * brief echoing its own token, answered by never naming the token in the
+ * brief. See `NONCE_PREFIX`.
+ *
+ * One ambiguity is left standing rather than guessed at: a token both
+ * injected and fetched reads as fetched. Only a seat with no retrieval
+ * capability removes it, which is what melchior's `--tools ""` already does
+ * and what the other two seats would need to match.
  */
 
+import type { Harness } from "../core/slots.ts";
+
 /**
- * The events that mark a seat fetching something itself. Codex only: its
- * `exec --json` stream is one event per line, so position in the stream
- * orders cause and effect. Claude and grok emit a single document with no
- * such ordering, and their layers sit outside the working directory where a
- * repository grep cannot reach them, so neither needs this cut. Cases, not
- * branches: a stream that grows a new retrieval event is one more entry here,
- * re-verified against the installed CLI rather than trusted from this list.
+ * The harnesses whose stream says what a retrieval returned. Codex only: its
+ * `exec --json` stream is one event per line and carries a command's own
+ * output on that event. Claude and grok emit a single document that does not
+ * separate the two, so nothing here can speak for them and it does not try;
+ * their evidence stays the whole stream. Re-verify against the installed CLI
+ * rather than trusting this list.
  */
+export const RETRIEVAL_READABLE: ReadonlySet<Harness> = new Set<Harness>(["codex"]);
+
+/** The events that carry what a seat fetched, in codex's stream. */
 export const RETRIEVAL_MARKERS: readonly string[] = [
   '"type":"command_execution"',
   '"type":"mcp_tool_call"',
@@ -30,12 +46,16 @@ export const RETRIEVAL_MARKERS: readonly string[] = [
 ];
 
 /**
- * The part of a seat's stdout that precedes its first retrieval, which is the
- * only part an injection claim may rest on. A stream that fetched nothing
- * comes back whole, so a harness without retrieval events is unaffected.
+ * Whether a retrieval's own output carried the token: the seat read it for
+ * itself, which says nothing about what reached it ambiently. False for a
+ * harness whose stream cannot answer the question, so its evidence is
+ * unchanged rather than quietly narrowed.
  */
-export function beforeRetrieval(stdout: string): string {
-  const lines = stdout.split("\n");
-  const at = lines.findIndex((line) => RETRIEVAL_MARKERS.some((marker) => line.includes(marker)));
-  return at === -1 ? stdout : lines.slice(0, at).join("\n");
+export function tokenWasFetched(harness: Harness, stdout: string, token: string): boolean {
+  if (!RETRIEVAL_READABLE.has(harness)) return false;
+  return stdout
+    .split("\n")
+    .some(
+      (line) => line.includes(token) && RETRIEVAL_MARKERS.some((marker) => line.includes(marker)),
+    );
 }

@@ -11,7 +11,7 @@ import {
   calibrateCanaries,
   unisolatedProfile,
 } from "../../src/doctor/calibrate.ts";
-import { beforeRetrieval } from "../../src/doctor/calibration-evidence.ts";
+import { tokenWasFetched } from "../../src/doctor/calibration-evidence.ts";
 import { formatCalibration } from "../../src/doctor/format.ts";
 import { foldLedger } from "../../src/consult/ledger.ts";
 import { seatProfile, type SeatInputs } from "../../src/seats/profiles.ts";
@@ -249,18 +249,31 @@ test("a nonce without the fixed prefix is refused before any layer mutates", asy
   );
 });
 
-test("a stream that fetched nothing is evidence in full", () => {
-  const stream = `{"type":"item.completed","item":{"type":"agent_message","text":"${NONCE}"}}`;
-  assert.equal(beforeRetrieval(stream), stream);
-});
-
-test("evidence stops at the first thing the seat fetched", () => {
+test("a token a retrieval returned in its own output is the seat fetching it", () => {
   const stream = [
     '{"type":"turn.started"}',
-    `{"type":"item.completed","item":{"type":"command_execution","aggregated_output":"${NONCE}"}}`,
+    `{"type":"item.completed","item":{"type":"command_execution","aggregated_output":"./AGENTS.md:${NONCE}"}}`,
     `{"type":"item.completed","item":{"type":"agent_message","text":"${NONCE}"}}`,
   ].join("\n");
-  assert.equal(beforeRetrieval(stream), '{"type":"turn.started"}');
+  assert.equal(tokenWasFetched("codex", stream, NONCE), true);
+});
+
+test("a token the seat only said is not fetched, whatever it ran first", () => {
+  // The leak this rule exists to keep: isolation is broken and the token was
+  // in context, but the seat happened to run something unrelated first.
+  const stream = [
+    '{"type":"turn.started"}',
+    '{"type":"item.completed","item":{"type":"command_execution","aggregated_output":"no token here"}}',
+    `{"type":"item.completed","item":{"type":"agent_message","text":"${NONCE}"}}`,
+  ].join("\n");
+  assert.equal(tokenWasFetched("codex", stream, NONCE), false);
+});
+
+test("a harness whose stream cannot answer keeps the whole of its evidence", () => {
+  const stream = `{"type":"command_execution","output":"${NONCE}"}`;
+  for (const harness of ["claude", "grok"] as const) {
+    assert.equal(tokenWasFetched(harness, stream, NONCE), false);
+  }
 });
 
 test("a seat that greps the layer out of its own repository is not a leak", async () => {
@@ -290,4 +303,39 @@ test("a seat that greps the layer out of its own repository is not a leak", asyn
   assert.equal(isolated?.pass, true);
   assert.equal(report.pass, true);
   assert.match(formatCalibration(report), /nonce not injected, the seat fetched it/u);
+});
+
+test("a real leak behind an unrelated retrieval still fails the isolated round", async () => {
+  const w = world();
+  const leaked = [
+    '{"type":"turn.started"}',
+    '{"type":"item.completed","item":{"type":"command_execution","aggregated_output":"ls, no token"}}',
+    `{"type":"item.completed","item":{"type":"agent_message","text":"${NONCE}"}}`,
+  ].join("\n");
+  const runRound = (round: "isolated" | "unisolated") =>
+    Promise.resolve([
+      { slot: "melchior-1", stdout: round === "unisolated" ? NONCE : "" },
+      { slot: "balthasar-2", stdout: leaked },
+      { slot: "casper-3", stdout: NONCE },
+    ]);
+
+  const report = await calibrateCanaries(inputsFor(w, runRound));
+  const isolated = report.results.find(
+    (result) => result.harness === "codex" && result.direction === "isolated",
+  );
+  assert.equal(isolated?.nonceSeen, true, "the token was not fetched, so it reached the seat");
+  assert.equal(isolated?.nonceFetched, false);
+  assert.equal(isolated?.pass, false, "a leak behind a retrieval is still a leak");
+  assert.equal(report.pass, false);
+});
+
+test("the marker list is matched against a real codex stream, not one written here", () => {
+  const capture = readFileSync(
+    join("fixtures", "seat-capture", "balthasar-fetched-token.ndjson"),
+    "utf8",
+  );
+  const token = "magi-canary-fixture1";
+  assert.ok(capture.includes(token), "the capture carries its own token");
+  assert.equal(tokenWasFetched("codex", capture, token), true);
+  assert.equal(tokenWasFetched("claude", capture, token), false, "scope is enforced, not documented");
 });
