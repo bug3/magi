@@ -5,7 +5,8 @@
  * patch. HEAD and dirtiness, the porcelain status, the tracked file
  * list, and the output of the check command the repo declares for itself.
  * That command is named by package.json, not proposed by a seat, so it runs
- * through the check execution profile without passing the seat vocabulary.
+ * through the check execution profile without passing the seat vocabulary,
+ * and its transcript is condensed before it is carried: see check-output.ts.
  * A section that cannot be built becomes a note, never a silent absence.
  */
 
@@ -13,6 +14,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { runHardened } from "../checks.ts";
+import { condenseCheckOutput } from "./check-output.ts";
 import { gitText } from "../runtime/git.ts";
 
 export interface RepoFloor {
@@ -47,9 +49,12 @@ export async function repoFloor(repoDir: string, path: string): Promise<RepoFloo
     const run = await runHardened(command, { repoDir, path });
     const outcome =
       run.outcome.kind === "exit" ? `exit ${run.outcome.code}` : run.outcome.kind;
+    // Verbatim would mean every seat pays for hundreds of passing ticks and
+    // the pack hash moves between two runs of the same commit.
+    const condensed = condenseCheckOutput(`${run.stdout}${run.stderr}`);
     sections.push({
       source: "check-output",
-      text: `$ ${command.join(" ")} -> ${outcome}\n${run.stdout}${run.stderr}`,
+      text: `$ ${command.join(" ")} -> ${outcome}\n${condensed.text}`,
     });
   }
 
