@@ -307,7 +307,7 @@ and proceeds only on your explicit decision.
 ## Development
 
 Node is pinned through mise, and `npm install` pulls dev dependencies only
-(`typescript`, `@types/node`):
+(`typescript`, `@types/node`, `publish-preflight`):
 
 ```
 mise install
