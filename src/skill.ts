@@ -22,19 +22,34 @@ import {
   realpathSync,
   rmSync,
   symlinkSync,
+  writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
 
 import type { Harness } from "./core/slots.ts";
-import { writeFileDurable } from "./util/fs.ts";
 
 /**
  * What this tool leaves beside a link it created, naming the source that link
  * points at. Identity cannot rest on the skill's own name: a second clone, a
  * fork, or anyone else's skill called `magi` wears the same one, and a link a
  * user placed deliberately is not this tool's to move.
+ *
+ * One marker per skill, not one per directory: a shared file would have the
+ * second skill installed overwrite the first one's claim, and would need a
+ * read-modify-write where two installations can race. The marker holds no
+ * secret, so it is written plainly; the durable writer would chmod a harness
+ * directory this tool does not own.
  */
-export const LINK_MARKER = ".magi-link.json";
+export function linkMarker(skill: string): string {
+  return `.magi-link.${skill}.json`;
+}
+
+/**
+ * The name 0.3.0 wrote, one shared file for the directory. Still read, so a
+ * link that release claimed is not suddenly a stranger's; never written, and
+ * an install replaces it with the per-skill name.
+ */
+const LEGACY_MARKER = ".magi-link.json";
 
 /** Per harness, the directory it discovers skills in. */
 export const SKILL_ROOTS: Readonly<Record<Harness, (home: string) => string>> = {
@@ -101,7 +116,7 @@ export function skillStatus(harness: Harness, home: string, source: string): Ski
     // A link this tool made and can still prove it made is a magi that moved,
     // and installing repoints it. Anything else is not ours to touch, however
     // much it looks like ours.
-    const claimed = readMarker(root);
+    const claimed = readMarker(root, name);
     const ours = claimed?.skill === name && claimed.source === target;
     return {
       harness,
@@ -151,19 +166,31 @@ interface LinkClaim {
   readonly source: string;
 }
 
-/** The claim standing in a skills directory, or nothing legible. */
-function readMarker(root: string): LinkClaim | undefined {
+/** The claim standing beside one skill's link, or nothing legible. */
+function readMarker(root: string, skill: string): LinkClaim | undefined {
+  for (const name of [linkMarker(skill), LEGACY_MARKER]) {
+    const claim = readClaim(join(root, name));
+    if (claim?.skill === skill) return claim;
+  }
+  return undefined;
+}
+
+function readClaim(path: string): LinkClaim | undefined {
   let parsed: unknown;
   try {
-    parsed = JSON.parse(readFileSync(join(root, LINK_MARKER), "utf8"));
+    parsed = JSON.parse(readFileSync(path, "utf8"));
   } catch {
     return undefined;
   }
-  const { skill, source } = parsed as { skill?: unknown; source?: unknown };
-  if (typeof skill !== "string" || typeof source !== "string") return undefined;
-  return { skill, source };
+  const claim = parsed as { skill?: unknown; source?: unknown };
+  if (typeof claim.skill !== "string" || typeof claim.source !== "string") return undefined;
+  return { skill: claim.skill, source: claim.source };
 }
 
 function writeMarker(root: string, skill: string, source: string): void {
-  writeFileDurable(join(root, LINK_MARKER), `${JSON.stringify({ skill, source }, null, 2)}\n`);
+  mkdirSync(root, { recursive: true });
+  writeFileSync(
+    join(root, linkMarker(skill)),
+    `${JSON.stringify({ skill, source }, null, 2)}\n`,
+  );
 }

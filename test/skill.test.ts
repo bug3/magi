@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   readlinkSync,
   rmSync,
+  statSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -19,6 +21,7 @@ import {
   SKILL_ROOTS,
   SKILL_STATE_LABEL,
   installSkill,
+  linkMarker,
   skillName,
   skillProblem,
   skillStatus,
@@ -191,4 +194,46 @@ test("a skill that is linked or simply absent reports no repair", () => {
   ];
   assert.doesNotMatch(formatSkillLinks(fine), /magi skill --install/u);
   assert.ok(!fine.some(skillProblem));
+});
+
+test("installing leaves the harness's own directory as it found it", () => {
+  const { home, source } = world();
+  const root = join(home, ".claude", "skills");
+  mkdirSync(root, { recursive: true });
+  chmodSync(root, 0o755);
+  const before = statSync(root).mode;
+
+  assert.equal(installSkill("claude", home, source).state, "linked");
+  assert.equal(statSync(root).mode, before, "a directory this tool does not own keeps its mode");
+});
+
+test("each skill carries its own claim, so a second one cannot erase the first", () => {
+  const { home, source } = world();
+  const council = otherCopy("magi-council-", "council");
+  assert.equal(installSkill("claude", home, source).state, "linked");
+  assert.equal(installSkill("claude", home, council).state, "linked");
+
+  const root = join(home, ".claude", "skills");
+  for (const name of ["magi", "council"]) {
+    assert.ok(existsSync(join(root, linkMarker(name))), `${name} keeps its own claim`);
+  }
+  // The first link is still this tool's own, so a move of it is still stale.
+  const moved = world();
+  assert.equal(skillStatus("claude", home, moved.source).state, "stale");
+});
+
+test("a claim 0.3.0 wrote under the old name is still this tool's own", () => {
+  const { home } = world();
+  const previous = otherCopy("magi-legacy-");
+  const root = join(home, ".claude", "skills");
+  mkdirSync(root, { recursive: true });
+  symlinkSync(previous, join(root, "magi"));
+  writeFileSync(
+    join(root, ".magi-link.json"),
+    JSON.stringify({ skill: "magi", source: previous }),
+  );
+
+  const { source } = world();
+  assert.equal(skillStatus("claude", home, source).state, "stale");
+  assert.equal(installSkill("claude", home, source).state, "linked");
 });
