@@ -5,10 +5,12 @@
  * the skill under their own config root, holding `SKILL.md`. MAGI links the
  * clone rather than copying it, so an installed skill cannot drift from the
  * source. A link is only as stable as the path it points into, so an
- * installation that moves leaves one behind: a link whose target is gone is
- * dangling, one that resolves to another copy of this same skill is stale,
- * and installing replaces either. Anything else at the path was put there by
- * someone else and is reported, never replaced.
+ * installation that moves leaves one behind. A link whose target is gone is
+ * dangling and holds nothing, so installing replaces it. A live link is a
+ * different matter: replacing one destroys a working pointer, so only a link
+ * this tool can prove it made is repointed, and the proof is a marker written
+ * beside the link at install time naming the source it claims. Everything
+ * else at the path belongs to someone else and is reported, never replaced.
  */
 
 import {
@@ -24,6 +26,15 @@ import {
 import { dirname, join } from "node:path";
 
 import type { Harness } from "./core/slots.ts";
+import { writeFileDurable } from "./util/fs.ts";
+
+/**
+ * What this tool leaves beside a link it created, naming the source that link
+ * points at. Identity cannot rest on the skill's own name: a second clone, a
+ * fork, or anyone else's skill called `magi` wears the same one, and a link a
+ * user placed deliberately is not this tool's to move.
+ */
+export const LINK_MARKER = ".magi-link.json";
 
 /** Per harness, the directory it discovers skills in. */
 export const SKILL_ROOTS: Readonly<Record<Harness, (home: string) => string>> = {
@@ -67,7 +78,8 @@ export function skillRepairable(report: SkillReport): boolean {
 
 export function skillStatus(harness: Harness, home: string, source: string): SkillReport {
   const name = skillName(source);
-  const path = join(SKILL_ROOTS[harness](home), name);
+  const root = SKILL_ROOTS[harness](home);
+  const path = join(root, name);
   let link;
   try {
     link = lstatSync(path);
@@ -84,28 +96,42 @@ export function skillStatus(harness: Harness, home: string, source: string): Ski
   }
   // existsSync follows the link, so a live target is what separates the two.
   if (!existsSync(path)) return { harness, path, state: "dangling" };
+  const target = readlinkSync(path);
   if (realpathSync(path) !== realpathSync(source)) {
-    // Another copy of this same skill is a magi that moved, and installing
-    // repoints it; a link into anything else is not ours to touch.
-    const state: SkillState = holdsSkill(path, name) ? "stale" : "foreign";
-    return { harness, path, state, occupant: `a link to ${readlinkSync(path)}` };
+    // A link this tool made and can still prove it made is a magi that moved,
+    // and installing repoints it. Anything else is not ours to touch, however
+    // much it looks like ours.
+    const claimed = readMarker(root);
+    const ours = claimed?.skill === name && claimed.source === target;
+    return {
+      harness,
+      path,
+      state: ours ? "stale" : "foreign",
+      occupant: `a link to ${target}`,
+    };
   }
   return { harness, path, state: "linked" };
 }
 
 /**
  * Links the skill into one harness and reports what stands afterwards.
- * Already linked is success. A dangling link holds nothing and a stale one
- * holds another copy of this same skill, so both are replaced; a real file,
- * directory or foreign link belongs to someone else and is left exactly as
- * it was.
+ * A dangling link holds nothing and a stale one is this tool's own, so both
+ * are replaced; a real file, directory or foreign link belongs to someone
+ * else and is left exactly as it was.
+ *
+ * The marker is written on every run that leaves our link standing, already
+ * linked included, so a link an older version left unclaimed is adopted here
+ * rather than reading as a stranger's the next time this installation moves.
  */
 export function installSkill(harness: Harness, home: string, source: string): SkillReport {
   const before = skillStatus(harness, home, source);
-  if (before.state === "linked" || before.state === "foreign") return before;
-  if (skillRepairable(before)) rmSync(before.path);
-  mkdirSync(dirname(before.path), { recursive: true });
-  symlinkSync(source, before.path);
+  if (before.state === "foreign") return before;
+  if (before.state !== "linked") {
+    if (skillRepairable(before)) rmSync(before.path);
+    mkdirSync(dirname(before.path), { recursive: true });
+    symlinkSync(source, before.path);
+  }
+  writeMarker(dirname(before.path), skillName(source), source);
   return skillStatus(harness, home, source);
 }
 
@@ -120,14 +146,24 @@ export function skillName(source: string): string {
   return name;
 }
 
-/**
- * Whether a directory holds this same skill, read through whatever links to
- * it: what separates a magi that moved from a link into something else.
- */
-function holdsSkill(dir: string, name: string): boolean {
+interface LinkClaim {
+  readonly skill: string;
+  readonly source: string;
+}
+
+/** The claim standing in a skills directory, or nothing legible. */
+function readMarker(root: string): LinkClaim | undefined {
+  let parsed: unknown;
   try {
-    return skillName(dir) === name;
+    parsed = JSON.parse(readFileSync(join(root, LINK_MARKER), "utf8"));
   } catch {
-    return false;
+    return undefined;
   }
+  const { skill, source } = parsed as { skill?: unknown; source?: unknown };
+  if (typeof skill !== "string" || typeof source !== "string") return undefined;
+  return { skill, source };
+}
+
+function writeMarker(root: string, skill: string, source: string): void {
+  writeFileDurable(join(root, LINK_MARKER), `${JSON.stringify({ skill, source }, null, 2)}\n`);
 }

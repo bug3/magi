@@ -59,9 +59,10 @@ Seat calls and commands run on the host are two different things:
   command before you decide to run it yourself.
 - `magi skill --install` and `magi doctor --calibrate` are the only
   operations that write to harness configuration. The first links this skill
-  into a harness's skills directory, replacing only a broken or outdated link
-  to a copy of this same skill and refusing whatever else sits there; the
-  second writes a nonce into an ambient layer and restores it.
+  into a harness's skills directory and leaves a marker naming what it
+  claims, replacing only a broken link or a live one that marker still claims
+  and refusing whatever else sits there; the second writes a nonce into an
+  ambient layer and restores it.
 
 Consult records carry source excerpts and raw model output, so `.magi/` must
 be untracked and ignored before a consult convenes. MAGI refuses rather than
@@ -199,10 +200,14 @@ it there. The link points at this clone, so an installed skill cannot drift
 from the source.
 
 A link is only as stable as the path it points into, so an installation that
-moves leaves one behind. A link whose target is gone is `DANGLING`, one that
-resolves to another copy of this same skill is `STALE`, and installing
-replaces either. Anything else at that path is `FOREIGN`: reported and left
-alone, never replaced. `magi doctor` reports the same states and fails on a
+moves leaves one behind. A link whose target is gone is `DANGLING`: it holds
+nothing, so installing replaces it. A live link is a different matter,
+because replacing one destroys a working pointer. Installing therefore writes
+a marker beside the link naming the source it claims, and a live link is
+`STALE` only while that marker still claims it; then installing repoints it.
+Everything else is `FOREIGN` and is reported and left alone, never replaced,
+including a link someone placed by hand at a second clone or at their own
+skill of the same name. `magi doctor` reports the same states and fails on a
 broken one, so a link that stopped resolving does not sit unnoticed until the
 orchestrator reaches for the skill. See [The skill](#the-skill).
 

@@ -114,12 +114,13 @@ function otherCopy(prefix: string, name = "magi"): string {
   return dir;
 }
 
-test("a link to another copy of this skill is stale, and installing repoints it", () => {
-  const { home, source } = world();
+test("an installation that moved is stale to the copy that replaces it", () => {
+  const { home } = world();
   const previous = otherCopy("magi-moved-");
-  mkdirSync(join(home, ".claude", "skills"), { recursive: true });
-  symlinkSync(previous, join(home, ".claude", "skills", "magi"));
+  // The link is made the only way that earns the claim: by installing it.
+  assert.equal(installSkill("claude", home, previous).state, "linked");
 
+  const { source } = world();
   const before = skillStatus("claude", home, source);
   assert.equal(before.state, "stale");
   assert.match(before.occupant ?? "", /magi-moved-/u);
@@ -128,6 +129,32 @@ test("a link to another copy of this skill is stale, and installing repoints it"
   assert.equal(report.state, "linked");
   assert.equal(readlinkSync(report.path), source);
   assert.ok(existsSync(join(previous, "SKILL.md")), "the copy it pointed at is left alone");
+});
+
+test("a link nobody here made is foreign, however much it looks like ours", () => {
+  const { home, source } = world();
+  // Same skill, same frontmatter name, placed by hand: a second clone, a fork,
+  // or someone else's skill called magi. No claim stands beside it.
+  const theirs = otherCopy("magi-theirs-clone-");
+  mkdirSync(join(home, ".claude", "skills"), { recursive: true });
+  symlinkSync(theirs, join(home, ".claude", "skills", "magi"));
+
+  const report = installSkill("claude", home, source);
+  assert.equal(report.state, "foreign");
+  assert.equal(readlinkSync(join(home, ".claude", "skills", "magi")), theirs);
+});
+
+test("a link an older version left unclaimed is adopted, not stranded", () => {
+  const { home, source } = world();
+  mkdirSync(join(home, ".claude", "skills"), { recursive: true });
+  symlinkSync(source, join(home, ".claude", "skills", "magi"));
+  assert.equal(skillStatus("claude", home, source).state, "linked");
+
+  // Installing over an already-linked path writes the claim it was missing.
+  assert.equal(installSkill("claude", home, source).state, "linked");
+  const moved = world();
+  assert.equal(skillStatus("claude", moved.home, source).state, "absent");
+  assert.equal(skillStatus("claude", home, moved.source).state, "stale");
 });
 
 test("a link to a skill of another name is foreign, not ours to repoint", () => {
