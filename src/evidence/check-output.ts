@@ -17,6 +17,11 @@
  * The patterns are deliberately narrow. This runs against whatever check a
  * repository declares, and a line this cannot recognise is kept, because
  * dropping an unrecognised line would be the one failure mode worth avoiding.
+ * A kept line is never rewritten either: an earlier version stripped trailing
+ * timings from every line it kept, which quietly edited failure text while
+ * promising it verbatim. A failing run therefore does vary between two runs
+ * of one commit, and that is the right way round: byte stability is worth
+ * having for a passing check and not worth editing a failure for.
  */
 
 /** A case that passed: node:test's tick and TAP's `ok`, at any indent. */
@@ -24,9 +29,6 @@ const PASSING = /^\s*(?:✔|ok \d+)/u;
 
 /** What differs between two runs of the same commit. */
 const RUN_VARYING = /^\s*(?:npm notice|npm warn deprecated|(?:ℹ|#) duration_ms\b)/u;
-
-/** A trailing `(1.234ms)` a case reports for itself. */
-const CASE_TIMING = /\s*\(\d+(?:\.\d+)?m?s\)\s*$/u;
 
 export interface CondensedCheck {
   readonly text: string;
@@ -44,7 +46,7 @@ export function condenseCheckOutput(output: string): CondensedCheck {
       collapsed += 1;
       continue;
     }
-    kept.push(raw.replace(CASE_TIMING, ""));
+    kept.push(raw);
   }
 
   while (kept.length > 0 && (kept[kept.length - 1] as string).trim() === "") kept.pop();

@@ -28,16 +28,17 @@ test("passing cases collapse to a count and failures survive", () => {
   assert.match(text, /2 passing cases collapsed/u);
 });
 
-test("what varies between two runs of one commit is dropped, not hashed", () => {
-  const later = RUN.replace("0.291396ms", "0.480011ms")
-    .replace("1.02ms", "0.91ms")
-    .replace("3.4ms", "5.9ms")
-    .replace("6673.704765", "7104.221");
-  assert.equal(
-    condenseCheckOutput(RUN).text,
-    condenseCheckOutput(later).text,
-    "the same commit condenses to the same bytes",
-  );
+test("a passing run condenses to the same bytes twice", () => {
+  const green = ["✔ one (0.29ms)", "✔ two (1.02ms)", "ℹ pass 2", "ℹ duration_ms 6673.7"].join("\n");
+  const later = green.replace("0.29ms", "0.48ms").replace("1.02ms", "0.91ms").replace("6673.7", "7104.2");
+  assert.equal(condenseCheckOutput(green).text, condenseCheckOutput(later).text);
+});
+
+test("a failure keeps its own bytes, timing included", () => {
+  // An earlier version stripped trailing timings from every kept line, which
+  // edited failure text while promising it verbatim.
+  const { text } = condenseCheckOutput(RUN);
+  assert.ok(text.includes("✖ the one that did not (3.4ms)"), "the line is carried as written");
 });
 
 test("package manager notices are dropped wherever they appear", () => {
