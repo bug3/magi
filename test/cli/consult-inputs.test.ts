@@ -4,32 +4,30 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
-import { inputProblem } from "../../src/cli/consult-command.ts";
 import type { ReviewArgs } from "../../src/cli/args.ts";
+import { checkInputs } from "../../src/cli/consult-inputs.ts";
 
 /** The repository this suite runs in: the one git ref check that is real. */
 const REPO = process.cwd();
 
 function world(brief = "review the change\n"): string {
-  const root = mkdtempSync(join(tmpdir(), "magi-inputs-"));
-  const briefFile = join(root, "brief.md");
+  const briefFile = join(mkdtempSync(join(tmpdir(), "magi-inputs-")), "brief.md");
   writeFileSync(briefFile, brief);
   return briefFile;
 }
 
 function args(over: Partial<ReviewArgs> & { briefFile: string }): ReviewArgs {
-  return {
-    slug: "review",
-    excerpts: [],
-    waiveHeadroom: false,
-    waiveBackfill: false,
-    ...over,
-  };
+  return { slug: "review", excerpts: [], waiveHeadroom: false, waiveBackfill: false, ...over };
+}
+
+/** What the check refused, or nothing when it passed. */
+async function problem(over: Partial<ReviewArgs> & { briefFile: string }): Promise<string> {
+  const result = await checkInputs(args(over), REPO);
+  return result.ok ? "" : result.problem;
 }
 
 test("a brief that is not there is refused by its own flag", async () => {
-  const problem = await inputProblem(args({ briefFile: "/nonexistent.md" }), REPO);
-  assert.match(problem ?? "", /^--brief: no such file/u);
+  assert.match(await problem({ briefFile: "/nonexistent.md" }), /^--brief: no such file/u);
 });
 
 test("every other named file is refused by its own flag too", async () => {
@@ -39,59 +37,85 @@ test("every other named file is refused by its own flag too", async () => {
     [{ testOutputFile: "/nonexistent.txt" }, "--test-output"],
     [{ excerpts: [{ path: "nonexistent.ts" }] }, "--excerpt"],
   ] as const) {
-    const problem = await inputProblem(args({ briefFile, ...over }), REPO);
-    assert.match(problem ?? "", new RegExp(`^${flag}: no such file`, "u"));
+    assert.match(await problem({ briefFile, ...over }), new RegExp(`^${flag}: no such file`, "u"));
   }
-});
-
-test("an excerpt path is named relative to the repository", async () => {
-  const briefFile = world();
-  const problem = await inputProblem(args({ briefFile, excerpts: [{ path: "README.md" }] }), REPO);
-  assert.equal(problem, undefined);
 });
 
 test("an empty brief is refused before any seat is spawned", async () => {
   for (const empty of ["", "   \n\t\n"]) {
-    const problem = await inputProblem(args({ briefFile: world(empty) }), REPO);
-    assert.match(problem ?? "", /^--brief: .* is empty/u);
+    assert.match(await problem({ briefFile: world(empty) }), /^--brief: .* is empty/u);
   }
 });
 
-test("a base that is not a commit in this repository is refused by name", async () => {
-  const briefFile = world();
-  const problem = await inputProblem(args({ briefFile, base: "no-such-ref-anywhere" }), REPO);
-  assert.match(problem ?? "", /^--base: not a commit/u);
-});
-
-test("inputs that are all there and a base that resolves are no problem", async () => {
-  const briefFile = world();
-  assert.equal(await inputProblem(args({ briefFile, base: "HEAD" }), REPO), undefined);
-});
-
 test("a directory where a file was named is refused, not thrown", async () => {
-  const briefFile = world();
   const dir = mkdtempSync(join(tmpdir(), "magi-dir-"));
-  const problem = await inputProblem(args({ briefFile, patchFile: dir }), REPO);
-  assert.match(problem ?? "", /^--patch: cannot read .* \(EISDIR\)/u);
-});
-
-test("a brief that is a directory is refused under its own flag", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "magi-brief-dir-"));
-  const problem = await inputProblem(args({ briefFile: dir }), REPO);
-  assert.match(problem ?? "", /^--brief: cannot read /u);
+  assert.match(
+    await problem({ briefFile: world(), patchFile: dir }),
+    /^--patch: cannot read .* \(EISDIR\)/u,
+  );
+  assert.match(await problem({ briefFile: dir }), /^--brief: cannot read /u);
 });
 
 test("a file the process cannot read is refused, not thrown", async () => {
-  const briefFile = world();
   const locked = join(mkdtempSync(join(tmpdir(), "magi-locked-")), "patch.diff");
   writeFileSync(locked, "diff\n");
   chmodSync(locked, 0o000);
   try {
     readFileSync(locked);
-    return; // running as a user the mode does not bite: nothing to assert
+    return; // a user the mode does not bite: nothing to assert
   } catch {
     // the mode holds, so the check below is meaningful
   }
-  const problem = await inputProblem(args({ briefFile, patchFile: locked }), REPO);
-  assert.match(problem ?? "", /^--patch: cannot read .* \(EACCES\)/u);
+  assert.match(
+    await problem({ briefFile: world(), patchFile: locked }),
+    /^--patch: cannot read .* \(EACCES\)/u,
+  );
+});
+
+test("a slug no consult id could carry is refused by name", async () => {
+  const briefFile = world();
+  for (const slug of ["Review", "two words", "trailing-", "sl/ash", ""]) {
+    assert.match(await problem({ briefFile, slug }), /^--slug: not a kebab slug/u);
+  }
+});
+
+test("an excerpt window past the end of its file is refused by name", async () => {
+  const briefFile = world();
+  const lines = readFileSync(join(REPO, "README.md"), "utf8").split("\n").length;
+  assert.match(
+    await problem({ briefFile, excerpts: [{ path: "README.md", startLine: 1, endLine: lines + 50 }] }),
+    /^--excerpt: README\.md has \d+ lines/u,
+  );
+  assert.match(
+    await problem({ briefFile, excerpts: [{ path: "README.md", startLine: 40, endLine: 2 }] }),
+    /^--excerpt: not a line window/u,
+  );
+  assert.match(
+    await problem({ briefFile, excerpts: [{ path: "README.md", startLine: 0, endLine: 3 }] }),
+    /^--excerpt: not a line window/u,
+  );
+});
+
+test("a base that is not a commit in this repository is refused by name", async () => {
+  assert.match(
+    await problem({ briefFile: world(), base: "no-such-ref-anywhere" }),
+    /^--base: not a commit/u,
+  );
+});
+
+test("a working directory that is no repository says so, not \"no such commit\"", async () => {
+  const outside = mkdtempSync(join(tmpdir(), "magi-norepo-"));
+  const result = await checkInputs(args({ briefFile: world(), base: "HEAD" }), outside);
+  assert.equal(result.ok, false);
+  assert.match(result.ok ? "" : result.problem, /^--base: .* is not a git repository/u);
+});
+
+test("inputs that are all there come back with the brief that was checked", async () => {
+  const briefFile = world("the question\n");
+  const result = await checkInputs(
+    args({ briefFile, base: "HEAD", excerpts: [{ path: "README.md", startLine: 1, endLine: 3 }] }),
+    REPO,
+  );
+  assert.equal(result.ok, true);
+  assert.equal(result.ok ? result.briefMd : "", "the question\n");
 });

@@ -6,7 +6,7 @@
  */
 
 import { existsSync, readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 
 import {
   NON_PACK_FENCE_BUDGET_LINES,
@@ -23,72 +23,10 @@ import { slot } from "../core/slots.ts";
 import { completenessFromLedger, formatCompleteness, gateExpectedReader } from "../doctor.ts";
 import { curateEvidence } from "../evidence/curate.ts";
 import { buildEvidencePack } from "../evidence/pack.ts";
-import { tryCapture } from "../runtime/exec.ts";
 import { sanitizeLine } from "../util/text.ts";
 import { parseReviewArgs, type ReviewArgs } from "./args.ts";
+import { checkInputs } from "./consult-inputs.ts";
 import { MAGI_ROOT, ambient } from "./environment.ts";
-
-/**
- * Why a named path cannot be read, tried the way the consult will read it.
- * Existence is a different question: a directory and a file with no read
- * permission both answer it yes and then throw out of the first reader, which
- * is the failure this seam exists to remove.
- */
-function whyUnreadable(path: string): string | undefined {
-  try {
-    readFileSync(path, "utf8");
-    return undefined;
-  } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
-    return code === "ENOENT"
-      ? `no such file: ${path}`
-      : `cannot read ${path} (${code ?? "unknown"})`;
-  }
-}
-
-/**
- * What is wrong with the paths and refs this invocation named, or nothing.
- * Argument parsing already refuses a bad invocation by name; a file it cannot
- * read is the same kind of fact and belongs beside it, before any read,
- * rather than surfacing as a stack trace out of whichever reader reaches it
- * first. An empty brief is checked here too: three seats answering a question
- * nobody asked spends real quota on nothing.
- */
-export async function inputProblem(
-  args: ReviewArgs,
-  repoDir: string,
-): Promise<string | undefined> {
-  const named: readonly { readonly flag: string; readonly path: string }[] = [
-    { flag: "--brief", path: args.briefFile },
-    ...(args.patchFile === undefined ? [] : [{ flag: "--patch", path: args.patchFile }]),
-    ...(args.testOutputFile === undefined
-      ? []
-      : [{ flag: "--test-output", path: args.testOutputFile }]),
-    ...args.excerpts.map((excerpt) => ({
-      flag: "--excerpt",
-      path: resolve(repoDir, excerpt.path),
-    })),
-  ];
-  for (const entry of named) {
-    const unreadable = whyUnreadable(entry.path);
-    if (unreadable !== undefined) return `${entry.flag}: ${unreadable}`;
-  }
-  if (readFileSync(args.briefFile, "utf8").trim() === "") {
-    return `--brief: ${args.briefFile} is empty; a consult needs a question to answer`;
-  }
-  if (args.base !== undefined) {
-    const commit = await tryCapture([
-      "git",
-      "-C",
-      repoDir,
-      "rev-parse",
-      "--verify",
-      `${args.base}^{commit}`,
-    ]);
-    if (commit === undefined) return `--base: not a commit in this repository: ${args.base}`;
-  }
-  return undefined;
-}
 
 export async function consultCommand(
   mode: ConsultMode,
@@ -107,9 +45,9 @@ export async function consultCommand(
   const repoDir = process.cwd();
   const magiDir = join(repoDir, ".magi");
 
-  const problem = await inputProblem(args, repoDir);
-  if (problem !== undefined) {
-    console.error(problem);
+  const checked = await checkInputs(args, repoDir);
+  if (!checked.ok) {
+    console.error(checked.problem);
     return 2;
   }
 
@@ -125,7 +63,7 @@ export async function consultCommand(
 
   // Curation runs before preflight so the headroom projection can see
   // this consult's rendered size, not just the historical mean.
-  const briefMd = readFileSync(args.briefFile, "utf8");
+  const briefMd = checked.briefMd;
   const templatePath = join(MAGI_ROOT, "prompts", `${mode}.md`);
   const schemaPath = join(MAGI_ROOT, "schemas", "opinion.v1.schema.json");
   const curated = await curateEvidence({
