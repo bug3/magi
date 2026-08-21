@@ -59,8 +59,9 @@ Seat calls and commands run on the host are two different things:
   command before you decide to run it yourself.
 - `magi skill --install` and `magi doctor --calibrate` are the only
   operations that write to harness configuration. The first links this skill
-  into a harness's skills directory and refuses to replace what it did not
-  create; the second writes a nonce into an ambient layer and restores it.
+  into a harness's skills directory, replacing only a broken or outdated link
+  to a copy of this same skill and refusing whatever else sits there; the
+  second writes a nonce into an ambient layer and restores it.
 
 Consult records carry source excerpts and raw model output, so `.magi/` must
 be untracked and ignored before a consult convenes. MAGI refuses rather than
@@ -195,8 +196,15 @@ it cannot remove the rule-derived floor or narrow the patch-derived scope.
 
 Reports where each harness would find the skill and, with `--install`, links
 it there. The link points at this clone, so an installed skill cannot drift
-from the source; anything already sitting at that path is reported and left
-alone, never replaced. See [The skill](#the-skill).
+from the source.
+
+A link is only as stable as the path it points into, so an installation that
+moves leaves one behind. A link whose target is gone is `DANGLING`, one that
+resolves to another copy of this same skill is `STALE`, and installing
+replaces either. Anything else at that path is `FOREIGN`: reported and left
+alone, never replaced. `magi doctor` reports the same states and fails on a
+broken one, so a link that stopped resolving does not sit unnoticed until the
+orchestrator reaches for the skill. See [The skill](#the-skill).
 
 ### `plan`
 
@@ -235,8 +243,10 @@ never convenes.
 `magi doctor` is quota-free. It renders every seat profile, probes the
 installed CLI versions and help text, checks every short and long flag the
 profiles rely on against that help, verifies `.magi/` is untracked and
-ignored, reports chronic seat failures with the disposition, skew and value
-telemetry, and fails when a seated CLI version has no calibration behind it.
+ignored, reports where each harness would find the skill and whether that
+link still resolves to this installation, reports chronic seat failures with
+the disposition, skew and value telemetry, and fails when a seated CLI
+version has no calibration behind it.
 Three fast-moving CLIs mean flags rot in weeks, so thin glue has to fail
 loudly rather than quietly lose its isolation.
 

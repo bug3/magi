@@ -32,6 +32,7 @@ export {
   formatCalibration,
   formatCalibrationHealth,
   formatCompleteness,
+  formatSkillLinks,
   formatSmokeResults,
   formatStaticReport,
   formatTelemetry,

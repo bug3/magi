@@ -14,7 +14,17 @@ import { join } from "node:path";
 import { test } from "node:test";
 
 import { SLOTS } from "../src/core/slots.ts";
-import { SKILL_ROOTS, installSkill, skillName, skillStatus } from "../src/skill.ts";
+import { formatSkillLinks } from "../src/doctor.ts";
+import {
+  SKILL_ROOTS,
+  SKILL_STATE_LABEL,
+  installSkill,
+  skillName,
+  skillProblem,
+  skillStatus,
+  type SkillReport,
+  type SkillState,
+} from "../src/skill.ts";
 
 /** A clone-shaped source: the directory a harness would link to. */
 function world(): { home: string; source: string } {
@@ -94,4 +104,64 @@ test("a link whose target is gone holds nothing, so installing repairs it", () =
   const report = installSkill("codex", home, source);
   assert.equal(report.state, "linked");
   assert.ok(existsSync(join(report.path, "SKILL.md")), "the link resolves to the clone's skill");
+});
+
+/** A second installation of the same skill: what a magi that moved leaves. */
+function otherCopy(prefix: string, name = "magi"): string {
+  const dir = join(mkdtempSync(join(tmpdir(), prefix)), "skills", name);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "SKILL.md"), `---\nname: ${name}\ndescription: x\n---\n\nbody\n`);
+  return dir;
+}
+
+test("a link to another copy of this skill is stale, and installing repoints it", () => {
+  const { home, source } = world();
+  const previous = otherCopy("magi-moved-");
+  mkdirSync(join(home, ".claude", "skills"), { recursive: true });
+  symlinkSync(previous, join(home, ".claude", "skills", "magi"));
+
+  const before = skillStatus("claude", home, source);
+  assert.equal(before.state, "stale");
+  assert.match(before.occupant ?? "", /magi-moved-/u);
+
+  const report = installSkill("claude", home, source);
+  assert.equal(report.state, "linked");
+  assert.equal(readlinkSync(report.path), source);
+  assert.ok(existsSync(join(previous, "SKILL.md")), "the copy it pointed at is left alone");
+});
+
+test("a link to a skill of another name is foreign, not ours to repoint", () => {
+  const { home, source } = world();
+  const theirs = otherCopy("magi-theirs-", "council");
+  mkdirSync(join(home, ".grok", "skills"), { recursive: true });
+  symlinkSync(theirs, join(home, ".grok", "skills", "magi"));
+
+  const report = installSkill("grok", home, source);
+  assert.equal(report.state, "foreign");
+  assert.equal(readlinkSync(join(home, ".grok", "skills", "magi")), theirs);
+});
+
+test("every state a report can hold has a label", () => {
+  const states: readonly SkillState[] = ["linked", "absent", "dangling", "stale", "foreign"];
+  for (const state of states) assert.equal(typeof SKILL_STATE_LABEL[state], "string");
+});
+
+test("only a link the tool can repair is a problem doctor offers to fix", () => {
+  const broken: readonly SkillReport[] = [
+    { harness: "claude", path: "/h/.claude/skills/magi", state: "stale", occupant: "a link to /old" },
+    { harness: "codex", path: "/h/.codex/skills/magi", state: "absent" },
+  ];
+  const text = formatSkillLinks(broken);
+  assert.match(text, /STALE/u);
+  assert.match(text, /magi skill --install/u);
+  assert.ok(broken.some(skillProblem));
+});
+
+test("a skill that is linked or simply absent reports no repair", () => {
+  const fine: readonly SkillReport[] = [
+    { harness: "claude", path: "/h/.claude/skills/magi", state: "linked" },
+    { harness: "codex", path: "/h/.codex/skills/magi", state: "absent" },
+  ];
+  assert.doesNotMatch(formatSkillLinks(fine), /magi skill --install/u);
+  assert.ok(!fine.some(skillProblem));
 });

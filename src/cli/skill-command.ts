@@ -5,24 +5,21 @@
  * the target repository.
  */
 
-import { join } from "node:path";
-
 import { SLOTS, type Harness } from "../core/slots.ts";
-import { installSkill, skillName, skillStatus, type SkillReport, type SkillState } from "../skill.ts";
-import { MAGI_ROOT, ambient } from "./environment.ts";
+import {
+  SKILL_STATE_LABEL,
+  installSkill,
+  skillName,
+  skillStatus,
+  type SkillReport,
+} from "../skill.ts";
+import { SKILL_SOURCE, ambient } from "./environment.ts";
 
 /** The council's own harnesses, in slot order. */
 const HARNESSES: readonly Harness[] = SLOTS.map((definition) => definition.harness);
 
 /** Installing without naming a harness targets the documented orchestrator. */
 const DEFAULT_INSTALL: Harness = "claude";
-
-const STATE_LABEL: Readonly<Record<SkillState, string>> = {
-  linked: "linked",
-  absent: "absent",
-  dangling: "DANGLING",
-  foreign: "FOREIGN",
-};
 
 export function skillCommand(rest: readonly string[]): number {
   let install = false;
@@ -48,7 +45,7 @@ export function skillCommand(rest: readonly string[]): number {
   }
 
   const { home } = ambient();
-  const source = join(MAGI_ROOT, "skills", "magi");
+  const source = SKILL_SOURCE;
   const targets = chosen.length > 0 ? chosen : install ? [DEFAULT_INSTALL] : HARNESSES;
 
   const name = skillName(source);
@@ -75,7 +72,8 @@ export function skillCommand(rest: readonly string[]): number {
 
 function describe(report: SkillReport): string {
   const occupant = report.occupant === undefined ? "" : ` (${report.occupant})`;
-  return `${report.harness.padEnd(7)} ${STATE_LABEL[report.state].padEnd(8)} ${report.path}${occupant}`;
+  const label = SKILL_STATE_LABEL[report.state].padEnd(8);
+  return `${report.harness.padEnd(7)} ${label} ${report.path}${occupant}`;
 }
 
 function isHarness(value: string): value is Harness {

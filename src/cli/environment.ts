@@ -4,10 +4,14 @@
  * and binaries through. Decided here and nowhere else.
  */
 
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /** The MAGI repo root: templates and the opinion schema ship with the tool. */
 export const MAGI_ROOT = fileURLToPath(new URL("../..", import.meta.url));
+
+/** The skill directory every harness links to. Named here and nowhere else. */
+export const SKILL_SOURCE = join(MAGI_ROOT, "skills", "magi");
 
 export function ambient(): { home: string; path: string } {
   const home = process.env["HOME"];

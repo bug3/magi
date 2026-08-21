@@ -5,6 +5,7 @@
 
 import type { StateIgnoreStatus } from "../consult.ts";
 import { slot } from "../core/slots.ts";
+import { SKILL_STATE_LABEL, skillRepairable, type SkillReport } from "../skill.ts";
 import { sanitizeLine } from "../util/text.ts";
 import type { CalibrationReport } from "./calibrate.ts";
 import type { CalibrationHealthReport } from "./calibration-health.ts";
@@ -48,6 +49,23 @@ export function formatStaticReport(report: StaticReport): string {
     }
   }
   lines.push("", report.healthy ? "healthy" : "PROBLEMS FOUND", "");
+  return lines.join("\n");
+}
+
+/**
+ * Where each harness would find the skill and what stands there. A link the
+ * tool can repair prints the one command that repairs it, so a skill that
+ * broke when its installation moved cannot sit unnoticed until `/magi` fails.
+ */
+export function formatSkillLinks(reports: readonly SkillReport[]): string {
+  const lines: string[] = ["skill"];
+  for (const report of reports) {
+    const occupant = report.occupant === undefined ? "" : ` (${report.occupant})`;
+    const label = SKILL_STATE_LABEL[report.state].padEnd(8);
+    lines.push(`  ${report.harness.padEnd(7)} ${label} ${report.path}${occupant}`);
+  }
+  if (reports.some(skillRepairable)) lines.push("  run: magi skill --install");
+  lines.push("");
   return lines.join("\n");
 }
 
