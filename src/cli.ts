@@ -20,25 +20,6 @@ import { triggersCommand } from "./cli/triggers-command.ts";
 const HELP: readonly string[] = ["help", "--help"];
 const VERSION: readonly string[] = ["--version", "-v"];
 
-/**
- * Every token `main` accepts as its first argument. MAGI holds three harness
- * CLIs to a help-text drift rule and did not hold itself to one: `help` and
- * `-v` both worked and neither was printed, with the README asserted identical
- * to that same incomplete block, so the drift was locked in by a test rather
- * than caught by one. `test/cli/args.test.ts` now checks this list against the
- * usage text.
- */
-export const COMMANDS: readonly string[] = [
-  "doctor",
-  "skill",
-  "plan",
-  "review",
-  "checks",
-  "triggers",
-  ...HELP,
-  ...VERSION,
-];
-
 export const COMMAND_USAGE = `usage:
   magi doctor [--live] [--calibrate]
   magi skill  [--harness <claude|codex|grok>]... [--install]
@@ -90,6 +71,34 @@ seed and prints which deterministic triggers propose a consult;
 proposing never convenes, and judgment may add proposals but not
 suppress these.`;
 
+/** What a subcommand does with the argv after its own name. */
+type Subcommand = (rest: readonly string[]) => number | Promise<number>;
+
+/**
+ * The subcommands, as the table `main` dispatches from. A table rather than a
+ * chain of comparisons because the usage text is checked against it: a
+ * dispatch chain maintained beside a separate list reproduces the same drift
+ * this catalogue exists to catch, one level up.
+ */
+const SUBCOMMANDS: Readonly<Record<string, Subcommand>> = {
+  doctor: (rest) => doctorCommand(rest),
+  skill: (rest) => skillCommand(rest),
+  plan: (rest) => consultCommand("plan", rest, USAGE),
+  review: (rest) => consultCommand("review", rest, USAGE),
+  checks: (rest) => checksCommand(rest, USAGE),
+  triggers: (rest) => triggersCommand(rest),
+};
+
+/**
+ * Every token `main` accepts as its first argument, derived from what it
+ * dispatches rather than restated beside it. MAGI holds three harness CLIs to
+ * a help-text drift rule and held itself to none: `help` and `-v` both worked
+ * and neither was printed, with the README asserted identical to that same
+ * incomplete block, so the drift was locked in by a test rather than caught
+ * by one. `test/cli/args.test.ts` checks this against the usage text.
+ */
+export const COMMANDS: readonly string[] = [...Object.keys(SUBCOMMANDS), ...HELP, ...VERSION];
+
 /**
  * The version this build reports, read from the manifest beside it instead of
  * duplicated in source. Both the clone and the published tarball carry
@@ -112,12 +121,8 @@ export async function main(argv: readonly string[]): Promise<number> {
     console.log(version());
     return 0;
   }
-  if (command === "doctor") return doctorCommand(rest);
-  if (command === "skill") return skillCommand(rest);
-  if (command === "review") return consultCommand("review", rest, USAGE);
-  if (command === "plan") return consultCommand("plan", rest, USAGE);
-  if (command === "checks") return checksCommand(rest, USAGE);
-  if (command === "triggers") return triggersCommand(rest);
+  const subcommand = command === undefined ? undefined : SUBCOMMANDS[command];
+  if (subcommand !== undefined) return subcommand(rest);
   console.error(USAGE);
   return 2;
 }
