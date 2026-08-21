@@ -29,9 +29,27 @@ import { parseReviewArgs, type ReviewArgs } from "./args.ts";
 import { MAGI_ROOT, ambient } from "./environment.ts";
 
 /**
+ * Why a named path cannot be read, tried the way the consult will read it.
+ * Existence is a different question: a directory and a file with no read
+ * permission both answer it yes and then throw out of the first reader, which
+ * is the failure this seam exists to remove.
+ */
+function whyUnreadable(path: string): string | undefined {
+  try {
+    readFileSync(path, "utf8");
+    return undefined;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    return code === "ENOENT"
+      ? `no such file: ${path}`
+      : `cannot read ${path} (${code ?? "unknown"})`;
+  }
+}
+
+/**
  * What is wrong with the paths and refs this invocation named, or nothing.
- * Argument parsing already refuses a bad invocation by name; a file that is
- * not there is the same kind of fact and belongs beside it, before any read,
+ * Argument parsing already refuses a bad invocation by name; a file it cannot
+ * read is the same kind of fact and belongs beside it, before any read,
  * rather than surfacing as a stack trace out of whichever reader reaches it
  * first. An empty brief is checked here too: three seats answering a question
  * nobody asked spends real quota on nothing.
@@ -52,7 +70,8 @@ export async function inputProblem(
     })),
   ];
   for (const entry of named) {
-    if (!existsSync(entry.path)) return `${entry.flag}: no such file: ${entry.path}`;
+    const unreadable = whyUnreadable(entry.path);
+    if (unreadable !== undefined) return `${entry.flag}: ${unreadable}`;
   }
   if (readFileSync(args.briefFile, "utf8").trim() === "") {
     return `--brief: ${args.briefFile} is empty; a consult needs a question to answer`;

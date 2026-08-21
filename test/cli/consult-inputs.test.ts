@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -66,4 +66,32 @@ test("a base that is not a commit in this repository is refused by name", async 
 test("inputs that are all there and a base that resolves are no problem", async () => {
   const briefFile = world();
   assert.equal(await inputProblem(args({ briefFile, base: "HEAD" }), REPO), undefined);
+});
+
+test("a directory where a file was named is refused, not thrown", async () => {
+  const briefFile = world();
+  const dir = mkdtempSync(join(tmpdir(), "magi-dir-"));
+  const problem = await inputProblem(args({ briefFile, patchFile: dir }), REPO);
+  assert.match(problem ?? "", /^--patch: cannot read .* \(EISDIR\)/u);
+});
+
+test("a brief that is a directory is refused under its own flag", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "magi-brief-dir-"));
+  const problem = await inputProblem(args({ briefFile: dir }), REPO);
+  assert.match(problem ?? "", /^--brief: cannot read /u);
+});
+
+test("a file the process cannot read is refused, not thrown", async () => {
+  const briefFile = world();
+  const locked = join(mkdtempSync(join(tmpdir(), "magi-locked-")), "patch.diff");
+  writeFileSync(locked, "diff\n");
+  chmodSync(locked, 0o000);
+  try {
+    readFileSync(locked);
+    return; // running as a user the mode does not bite: nothing to assert
+  } catch {
+    // the mode holds, so the check below is meaningful
+  }
+  const problem = await inputProblem(args({ briefFile, patchFile: locked }), REPO);
+  assert.match(problem ?? "", /^--patch: cannot read .* \(EACCES\)/u);
 });
