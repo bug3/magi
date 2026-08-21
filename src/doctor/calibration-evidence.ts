@@ -37,6 +37,23 @@ import type { Harness } from "../core/slots.ts";
  */
 export const RETRIEVAL_READABLE: ReadonlySet<Harness> = new Set<Harness>(["codex"]);
 
+/**
+ * Harnesses whose canary cannot separate a token the seat was handed from one
+ * it fetched, so their directions are recorded as unproven rather than read as
+ * proof. Grok only, and for both halves of the reason at once: its layer sits
+ * at a fixed path under HOME, its profile keeps read tools, and its single
+ * document does not say what a tool returned. Melchior is proven the other
+ * way, by having no tools at all (`--tools ""`); balthasar by a stream that
+ * reports each retrieval's own output.
+ *
+ * Denying grok's tools would settle it, and grok 1.0.5 cannot: verified
+ * against the installed CLI, `--disallowed-tools` and `--deny` are both
+ * accepted, name real built-in tools, and the seat reads the file anyway. A
+ * flag that looks like isolation and is not is worse than none, so the gap is
+ * recorded instead of papered over.
+ */
+export const UNPROVEN_BY_CONSTRUCTION: ReadonlySet<Harness> = new Set<Harness>(["grok"]);
+
 /** The events that carry what a seat fetched, in codex's stream. */
 export const RETRIEVAL_MARKERS: readonly string[] = [
   '"type":"command_execution"',

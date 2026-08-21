@@ -22,8 +22,8 @@
 import { mkdirSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-import { appendLedgerCalibration } from "../consult/ledger.ts";
-import { tokenWasFetched } from "./calibration-evidence.ts";
+import { appendLedgerCalibration } from "../consult.ts";
+import { UNPROVEN_BY_CONSTRUCTION, tokenWasFetched } from "./calibration-evidence.ts";
 import {
   CALIBRATION_LAYERS,
   RECOVERY_FILE,
@@ -64,6 +64,11 @@ export interface CalibrationDirection {
    * because it says the seat can read the layer, and judged as nothing else.
    */
   readonly nonceFetched: boolean;
+  /**
+   * This harness's evidence cannot separate a token it was handed from one it
+   * fetched, so the direction is recorded and not read as proof of either.
+   */
+  readonly unproven: boolean;
   readonly pass: boolean;
 }
 
@@ -152,6 +157,7 @@ export async function calibrateCanaries(inputs: CalibrateInputs): Promise<Calibr
         expectation,
         nonceSeen,
         nonceFetched,
+        unproven: UNPROVEN_BY_CONSTRUCTION.has(layer.harness),
         pass,
       });
     }

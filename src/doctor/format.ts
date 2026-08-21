@@ -164,7 +164,8 @@ export function formatCalibration(report: CalibrationReport): string {
         : "nonce not seen";
     lines.push(
       `  ${result.harness} ${result.direction}: expected ${result.expectation}, ${seen}: ` +
-        (result.pass ? "ok" : "FAILED"),
+        (result.pass ? "ok" : "FAILED") +
+        (result.unproven ? " (unproven by construction: this seat could have fetched it)" : ""),
     );
   }
   for (const failure of report.restoreFailures) {

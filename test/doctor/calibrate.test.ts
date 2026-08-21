@@ -339,3 +339,17 @@ test("the marker list is matched against a real codex stream, not one written he
   assert.equal(tokenWasFetched("codex", capture, token), true);
   assert.equal(tokenWasFetched("claude", capture, token), false, "scope is enforced, not documented");
 });
+
+test("grok's directions are recorded as unproven, the other two as proof", async () => {
+  const w = world();
+  const report = await calibrateCanaries(inputsFor(w, stubRound({ isolated: "", unisolated: NONCE })));
+  const unproven = new Map(
+    report.results.map((result) => [`${result.harness}/${result.direction}`, result.unproven]),
+  );
+  assert.equal(unproven.get("grok/isolated"), true);
+  assert.equal(unproven.get("grok/unisolated"), true);
+  for (const key of ["claude/isolated", "codex/isolated", "claude/unisolated", "codex/unisolated"]) {
+    assert.equal(unproven.get(key), false, `${key} rests on evidence that separates the two`);
+  }
+  assert.match(formatCalibration(report), /unproven by construction/u);
+});
