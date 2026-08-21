@@ -9,7 +9,7 @@
  * ambient layer warns, because editing your own config is routine.
  */
 
-import type { LedgerCalibration } from "../consult/ledger.ts";
+import type { LedgerCalibration } from "../consult.ts";
 
 /** Calibration rows are not consult rows: the fold skips them, so doctor
  * reads them straight from the raw lines. */

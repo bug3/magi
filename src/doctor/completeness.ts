@@ -17,7 +17,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import type { FoldedConsult } from "../consult/ledger.ts";
+import type { FoldedConsult } from "../consult.ts";
 
 export interface CompletenessParams {
   /** A consult still incomplete after this many newer consults is overdue. */

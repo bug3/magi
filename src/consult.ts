@@ -17,10 +17,12 @@ export {
 export { nextConsultId } from "./consult/id.ts";
 export {
   appendLedgerBackfill,
+  appendLedgerCalibration,
   appendLedgerRow,
   foldLedger,
   type FoldedConsult,
   type LedgerBackfill,
+  type LedgerCalibration,
   type LedgerDisposition,
   type LedgerRow,
 } from "./consult/ledger.ts";

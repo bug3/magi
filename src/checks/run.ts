@@ -11,7 +11,7 @@
 
 import { join } from "node:path";
 
-import type { Opinion } from "../consult/opinion.ts";
+import type { Opinion } from "../consult.ts";
 import type { SlotId } from "../core/slots.ts";
 import { exec, type CommandOutcome } from "../runtime/exec.ts";
 import { writeFileDurable } from "../util/fs.ts";

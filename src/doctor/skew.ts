@@ -10,7 +10,7 @@
  * order.
  */
 
-import type { FoldedConsult } from "../consult/ledger.ts";
+import type { FoldedConsult } from "../consult.ts";
 import { SLOTS, type Harness } from "../core/slots.ts";
 
 export interface SkewParams {

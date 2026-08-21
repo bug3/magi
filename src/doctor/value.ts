@@ -9,7 +9,7 @@
  * continue, adjust or stop.
  */
 
-import type { FoldedConsult } from "../consult/ledger.ts";
+import type { FoldedConsult } from "../consult.ts";
 
 /** Report cadence, in consults. */
 export const VALUE_CHECKPOINT_CONSULTS = 10;
