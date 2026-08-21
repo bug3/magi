@@ -6,7 +6,7 @@
  */
 
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 import {
   NON_PACK_FENCE_BUDGET_LINES,
@@ -23,9 +23,53 @@ import { slot } from "../core/slots.ts";
 import { completenessFromLedger, formatCompleteness, gateExpectedReader } from "../doctor.ts";
 import { curateEvidence } from "../evidence/curate.ts";
 import { buildEvidencePack } from "../evidence/pack.ts";
+import { tryCapture } from "../runtime/exec.ts";
 import { sanitizeLine } from "../util/text.ts";
 import { parseReviewArgs, type ReviewArgs } from "./args.ts";
 import { MAGI_ROOT, ambient } from "./environment.ts";
+
+/**
+ * What is wrong with the paths and refs this invocation named, or nothing.
+ * Argument parsing already refuses a bad invocation by name; a file that is
+ * not there is the same kind of fact and belongs beside it, before any read,
+ * rather than surfacing as a stack trace out of whichever reader reaches it
+ * first. An empty brief is checked here too: three seats answering a question
+ * nobody asked spends real quota on nothing.
+ */
+export async function inputProblem(
+  args: ReviewArgs,
+  repoDir: string,
+): Promise<string | undefined> {
+  const named: readonly { readonly flag: string; readonly path: string }[] = [
+    { flag: "--brief", path: args.briefFile },
+    ...(args.patchFile === undefined ? [] : [{ flag: "--patch", path: args.patchFile }]),
+    ...(args.testOutputFile === undefined
+      ? []
+      : [{ flag: "--test-output", path: args.testOutputFile }]),
+    ...args.excerpts.map((excerpt) => ({
+      flag: "--excerpt",
+      path: resolve(repoDir, excerpt.path),
+    })),
+  ];
+  for (const entry of named) {
+    if (!existsSync(entry.path)) return `${entry.flag}: no such file: ${entry.path}`;
+  }
+  if (readFileSync(args.briefFile, "utf8").trim() === "") {
+    return `--brief: ${args.briefFile} is empty; a consult needs a question to answer`;
+  }
+  if (args.base !== undefined) {
+    const commit = await tryCapture([
+      "git",
+      "-C",
+      repoDir,
+      "rev-parse",
+      "--verify",
+      `${args.base}^{commit}`,
+    ]);
+    if (commit === undefined) return `--base: not a commit in this repository: ${args.base}`;
+  }
+  return undefined;
+}
 
 export async function consultCommand(
   mode: ConsultMode,
@@ -43,6 +87,12 @@ export async function consultCommand(
   const { home, path } = ambient();
   const repoDir = process.cwd();
   const magiDir = join(repoDir, ".magi");
+
+  const problem = await inputProblem(args, repoDir);
+  if (problem !== undefined) {
+    console.error(problem);
+    return 2;
+  }
 
   const ignoreStatus = await stateIgnoreStatus(repoDir);
   if (ignoreStatus === "not-ignored" || ignoreStatus === "tracked") {
