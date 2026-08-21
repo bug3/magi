@@ -23,11 +23,17 @@ mechanism here implements.
 
 ## Releasing
 
-One order, and one push at the end of it: bump the version, publish, tag the
-commit that was published, then push the branch and the tag together.
+One order: bump the version, publish, tag the commit that was published, push
+the branch and the tag together, then draw a GitHub release from that tag.
 
 - `prepublishOnly` runs the check and the preflight, so a version is proved
   before it exists. Nothing else needs to run first.
+- Every tag carries a release, written for someone deciding whether to
+  upgrade: what changed, and what it was wrong about before. `gh release
+  create <tag> --verify-tag` binds it to the tag already pushed rather than
+  minting a new one. Five releases were once tagged and published with no
+  release drawn at all, which is invisible from the npm side and obvious from
+  the repository.
 - A tag names the tree the registry received. Where that is not the bump
   commit it still follows the tarball: `v0.3.0` marks a later commit because
   work landed while a publish was blocked on credentials. A tag that is
