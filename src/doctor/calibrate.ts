@@ -266,7 +266,12 @@ function realRound(inputs: CalibrateInputs): NonNullable<CalibrateInputs["runRou
         run.result.stdout,
       );
     }
-    return runs.map((run) => ({ slot: run.slot, stdout: run.result.stdout }));
+    // Both streams, as the live smoke already scans them: a harness that
+    // prints the nonce on stderr leaks exactly as much as one that does not.
+    return runs.map((run) => ({
+      slot: run.slot,
+      stdout: `${run.result.stdout}${run.result.stderr}`,
+    }));
   };
 }
 

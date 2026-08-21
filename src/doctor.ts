@@ -13,7 +13,7 @@ export {
   type CalibrationReport,
 } from "./doctor/calibrate.ts";
 export {
-  RETRIEVAL_MARKERS,
+  RETRIEVAL_TYPES,
   RETRIEVAL_READABLE,
   tokenWasFetched,
 } from "./doctor/calibration-evidence.ts";

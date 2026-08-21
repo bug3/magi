@@ -85,6 +85,16 @@ export interface LedgerCalibration {
     readonly direction: string;
     readonly expectation: string;
     readonly nonceSeen: boolean;
+    /**
+     * The token was in the stream, but only because the seat fetched it.
+     * Rows written before the canary told the two apart omit it.
+     */
+    readonly nonceFetched?: boolean;
+    /**
+     * This harness's evidence cannot separate the two, so neither is proved.
+     * Rows written before that was recorded omit it.
+     */
+    readonly unproven?: boolean;
     readonly pass: boolean;
   }[];
   /** What was seated when the canaries were proved; the earliest rows omit it. */

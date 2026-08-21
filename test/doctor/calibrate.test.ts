@@ -353,3 +353,18 @@ test("grok's directions are recorded as unproven, the other two as proof", async
   }
   assert.match(formatCalibration(report), /unproven by construction/u);
 });
+
+test("a token the seat only searched for is not a token it fetched", () => {
+  // The seat greps for the literal nonce: the event names it in its command
+  // while its output is still empty, and a later leak must not hide behind it.
+  const stream = [
+    `{"type":"item.started","item":{"type":"command_execution","command":"rg -n ${NONCE} .","aggregated_output":"","status":"in_progress"}}`,
+    `{"type":"item.completed","item":{"type":"command_execution","command":"rg -n ${NONCE} .","aggregated_output":"","exit_code":1,"status":"completed"}}`,
+    `{"type":"item.completed","item":{"type":"agent_message","text":"${NONCE}"}}`,
+  ].join("\n");
+  assert.equal(tokenWasFetched("codex", stream, NONCE), false, "the command named it; nothing returned it");
+});
+
+test("a line that is not an event proves nothing either way", () => {
+  assert.equal(tokenWasFetched("codex", `plain text mentioning ${NONCE}`, NONCE), false);
+});

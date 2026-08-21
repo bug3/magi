@@ -54,25 +54,47 @@ export const RETRIEVAL_READABLE: ReadonlySet<Harness> = new Set<Harness>(["codex
  */
 export const UNPROVEN_BY_CONSTRUCTION: ReadonlySet<Harness> = new Set<Harness>(["grok"]);
 
-/** The events that carry what a seat fetched, in codex's stream. */
-export const RETRIEVAL_MARKERS: readonly string[] = [
-  '"type":"command_execution"',
-  '"type":"mcp_tool_call"',
-  '"type":"file_change"',
-  '"type":"web_search"',
-];
+/** The event types that return something a seat went and got. */
+export const RETRIEVAL_TYPES: ReadonlySet<string> = new Set([
+  "command_execution",
+  "mcp_tool_call",
+  "file_change",
+  "web_search",
+]);
+
+/** The fields such an event reports its result in. */
+const OUTPUT_FIELDS: readonly string[] = ["aggregated_output", "output", "result", "content"];
 
 /**
  * Whether a retrieval's own output carried the token: the seat read it for
  * itself, which says nothing about what reached it ambiently. False for a
  * harness whose stream cannot answer the question, so its evidence is
  * unchanged rather than quietly narrowed.
+ *
+ * The event is parsed rather than matched as text. A seat searching for the
+ * token puts it in the command it runs, so a line carrying both the token and
+ * a retrieval marker proves nothing: `rg magi-canary-x` names the token in an
+ * event whose output is still empty. Only what the retrieval returned counts.
  */
 export function tokenWasFetched(harness: Harness, stdout: string, token: string): boolean {
   if (!RETRIEVAL_READABLE.has(harness)) return false;
-  return stdout
-    .split("\n")
-    .some(
-      (line) => line.includes(token) && RETRIEVAL_MARKERS.some((marker) => line.includes(marker)),
-    );
+  return stdout.split("\n").some((line) => retrievedInLine(line, token));
+}
+
+function retrievedInLine(line: string, token: string): boolean {
+  if (!line.includes(token)) return false;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(line);
+  } catch {
+    return false;
+  }
+  const item = (parsed as { item?: unknown }).item;
+  const event = (item ?? parsed) as Record<string, unknown>;
+  if (typeof event !== "object" || event === null) return false;
+  if (typeof event["type"] !== "string" || !RETRIEVAL_TYPES.has(event["type"])) return false;
+  return OUTPUT_FIELDS.some((field) => {
+    const value = event[field];
+    return typeof value === "string" && value.includes(token);
+  });
 }
