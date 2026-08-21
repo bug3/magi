@@ -25,9 +25,10 @@ export const COMMAND_USAGE = `usage:
   magi skill  [--harness <claude|codex|grok>]... [--install]
   magi plan   --brief <file> [--slug <slug>] [--excerpt <path[:start-end]>]...
               [--test-output <file>] [--waive-headroom] [--waive-backfill]
+              [--dry-run]
   magi review --brief <file> [--slug <slug>] [--base <ref>] [--patch <file>]
               [--excerpt <path[:start-end]>]... [--test-output <file>]
-              [--waive-headroom] [--waive-backfill]
+              [--waive-headroom] [--waive-backfill] [--dry-run]
   magi checks <consult-id>
   magi triggers [--base <ref>]
   magi help | --help
@@ -61,7 +62,9 @@ fit the projected burn; --waive-headroom is the user's explicit
 override, and the waiver is recorded in the ledger. A completeness
 preflight lists consults whose findings still lack ledger dispositions
 and refuses when one is overdue; --waive-backfill is the matching
-override, also recorded.
+override, also recorded. --dry-run does everything a consult does except
+spend it: curation, both gates and both preflights run, what would be sent
+is reported, and nothing is convened.
 checks plans every seat-proposed check against a built-in read-only
 vocabulary, runs only what matches without a shell, and records every
 proposal. Project-code commands such as npm and node tests are refused.

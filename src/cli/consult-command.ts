@@ -19,14 +19,25 @@ import {
   stateIgnoreStatus,
 } from "../consult.ts";
 import type { ConsultMode } from "../core/consult.ts";
-import { slot } from "../core/slots.ts";
+import { SLOTS, slot } from "../core/slots.ts";
 import { completenessFromLedger, formatCompleteness, gateExpectedReader } from "../doctor.ts";
 import { curateEvidence } from "../evidence/curate.ts";
 import { buildEvidencePack } from "../evidence/pack.ts";
+import { gitText } from "../runtime/git.ts";
 import { sanitizeLine } from "../util/text.ts";
 import { parseReviewArgs, type ReviewArgs } from "./args.ts";
-import { checkInputs } from "./consult-inputs.ts";
+import { checkInputs, emptyReviewTarget } from "./consult-inputs.ts";
 import { MAGI_ROOT, ambient } from "./environment.ts";
+
+/** What git has never been told about, so no delta can carry it. */
+async function untrackedPaths(repoDir: string): Promise<readonly string[]> {
+  try {
+    const listed = await gitText(["ls-files", "--others", "--exclude-standard"], { cwd: repoDir });
+    return listed.split("\n").filter((line) => line.trim() !== "");
+  } catch {
+    return [];
+  }
+}
 
 export async function consultCommand(
   mode: ConsultMode,
@@ -75,6 +86,11 @@ export async function consultCommand(
     ...(args.base === undefined ? {} : { base: args.base }),
     ...(checked.testOutput === undefined ? {} : { testOutput: checked.testOutput }),
   });
+  const empty = emptyReviewTarget(mode, curated.pack.patch, await untrackedPaths(repoDir));
+  if (empty !== undefined) {
+    console.error(empty);
+    return 2;
+  }
   const pack = buildEvidencePack(curated.pack);
   const renderedChars =
     readFileSync(templatePath, "utf8").length +
@@ -112,6 +128,15 @@ export async function consultCommand(
       "disposition the overdue consults above (ledger backfill rows), or re-run with --waive-backfill",
     );
     return 1;
+  }
+
+  if (args.dryRun) {
+    console.log(
+      `dry run: ${mode} would convene ${SLOTS.length} seats on ` +
+        `${pack.markdown.length} characters of pack plus a ${briefMd.length}-character brief`,
+    );
+    console.log("  nothing was spent; drop --dry-run to convene");
+    return 0;
   }
 
   const result = await runConsult({

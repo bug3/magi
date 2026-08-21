@@ -14,6 +14,10 @@
  * bytes that were checked are the bytes that are consulted. Reading twice is
  * not only wasteful: between the two reads a file can change or vanish, and
  * the second read is past the seam that turns that into a named refusal.
+ *
+ * One check cannot live here. Whether a `--base` derives an empty patch is
+ * known only once git has been asked, which curation does; `emptyReviewTarget`
+ * is that check, called from the command with the derived patch in hand.
  */
 
 import { readFileSync } from "node:fs";
@@ -56,6 +60,11 @@ export async function checkInputs(
   if (args.patchFile !== undefined) {
     const read = readNamed("--patch", args.patchFile);
     if ("problem" in read) return refuse(read.problem);
+    // Known here, so refused here, before curation runs the repository's own
+    // check command to build a floor around a patch that carries nothing.
+    if (read.text.trim() === "") {
+      return refuse(`--patch: ${args.patchFile} is empty; there is nothing in it to review`);
+    }
     patch = read.text;
   }
   let testOutput: string | undefined;
@@ -96,6 +105,36 @@ export async function checkInputs(
 
 function refuse(problem: string): InputCheck {
   return { ok: false, problem };
+}
+
+/**
+ * Why the review has nothing to review, once curation has derived the patch,
+ * or nothing. Requiring a base or a patch is not the same as having a change:
+ * `--base HEAD` against a clean tree names a target and derives an empty
+ * patch, and three seats still convened on nothing. The flag check refuses
+ * sooner and more clearly; this one refuses the case it cannot see.
+ */
+export function emptyReviewTarget(
+  mode: ConsultMode,
+  patch: string | undefined,
+  untracked: readonly string[] = [],
+): string | undefined {
+  if (mode !== "review" || (patch ?? "").trim() !== "") return undefined;
+  if (untracked.length > 0) {
+    // A patch derives from git's tracked delta, which cannot see a file git
+    // has never been told about. Refusing without saying so sends the reader
+    // looking for a change they can see in their own working tree.
+    return (
+      `review has nothing to review: the patch is empty because all ${untracked.length} ` +
+      `changed paths are untracked (${untracked.slice(0, 3).join(", ")}` +
+      `${untracked.length > 3 ? ", ..." : ""}). Run \`git add -N\` on them so the ` +
+      "delta can see them, or supply a --patch"
+    );
+  }
+  return (
+    "review has nothing to review: the patch is empty. Name a base the working " +
+    "tree differs from, or supply a --patch that is not empty"
+  );
 }
 
 /** A named path read the way the consult will read it, or why it cannot be. */

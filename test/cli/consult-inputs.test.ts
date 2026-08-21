@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 
 import type { ReviewArgs } from "../../src/cli/args.ts";
-import { checkInputs } from "../../src/cli/consult-inputs.ts";
+import { checkInputs, emptyReviewTarget } from "../../src/cli/consult-inputs.ts";
 
 /** The repository this suite runs in: the one git ref check that is real. */
 const REPO = process.cwd();
@@ -17,7 +17,14 @@ function world(brief = "review the change\n"): string {
 }
 
 function args(over: Partial<ReviewArgs> & { briefFile: string }): ReviewArgs {
-  return { slug: "review", excerpts: [], waiveHeadroom: false, waiveBackfill: false, ...over };
+  return {
+    slug: "review",
+    excerpts: [],
+    waiveHeadroom: false,
+    waiveBackfill: false,
+    dryRun: false,
+    ...over,
+  };
 }
 
 /** What the check refused, or nothing when it passed. */
@@ -130,4 +137,30 @@ test("inputs that are all there come back with the brief that was checked", asyn
   );
   assert.equal(result.ok, true);
   assert.equal(result.ok ? result.briefMd : "", "the question\n");
+});
+
+test("a review whose derived patch is empty has nothing to review", () => {
+  // `--base HEAD` against a clean tree names a target and derives no change;
+  // two consults convened on exactly that before this existed.
+  for (const patch of [undefined, "", "   \n"]) {
+    assert.match(emptyReviewTarget("review", patch) ?? "", /^review has nothing to review/u);
+  }
+  assert.equal(emptyReviewTarget("review", "diff --git a/x b/x\n"), undefined);
+  assert.equal(emptyReviewTarget("plan", undefined), undefined, "plan needs no patch");
+});
+
+test("an empty patch whose change is untracked says which paths git cannot see", () => {
+  const problem = emptyReviewTarget("review", "", ["src/new.ts", "test/new.test.ts"]) ?? "";
+  assert.match(problem, /all 2 changed paths are untracked/u);
+  assert.match(problem, /src\/new\.ts/u);
+  assert.match(problem, /git add -N/u);
+});
+
+test("a --patch file with nothing in it is refused before curation runs", async () => {
+  const empty = join(mkdtempSync(join(tmpdir(), "magi-emptypatch-")), "p.diff");
+  writeFileSync(empty, "   \n");
+  assert.match(
+    await problem({ briefFile: world(), patchFile: empty }),
+    /^--patch: .* is empty; there is nothing in it to review/u,
+  );
 });

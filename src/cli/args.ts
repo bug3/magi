@@ -19,6 +19,11 @@ export interface ReviewArgs {
   readonly waiveHeadroom: boolean;
   /** The user's explicit decision to convene over overdue dispositions. */
   readonly waiveBackfill: boolean;
+  /**
+   * Do everything a consult does except spend it: curate, gate, run both
+   * preflights, report what would be sent, and stop before the fan-out.
+   */
+  readonly dryRun: boolean;
 }
 
 /** "path" or "path:12-40"; a trailing colon segment that is not N-N is path. */
@@ -44,6 +49,7 @@ export function parseReviewArgs(
   let testOutputFile: string | undefined;
   let waiveHeadroom = false;
   let waiveBackfill = false;
+  let dryRun = false;
   const excerpts: ExcerptRequest[] = [];
 
   for (let at = 0; at < argv.length; at += 1) {
@@ -79,6 +85,9 @@ export function parseReviewArgs(
       case "--waive-backfill":
         waiveBackfill = true;
         break;
+      case "--dry-run":
+        dryRun = true;
+        break;
       default:
         throw new Error(`unknown flag: ${flag}`);
     }
@@ -94,6 +103,7 @@ export function parseReviewArgs(
     excerpts,
     waiveHeadroom,
     waiveBackfill,
+    dryRun,
     ...(patchFile === undefined ? {} : { patchFile }),
     ...(base === undefined ? {} : { base }),
     ...(testOutputFile === undefined ? {} : { testOutputFile }),

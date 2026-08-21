@@ -181,9 +181,10 @@ usage:
   magi skill  [--harness <claude|codex|grok>]... [--install]
   magi plan   --brief <file> [--slug <slug>] [--excerpt <path[:start-end]>]...
               [--test-output <file>] [--waive-headroom] [--waive-backfill]
+              [--dry-run]
   magi review --brief <file> [--slug <slug>] [--base <ref>] [--patch <file>]
               [--excerpt <path[:start-end]>]... [--test-output <file>]
-              [--waive-headroom] [--waive-backfill]
+              [--waive-headroom] [--waive-backfill] [--dry-run]
   magi checks <consult-id>
   magi triggers [--base <ref>]
   magi help | --help
