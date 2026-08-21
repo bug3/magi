@@ -11,6 +11,8 @@ import {
   calibrateCanaries,
   unisolatedProfile,
 } from "../../src/doctor/calibrate.ts";
+import { beforeRetrieval } from "../../src/doctor/calibration-evidence.ts";
+import { formatCalibration } from "../../src/doctor/format.ts";
 import { foldLedger } from "../../src/consult/ledger.ts";
 import { seatProfile, type SeatInputs } from "../../src/seats/profiles.ts";
 
@@ -245,4 +247,47 @@ test("a nonce without the fixed prefix is refused before any layer mutates", asy
     "# original global\n",
     "no layer was touched",
   );
+});
+
+test("a stream that fetched nothing is evidence in full", () => {
+  const stream = `{"type":"item.completed","item":{"type":"agent_message","text":"${NONCE}"}}`;
+  assert.equal(beforeRetrieval(stream), stream);
+});
+
+test("evidence stops at the first thing the seat fetched", () => {
+  const stream = [
+    '{"type":"turn.started"}',
+    `{"type":"item.completed","item":{"type":"command_execution","aggregated_output":"${NONCE}"}}`,
+    `{"type":"item.completed","item":{"type":"agent_message","text":"${NONCE}"}}`,
+  ].join("\n");
+  assert.equal(beforeRetrieval(stream), '{"type":"turn.started"}');
+});
+
+test("a seat that greps the layer out of its own repository is not a leak", async () => {
+  const w = world();
+  // What codex 0.147.0 actually did: no injection, so it searched the tree it
+  // was pointed at, read AGENTS.md and echoed what it had just read.
+  const fetched = [
+    '{"type":"turn.started"}',
+    `{"type":"item.completed","item":{"type":"command_execution",` +
+      `"aggregated_output":"./AGENTS.md:${NONCE}"}}`,
+    `{"type":"item.completed","item":{"type":"agent_message","text":"${NONCE}"}}`,
+  ].join("\n");
+  const injected = `{"type":"item.completed","item":{"type":"agent_message","text":"${NONCE}"}}`;
+  const runRound = (round: "isolated" | "unisolated") =>
+    Promise.resolve([
+      { slot: "melchior-1", stdout: round === "unisolated" ? injected : "" },
+      { slot: "balthasar-2", stdout: round === "unisolated" ? injected : fetched },
+      { slot: "casper-3", stdout: injected },
+    ]);
+
+  const report = await calibrateCanaries(inputsFor(w, runRound));
+  const isolated = report.results.find(
+    (result) => result.harness === "codex" && result.direction === "isolated",
+  );
+  assert.equal(isolated?.nonceSeen, false, "the layer did not reach the seat on its own");
+  assert.equal(isolated?.nonceFetched, true, "the seat read it with a command");
+  assert.equal(isolated?.pass, true);
+  assert.equal(report.pass, true);
+  assert.match(formatCalibration(report), /nonce not injected, the seat fetched it/u);
 });

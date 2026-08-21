@@ -23,6 +23,7 @@ import { mkdirSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 import { appendLedgerCalibration } from "../consult/ledger.ts";
+import { beforeRetrieval } from "./calibration-evidence.ts";
 import {
   CALIBRATION_LAYERS,
   RECOVERY_FILE,
@@ -56,7 +57,13 @@ export interface CalibrationDirection {
   readonly harness: Harness;
   readonly direction: CalibrationRound;
   readonly expectation: "absent" | "present" | "informational";
+  /** The layer reached the seat on its own: the only thing that counts. */
   readonly nonceSeen: boolean;
+  /**
+   * The token is in the stream, but only after the seat fetched it. Recorded
+   * because it says the seat can read the layer, and judged as nothing else.
+   */
+  readonly nonceFetched: boolean;
   readonly pass: boolean;
 }
 
@@ -133,11 +140,20 @@ export async function calibrateCanaries(inputs: CalibrateInputs): Promise<Calibr
   const results: CalibrationDirection[] = [];
   for (const direction of ["isolated", "unisolated"] as const) {
     for (const layer of CALIBRATION_LAYERS) {
-      const nonceSeen = (outputs[direction].get(layer.harness) ?? "").includes(inputs.nonce);
+      const stdout = outputs[direction].get(layer.harness) ?? "";
+      const nonceSeen = beforeRetrieval(stdout).includes(inputs.nonce);
+      const nonceFetched = !nonceSeen && stdout.includes(inputs.nonce);
       const expectation = direction === "unisolated" ? "present" : layer.isolated;
       const pass =
         expectation === "present" ? nonceSeen : expectation === "absent" ? !nonceSeen : true;
-      results.push({ harness: layer.harness, direction, expectation, nonceSeen, pass });
+      results.push({
+        harness: layer.harness,
+        direction,
+        expectation,
+        nonceSeen,
+        nonceFetched,
+        pass,
+      });
     }
   }
   const report = {

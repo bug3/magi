@@ -13,6 +13,10 @@ export {
   type CalibrationReport,
 } from "./doctor/calibrate.ts";
 export {
+  RETRIEVAL_MARKERS,
+  beforeRetrieval,
+} from "./doctor/calibration-evidence.ts";
+export {
   calibrationHealth,
   readCalibrationRows,
   type CalibrationHealthReport,

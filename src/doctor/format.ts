@@ -154,7 +154,11 @@ export function formatCompleteness(
 export function formatCalibration(report: CalibrationReport): string {
   const lines = [`canary calibration (nonce ${report.nonce})`];
   for (const result of report.results) {
-    const seen = result.nonceSeen ? "nonce seen" : "nonce not seen";
+    const seen = result.nonceSeen
+      ? "nonce seen"
+      : result.nonceFetched
+        ? "nonce not injected, the seat fetched it"
+        : "nonce not seen";
     lines.push(
       `  ${result.harness} ${result.direction}: expected ${result.expectation}, ${seen}: ` +
         (result.pass ? "ok" : "FAILED"),

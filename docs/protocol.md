@@ -376,6 +376,17 @@ exactly this way, when a seat echoed the nonce straight out of the brief and
 reported it as seen. An echo of the full token now proves brief visibility
 and nothing else.
 
+A second false positive came from the other direction. Codex is pointed at
+the repository its own layer lives in and it has tools, so when isolation
+worked and nothing was injected, it grepped the tree, read `AGENTS.md` itself
+and echoed the token: proof that the seat can read the file, not that the
+layer reached it. An injection claim now rests only on what a seat's stream
+carried before its first retrieval, and a token that arrives after one is
+recorded as fetched and judged as nothing else. The cut applies to codex,
+whose stream is one event per line and therefore ordered; claude and grok
+emit a single document and keep their layers outside the working directory,
+where a repository grep cannot reach them.
+
 Calibration is crash-safe. A recovery sidecar holding every original image is
 written before the first layer changes. A layer restores only while its
 content still equals the expected nonce-bearing image; a concurrent edit is
