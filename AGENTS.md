@@ -21,6 +21,22 @@ mechanism here implements.
 - `npm run preflight` packs the package and installs it the way a consumer
   would. `prepublishOnly` runs the check, then the preflight.
 
+## Releasing
+
+One order, and one push at the end of it: bump the version, publish, tag the
+commit that was published, then push the branch and the tag together.
+
+- `prepublishOnly` runs the check and the preflight, so a version is proved
+  before it exists. Nothing else needs to run first.
+- A tag names the tree the registry received. Where that is not the bump
+  commit it still follows the tarball: `v0.3.0` marks a later commit because
+  work landed while a publish was blocked on credentials. A tag that is
+  already published is never moved.
+- Nothing is published that a council review has not seen. Three releases in
+  one day each shipped ahead of the review that found what was wrong with
+  them, and 0.2.1 went out carrying a canary that would record a real
+  isolation leak as a pass.
+
 ## Where things live
 
 - Cases are catalogs, not branches: seat briefs are `prompts/*.md`, the
