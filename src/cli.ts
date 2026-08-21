@@ -16,6 +16,29 @@ import { MAGI_ROOT } from "./cli/environment.ts";
 import { skillCommand } from "./cli/skill-command.ts";
 import { triggersCommand } from "./cli/triggers-command.ts";
 
+/** The two spellings of each of the two commands that are not subcommands. */
+const HELP: readonly string[] = ["help", "--help"];
+const VERSION: readonly string[] = ["--version", "-v"];
+
+/**
+ * Every token `main` accepts as its first argument. MAGI holds three harness
+ * CLIs to a help-text drift rule and did not hold itself to one: `help` and
+ * `-v` both worked and neither was printed, with the README asserted identical
+ * to that same incomplete block, so the drift was locked in by a test rather
+ * than caught by one. `test/cli/args.test.ts` now checks this list against the
+ * usage text.
+ */
+export const COMMANDS: readonly string[] = [
+  "doctor",
+  "skill",
+  "plan",
+  "review",
+  "checks",
+  "triggers",
+  ...HELP,
+  ...VERSION,
+];
+
 export const COMMAND_USAGE = `usage:
   magi doctor [--live] [--calibrate]
   magi skill  [--harness <claude|codex|grok>]... [--install]
@@ -26,7 +49,8 @@ export const COMMAND_USAGE = `usage:
               [--waive-headroom] [--waive-backfill]
   magi checks <consult-id>
   magi triggers [--base <ref>]
-  magi --version`;
+  magi help | --help
+  magi --version | -v`;
 
 const USAGE = `${COMMAND_USAGE}
 
@@ -80,11 +104,11 @@ function version(): string {
 
 export async function main(argv: readonly string[]): Promise<number> {
   const [command, ...rest] = argv;
-  if (command === "--help" || command === "help") {
+  if (command !== undefined && HELP.includes(command)) {
     console.log(USAGE);
     return 0;
   }
-  if (command === "--version" || command === "-v") {
+  if (command !== undefined && VERSION.includes(command)) {
     console.log(version());
     return 0;
   }

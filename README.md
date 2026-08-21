@@ -186,7 +186,8 @@ usage:
               [--waive-headroom] [--waive-backfill]
   magi checks <consult-id>
   magi triggers [--base <ref>]
-  magi --version
+  magi help | --help
+  magi --version | -v
 ```
 
 `--slug` is optional and defaults to the mode name. `--base` and `--patch`
