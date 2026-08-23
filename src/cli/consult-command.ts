@@ -25,7 +25,18 @@ import { curateEvidence } from "../evidence/curate.ts";
 import { buildEvidencePack } from "../evidence/pack.ts";
 import { gitText } from "../runtime/git.ts";
 import { sanitizeLine } from "../util/text.ts";
-import { close, detail, info, open, plainError, problem, report, step, warn } from "../util/ui.ts";
+import {
+  close,
+  detail,
+  info,
+  open,
+  problem,
+  refuseUsage,
+  report,
+  step,
+  warn,
+  type UsageScreen,
+} from "../util/ui.ts";
 import { parseReviewArgs, type ReviewArgs } from "./args.ts";
 import { checkInputs, emptyReviewTarget } from "./consult-inputs.ts";
 import { MAGI_ROOT, ambient } from "./environment.ts";
@@ -43,14 +54,14 @@ async function untrackedPaths(repoDir: string): Promise<readonly string[]> {
 export async function consultCommand(
   mode: ConsultMode,
   rest: readonly string[],
-  usage: string,
+  screen: UsageScreen,
 ): Promise<number> {
   let args: ReviewArgs;
   try {
     args = parseReviewArgs(rest, mode);
   } catch (error) {
     problem(String((error as Error).message));
-    plainError(usage);
+    refuseUsage(screen);
     return 2;
   }
   const { home, path } = ambient();

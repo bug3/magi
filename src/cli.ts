@@ -15,7 +15,13 @@ import { doctorCommand } from "./cli/doctor-command.ts";
 import { MAGI_ROOT } from "./cli/environment.ts";
 import { skillCommand } from "./cli/skill-command.ts";
 import { triggersCommand } from "./cli/triggers-command.ts";
-import { plain, plainError } from "./util/ui.ts";
+import {
+  refuseUsage,
+  usage,
+  version,
+  type CommandGuide,
+  type UsageScreen,
+} from "./util/ui.ts";
 
 /** The two spellings of each of the two commands that are not subcommands. */
 const HELP: readonly string[] = ["help", "--help"];
@@ -35,21 +41,36 @@ export const COMMAND_USAGE = `usage:
   magi help | --help
   magi --version | -v`;
 
-const USAGE = `${COMMAND_USAGE}
-
-doctor --live spends quota: one minimal call per harness.
+/**
+ * What each command does, and what its flags cost, one entry per command.
+ *
+ * Kept apart rather than as one block of prose because it is drawn two ways: a
+ * terminal gets a note per command, and a pipe gets them run together into the
+ * block that has always been copied out of one. `usageText` assembles the
+ * second from the first, so the two cannot drift.
+ */
+const GUIDE: readonly CommandGuide[] = [
+  {
+    title: "doctor",
+    body: `doctor --live spends quota: one minimal call per harness.
 doctor --calibrate is the owner-approved canary calibration for CLI
 updates: it spends quota (two rounds, six seat calls), briefly writes a
 nonce into each ambient config layer and restores every layer after,
 asserts the nonce surfaces without isolation and stays out with it, and
-records both directions in the ledger.
-skill reports where each harness would find the orchestrator skill and, on
+records both directions in the ledger.`,
+  },
+  {
+    title: "skill",
+    body: `skill reports where each harness would find the orchestrator skill and, on
 --install, links it there: a symlink to this clone so the installed skill
 cannot drift. Installing leaves a marker beside the link naming the source it
 claims, and only a link that marker still claims is repointed later; a link
 nobody here made, a real file or a directory is reported and left exactly as
-it was. Without --harness it reports all three and installs for claude.
-review and plan convene the council on the repo at the current working
+it was. Without --harness it reports all three and installs for claude.`,
+  },
+  {
+    title: "plan and review",
+    body: `review and plan convene the council on the repo at the current working
 directory; review critiques a plan or diff, plan asks for independent
 approaches before one exists. Curation is rule-driven: conventions are
 collected from the tree, review packs derive from the patch and carry
@@ -65,15 +86,26 @@ preflight lists consults whose findings still lack ledger dispositions
 and refuses when one is overdue; --waive-backfill is the matching
 override, also recorded. --dry-run does everything a consult does except
 spend it: curation, both gates and both preflights run, what would be sent
-is reported, and nothing is convened.
-checks plans every seat-proposed check against a built-in read-only
+is reported, and nothing is convened.`,
+  },
+  {
+    title: "checks",
+    body: `checks plans every seat-proposed check against a built-in read-only
 vocabulary, runs only what matches without a shell, and records every
-proposal. Project-code commands such as npm and node tests are refused.
-triggers evaluates the tracked base-to-worktree diff plus non-ignored
+proposal. Project-code commands such as npm and node tests are refused.`,
+  },
+  {
+    title: "triggers",
+    body: `triggers evaluates the tracked base-to-worktree diff plus non-ignored
 untracked files against the owner-set size thresholds and risk-domain
 seed and prints which deterministic triggers propose a consult;
 proposing never convenes, and judgment may add proposals but not
-suppress these.`;
+suppress these.`,
+  },
+];
+
+/** The whole screen: the invocation table, and the prose under it. */
+const SCREEN: UsageScreen = { commands: COMMAND_USAGE, guide: GUIDE };
 
 /** What a subcommand does with the argv after its own name. */
 type Subcommand = (rest: readonly string[]) => number | Promise<number>;
@@ -87,9 +119,9 @@ type Subcommand = (rest: readonly string[]) => number | Promise<number>;
 const SUBCOMMANDS: Readonly<Record<string, Subcommand>> = {
   doctor: (rest) => doctorCommand(rest),
   skill: (rest) => skillCommand(rest),
-  plan: (rest) => consultCommand("plan", rest, USAGE),
-  review: (rest) => consultCommand("review", rest, USAGE),
-  checks: (rest) => checksCommand(rest, USAGE),
+  plan: (rest) => consultCommand("plan", rest, SCREEN),
+  review: (rest) => consultCommand("review", rest, SCREEN),
+  checks: (rest) => checksCommand(rest, SCREEN),
   triggers: (rest) => triggersCommand(rest),
 };
 
@@ -109,7 +141,7 @@ export const COMMANDS: readonly string[] = [...Object.keys(SUBCOMMANDS), ...HELP
  * package.json at MAGI_ROOT, so the number a user sees cannot drift from the
  * one that was published.
  */
-function version(): string {
+function declaredVersion(): string {
   const manifest: unknown = JSON.parse(readFileSync(join(MAGI_ROOT, "package.json"), "utf8"));
   const declared = (manifest as { version?: unknown }).version;
   return typeof declared === "string" ? declared : "unknown";
@@ -118,16 +150,18 @@ function version(): string {
 export async function main(argv: readonly string[]): Promise<number> {
   const [command, ...rest] = argv;
   if (command !== undefined && HELP.includes(command)) {
-    plain(USAGE);
+    usage(SCREEN);
     return 0;
   }
   if (command !== undefined && VERSION.includes(command)) {
-    plain(version());
+    version(declaredVersion());
     return 0;
   }
   const subcommand = command === undefined ? undefined : SUBCOMMANDS[command];
   if (subcommand !== undefined) return subcommand(rest);
-  plainError(USAGE);
+  // The reason is drawn on a terminal only: what a pipe receives here is the
+  // block alone, and that is a contract the end-to-end suite pins.
+  refuseUsage(SCREEN, command === undefined ? "magi needs a command" : `unknown command: ${command}`);
   return 2;
 }
 

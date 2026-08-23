@@ -24,6 +24,7 @@
  */
 
 export {
+  columns,
   decorated,
   interactive,
   setStreams,
@@ -42,3 +43,11 @@ export {
   warn,
 } from "./ui/write.ts";
 export { report } from "./ui/report.ts";
+export {
+  refuseUsage,
+  usage,
+  usageText,
+  version,
+  type CommandGuide,
+  type UsageScreen,
+} from "./ui/usage.ts";

@@ -32,6 +32,11 @@ export interface CaptureOptions {
   readonly tty?: boolean;
   /** What a prompt reads its keypresses from. */
   readonly input?: Readable;
+  /**
+   * How wide the terminal says it is. Zero is a pty nobody sized, which is
+   * where the renderer's framed blocks throw rather than wrap.
+   */
+  readonly columns?: number;
   /** Whether the input claims to be a terminal, which is what lets a prompt run. */
   readonly inputTty?: boolean;
   /**
@@ -43,14 +48,14 @@ export interface CaptureOptions {
 }
 
 /** A sink that records, and answers the one question the writer asks it. */
-function sink(into: string[], tty: boolean): Writable {
+function sink(into: string[], tty: boolean, columns: number): Writable {
   const stream = new Writable({
     write(chunk, _encoding, done) {
       into.push(String(chunk));
       done();
     },
   });
-  return Object.assign(stream, { isTTY: tty, columns: 80, rows: 24 });
+  return Object.assign(stream, { isTTY: tty, columns, rows: 24 });
 }
 
 export async function capture<T>(
@@ -61,9 +66,10 @@ export async function capture<T>(
   const err: string[] = [];
   const tty = options.tty === true;
   const input = options.input ?? Readable.from([]);
+  const columns = options.columns ?? 80;
   const restore = setStreams({
-    out: sink(out, tty),
-    err: sink(err, tty),
+    out: sink(out, tty, columns),
+    err: sink(err, tty, columns),
     in: Object.assign(input, { isTTY: options.inputTty ?? tty }),
   });
   // The renderer treats CI as a pipe however good the terminal is, and this

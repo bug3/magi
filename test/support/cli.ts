@@ -133,6 +133,74 @@ export async function magi(
   return { code, out, err };
 }
 
+/**
+ * The same launcher through a real pseudo-terminal.
+ *
+ * Every other run here is a pipe, which is the half of the contract a machine
+ * depends on. It is also the half that cannot fail the way the drawn one does:
+ * the renderer frames a block by dividing by the width the terminal reports,
+ * and `magi help` threw outright in a pty nobody had sized. Nothing short of a
+ * real terminal proves the drawn path runs at all.
+ *
+ * The size is set rather than inherited. A pty takes its parent's size, so
+ * without this the same test would draw at whatever width the suite happened
+ * to be launched in, and pass or fail on that.
+ *
+ * Both streams come back on one, because that is what a terminal is: the
+ * result and the refusal are interleaved exactly as a person would see them.
+ * Returns nothing where the machine has no `script`, which is how a suite on a
+ * platform without one skips this rather than failing it.
+ */
+export async function onTerminal(
+  argv: readonly string[],
+  space: Pick<Workspace, "repo" | "home" | "bin">,
+  size = { columns: 100, rows: 30 },
+): Promise<{ readonly code: number; readonly screen: string } | undefined> {
+  const script = optional("script");
+  const stty = optional("stty");
+  if (script === undefined || stty === undefined) return undefined;
+  // Quoting is deliberately not solved: everything run here is one bare
+  // subcommand, and a test that needed a quoted argument would be reaching for
+  // a shell it should not have.
+  if (!argv.every((arg) => /^[\w.-]+$/u.test(arg))) {
+    throw new Error(`onTerminal takes bare arguments; got: ${argv.join(" ")}`);
+  }
+  const command = [
+    `${stty} columns ${size.columns} rows ${size.rows}`,
+    [process.execPath, LAUNCHER, ...argv].join(" "),
+  ].join("; ");
+
+  const child = spawn(script, ["-qec", command, "/dev/null"], {
+    cwd: space.repo,
+    env: { HOME: space.home, PATH: space.bin, TERM: "xterm-256color" },
+    stdio: ["ignore", "pipe", "pipe"],
+    timeout: RUN_TIMEOUT_MS,
+  });
+
+  let screen = "";
+  child.stdout.setEncoding("utf8");
+  child.stdout.on("data", (chunk: string) => {
+    screen += chunk;
+  });
+  const code = await new Promise<number>((settle, fail) => {
+    child.on("error", fail);
+    child.on("close", (status, signal) => {
+      if (status === null) fail(new Error(`magi ${argv.join(" ")} died on ${signal}`));
+      else settle(status);
+    });
+  });
+  return { code, screen };
+}
+
+/** The first executable of that name, or nothing where there is none. */
+function optional(command: string): string | undefined {
+  try {
+    return locate(command);
+  } catch {
+    return undefined;
+  }
+}
+
 export function workspace(): Workspace {
   const root = mkdtempSync(join(tmpdir(), "magi-e2e-"));
   const paths = { repo: join(root, "repo"), home: join(root, "home"), bin: join(root, "bin") };

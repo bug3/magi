@@ -60,15 +60,38 @@ export function inStream(): Readable {
 }
 
 /**
- * Whether the given stream is a person's terminal. CI counts as a pipe even
- * when it hands out a terminal, because nobody is there to read a redraw and
- * the log it keeps is a file.
+ * The narrowest terminal still worth drawing to.
+ *
+ * Below it the framed blocks come apart: the usage table stops being
+ * copy-pasteable once it wraps, and prose wrapped into a box two characters
+ * wide is one letter per line. A terminal that reports no width at all is
+ * worse than narrow: `box` divides by what it was told and throws outright,
+ * which is what `magi help` did in a pty nobody had sized. Falling back to the
+ * piped rendering is the safe direction every time, because that rendering is
+ * plain text and fits any width.
+ */
+const NARROWEST = 60;
+
+/**
+ * How wide the drawing may be. A stream that does not say is taken as eighty,
+ * which is what the renderer itself assumes; one that says zero is taken at
+ * its word and fails the floor above.
+ */
+export function columns(stream: Writable = streams.out): number {
+  const declared = (stream as { columns?: number }).columns;
+  return typeof declared === "number" ? declared : 80;
+}
+
+/**
+ * Whether the given stream is a person's terminal, wide enough to draw in. CI
+ * counts as a pipe even when it hands out a terminal, because nobody is there
+ * to read a redraw and the log it keeps is a file.
  *
  * Asked per stream and not once for the process: a refusal goes to stderr, so
  * a run with stdout piped and stderr on the terminal still draws the refusal.
  */
 export function decorated(stream: Writable = streams.out): boolean {
-  return !isCI() && isTTY(stream);
+  return !isCI() && isTTY(stream) && columns(stream) >= NARROWEST;
 }
 
 /**

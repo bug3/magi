@@ -11,17 +11,26 @@ import { consultPaths, type SeatVerdict } from "../consult.ts";
 import { consultId } from "../core/ids.ts";
 import { slot } from "../core/slots.ts";
 import { sanitizeLine } from "../util/text.ts";
-import { close, detail, open, plainError, problem, step, warn } from "../util/ui.ts";
+import {
+  close,
+  detail,
+  open,
+  problem,
+  refuseUsage,
+  step,
+  warn,
+  type UsageScreen,
+} from "../util/ui.ts";
 import { ambient } from "./environment.ts";
 
 export async function checksCommand(
   rest: readonly string[],
-  usage: string,
+  screen: UsageScreen,
 ): Promise<number> {
   const rawId = rest[0];
   if (rawId === undefined) {
     problem("checks needs a consult id");
-    plainError(usage);
+    refuseUsage(screen);
     return 2;
   }
   if (rest.length !== 1) {
