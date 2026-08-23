@@ -73,7 +73,7 @@ async function answer() {
   }
 
   const brief = await readBrief();
-  const cited = firstCitation(brief);
+  const cited = lastCitation(brief);
   const opinion = {
     schema: "magi/opinion.v1",
     mode: /^Mode:\s*plan\s*$/mu.test(brief) ? "plan" : "review",
@@ -83,7 +83,9 @@ async function answer() {
     // A finding needs a citation that resolves in this consult's own pack,
     // and evidence ids are minted per consult, so the id is read back out of
     // the pack that was just handed over rather than written down here. No
-    // pack, no finding: the smoke brief carries none and gets none.
+    // pack, no finding: the smoke brief carries none and gets none, which is
+    // why the caller has to assert the finding is here rather than trust that
+    // a valid answer means the pack arrived.
     findings:
       cited === undefined
         ? []
@@ -105,9 +107,16 @@ async function answer() {
   return `${envelope(name, JSON.stringify(opinion))}\n`;
 }
 
-/** The first evidence id in the pack, taken from the heading that mints it. */
-function firstCitation(text) {
-  return /^##\s+(E[1-9][0-9]*)\s/mu.exec(text)?.[1];
+/**
+ * The last evidence id in the pack, taken from the heading that mints it.
+ *
+ * The last rather than the first: the caller's own brief is rendered ahead of
+ * the pack, so a heading it happens to contain would be picked up by a scan
+ * from the top and would stand in for a pack that never arrived. Nothing the
+ * caller wrote can follow the pack.
+ */
+function lastCitation(text) {
+  return [...text.matchAll(/^##\s+(E[1-9][0-9]*)\s/gmu)].at(-1)?.[1];
 }
 
 /** The brief, from wherever this harness's launch profile put it. */

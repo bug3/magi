@@ -10,9 +10,13 @@
  *
  * The seats are `fixtures/seats/stub-harness.mjs` under the three names the
  * launch profiles resolve, so the fan-out is real and the model is not. Each
- * stub answers with the id of the brief it was handed and cites the first
- * evidence id in the pack it was handed, which is how a test can tell that
- * the brief and the pack arrived rather than that something did.
+ * stub answers with the id of the brief it was handed and cites the last
+ * evidence id in it, which is the one this run's own pack minted.
+ *
+ * Both halves have to be asserted, and only the first one used to be. A seat
+ * handed no pack still answers: the stub cites nothing and returns no finding,
+ * and an opinion carrying no finding passes the gate. So a convene whose pack
+ * never arrived would have passed this suite on the consult id alone.
  */
 
 import assert from "node:assert/strict";
@@ -154,6 +158,21 @@ test("a review convenes three seats for real and records what each one said", as
       assert.ok(
         gate.includes(`stub seat for ${harness} on ${id}`),
         `${harness} was handed this run's own brief`,
+      );
+    }
+
+    // The id the pack minted, read off the tail of the brief this run wrote to
+    // disk: it sits past everything the caller's own text could have put in
+    // front of it, so a seat quoting it back received the pack and not just a
+    // header carrying the run id.
+    const brief = readFileSync(join(space.repo, ".magi", "consults", id, "brief.md"), "utf8");
+    const minted = [...brief.matchAll(/^##\s+(E[1-9][0-9]*)\s/gmu)].at(-1)?.[1];
+    assert.ok(minted !== undefined, "the rendered brief carries an evidence pack at all");
+    for (const verdict of JSON.parse(gate).verdicts) {
+      assert.deepEqual(
+        verdict.opinion.findings.flatMap((finding: { citations: string[] }) => finding.citations),
+        [minted],
+        `${verdict.slot} cited the evidence id this run's own pack minted`,
       );
     }
 
