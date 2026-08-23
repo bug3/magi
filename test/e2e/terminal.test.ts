@@ -17,7 +17,18 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { magi, onTerminal, workspace } from "../support/cli.ts";
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
+
+import {
+  git,
+  initRepo,
+  installStubHarnesses,
+  magi,
+  onTerminal,
+  workspace,
+  writeBrief,
+} from "../support/cli.ts";
 
 /** How every cursor move and every colour begins. */
 const ESCAPE = "\u001B[";
@@ -81,6 +92,43 @@ test("a terminal that reports no width is written to as if it were a pipe", asyn
     assert.equal(drawn.code, 0, "an unsized terminal does not crash the help screen");
     assert.ok(drawn.screen.includes("magi doctor"), "it gets the block instead");
     assert.ok(!drawn.screen.includes(ESCAPE), "flat, exactly as a pipe would get it");
+  } finally {
+    space.remove();
+  }
+});
+
+test("a whole consult runs on a terminal, question and progress and all", async (t) => {
+  // The one flow that is nothing but composition: the question releases stdin,
+  // the spinner seizes it back for the length of the fan-out, and the verdicts
+  // print after. Every piece has a test. Only this has the three in one
+  // process, on a terminal, which is the only place any of them draw.
+  //
+  // `--yes` is what a run in a pipeline would pass, and it is what keeps this
+  // test off a timer: the question is skipped, and everything after it is not.
+  const space = workspace();
+  try {
+    await initRepo(space.repo);
+    writeFileSync(join(space.repo, "greet.ts"), "export const greet = () => 'hi';\n");
+    await git(space.repo, ["add", "greet.ts"]);
+    await git(space.repo, ["commit", "--quiet", "-m", "feat: add a greeting"]);
+    writeFileSync(join(space.repo, "greet.ts"), "export const greet = () => 'hello there';\n");
+    writeBrief(space.repo, "# Brief\n\nShould the greeting move into its own module?\n");
+    installStubHarnesses(space.bin);
+
+    const drawn = await onTerminal(
+      ["review", "--brief", "brief.md", "--base", "HEAD", "--yes"],
+      space,
+    );
+    if (drawn === undefined) {
+      t.skip(NO_TERMINAL);
+      return;
+    }
+
+    assert.equal(drawn.code, 0, drawn.screen);
+    assert.match(drawn.screen, /convening 3 seats/u, "the fan-out announced itself");
+    assert.match(drawn.screen, /Melchior-1: valid/u, "and the seats answered into the screen");
+    assert.match(drawn.screen, /convening 3 seats, blind and in parallel \[\ds\]/u, "timed");
+    assert.match(drawn.screen, /synthesis scaffold/u, "and the command finished its own block");
   } finally {
     space.remove();
   }
