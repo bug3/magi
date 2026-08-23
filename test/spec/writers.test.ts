@@ -44,7 +44,7 @@ const WRITERS: ReadonlyArray<{ pattern: RegExp; instead: string }> = [
   },
   {
     pattern: new RegExp(`\\bprocess\\s*\\.\\s*std(out|err)\\b`, "u"),
-    instead: "import plain or plainError from src/util/ui.ts",
+    instead: "import the writer from src/util/ui.ts",
   },
   {
     // The quietest way around the rule, and so the one worth catching: a
@@ -118,5 +118,47 @@ test("the guard sees a reach it is written to catch", () => {
     for (const { pattern } of WRITERS) {
       assert.ok(!pattern.test(innocent), `${innocent} is not a reach`);
     }
+  }
+});
+
+// The second half of the same rule. Reaching a stream is one way for a
+// command to print undecorated; calling the writer's own raw pair is the
+// other, and it was the one that actually happened. `magi help`, `magi` with
+// no arguments, `--version` and every usage block went out looking exactly as
+// they had before the renderer existed, on the screens a user sees most,
+// while the change was described as putting every command behind the writer.
+//
+// Whether a line is drawn is decided once, on whether a person is looking. It
+// is not a decision a command layer gets to take, so the command layer cannot
+// reach the thing it would take it with: the facade no longer offers the pair
+// at all, and this is the rule that says why.
+
+const COMMANDS = "cli";
+const RAW = new RegExp(`\\bplain(?:Error)?\\s*\\(`, "u");
+
+test("no command prints undecorated text on its own say-so", () => {
+  const files = sourceFiles().filter(
+    (file) => file === `${COMMANDS}.ts` || file.startsWith(`${COMMANDS}/`),
+  );
+  // The command layer is what this rule is about, so a walk that missed it
+  // would pass while proving nothing.
+  assert.ok(files.length >= 6, `only ${files.length} command modules walked: the walk is broken`);
+
+  const raw = files.filter((file) => RAW.test(readFileSync(join(SRC, file), "utf8")));
+  assert.deepEqual(
+    raw.map((file) => `src/${file} prints undecorated; the writer decides that, not a command`),
+    [],
+  );
+});
+
+test("that guard sees the call it is written to catch", () => {
+  // Assembled rather than spelled, so the guard does not match its own source.
+  for (const call of [["plain", "('x')"].join(""), ["plainError", "('x')"].join("")]) {
+    assert.ok(RAW.test(call), `${call} is a call the guard must see`);
+  }
+  // And not the word in prose, which is how it appears in half the comments
+  // in this tree.
+  for (const innocent of ["a plain line", "the plain removal", "plainly wrong"]) {
+    assert.ok(!RAW.test(innocent), `${innocent} is not a call`);
   }
 });

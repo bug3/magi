@@ -21,6 +21,14 @@
  * Interaction is never required. Every prompt here carries the answer it falls
  * through to when stdin is not a terminal, when CI is set, or when the user
  * passed the flag that says not to ask.
+ *
+ * Two writers are deliberately not offered here: the ones that put text on a
+ * stream exactly as given. They are how the pipe gets its plain bytes, and
+ * they are reached only from inside this folder, by the screens that decide
+ * between the two renderings. A command that could call them could opt out of
+ * being drawn, which is precisely how `magi help`, `--version` and every
+ * refusal came to look untouched while the renderer was said to own the
+ * output. `test/spec/writers.test.ts` guards the rule by name as well.
  */
 
 export {
@@ -35,8 +43,6 @@ export {
   detail,
   info,
   open,
-  plain,
-  plainError,
   problem,
   step,
   success,

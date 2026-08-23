@@ -15,7 +15,8 @@ mechanism here implements.
   `prepack` runs it, and `bin/magi.js` prefers the build when it is there.
 - Node is pinned by `.mise.toml`.
 - Runtime dependency: `@clack/prompts`, for the command-line rendering in
-  `src/util/ui.ts`. Dev dependencies: `typescript`, `@types/node` and
+  `src/util/ui.ts` and the folder behind it: the frames, the progress, the
+  folded subprocess output and the questions. Dev dependencies: `typescript`, `@types/node` and
   `publish-preflight`. Every dependency is pinned exact.
 - `npm run check` = `tsc --noEmit` + every `test/**/*.test.ts` file. Green at
   every commit.
@@ -55,16 +56,30 @@ the branch and the tag together, then draw a GitHub release from that tag.
   import `src/consult.ts`, never `src/consult/*`.
 - Rules that must hold over the whole tree have a guard under `test/spec/`:
   module size, template contents, fixture coverage, publication hygiene.
-- Every byte a command prints goes through `src/util/ui.ts`. It decides the
-  stream (a result on stdout, a refusal on stderr), and it is where the
-  `@clack/prompts` rendering lives. Nothing else under `src/` calls
-  `console`, touches `process.stdout`/`process.stderr`, or imports the
-  renderer directly; `test/spec/writers.test.ts` is the guard.
-  Machine-read output (`--version`, the usage block) goes through it too and
-  comes out plain. Nothing animates: clack draws a spinner by seizing stdin
-  and calling `process.exit(0)` on the cancel key, so an interrupted fan-out
-  would have reported success. A long wait is announced and then accounted
-  for, in two ordinary lines.
+- Every byte a command prints goes through `src/util/ui.ts` and the folder it
+  fronts. It decides the stream (a result on stdout, a refusal on stderr), and
+  it is where the `@clack/prompts` rendering lives. Nothing else under `src/`
+  calls `console`, touches `process.stdout`/`process.stderr`, or imports the
+  renderer directly, and no command prints undecorated text on its own
+  say-so; `test/spec/writers.test.ts` guards both halves.
+- How much is drawn is decided once, on whether a person is looking. A
+  terminal gets the framed reports, the progress, the folded subprocess output
+  and the questions. A pipe gets the bytes it got before any of that existed,
+  because `--version` is parsed, the usage block is copied out of a terminal,
+  and MAGI's own check transcript travels in every evidence pack. CI counts as
+  a pipe, and so does a terminal too narrow to frame a block or one that will
+  not say how wide it is.
+- Interaction is never required. MAGI is driven by an orchestrating assistant
+  through a pipe, so every question states the answer it falls through to.
+  Spending quota falls through to yes, because invoking the command is the
+  approval, and `--yes` skips the question a terminal would ask; replacing
+  something this installation did not put there falls through to no, and no
+  flag unlocks it.
+- A long wait on a terminal is drawn, and while it is drawn an exit of zero is
+  rewritten to 130. The renderer draws a spinner by seizing stdin and calling
+  `process.exit(0)` on the cancel key, so without that guard an interrupted
+  fan-out reports success with nothing gated and nothing in the ledger;
+  `test/util/ui-progress.test.ts` measures both directions in a real process.
 - `test/e2e/` runs each command as a spawned process against a temporary
   repository, HOME and PATH. The PATH holds only that workspace, so a test
   cannot reach a real harness CLI; `fixtures/seats/stub-harness.mjs` is

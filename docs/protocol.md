@@ -193,9 +193,11 @@ overconfidence. An unset one protects nobody. Orchestrator judgment may add
 proposals and may never suppress a triggered one, because the party under
 review cannot be the sole judge of when review is needed.
 
-You approve every convene. There is no automatic convening and no interactive
-confirmation inside the CLI: invoking `plan` or `review` directly constitutes
-approval for that call.
+You approve every convene. There is no automatic convening: invoking `plan` or
+`review` directly constitutes approval for that call, and that is what makes
+the CLI drivable from a pipeline, where nothing is asked. At a terminal the
+CLI asks once more before it spends, and `--yes` skips that question; neither
+the question nor the flag can approve a convene the invocation did not.
 
 ## Failure policy
 

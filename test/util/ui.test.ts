@@ -19,8 +19,6 @@ import {
   info,
   interactive,
   open,
-  plain,
-  plainError,
   problem,
   refuseUsage,
   report,
@@ -33,6 +31,10 @@ import {
   warn,
   type UsageScreen,
 } from "../../src/util/ui.ts";
+// Reached around the facade on purpose: these two are what the pipe's plain
+// bytes are written with, and the facade stops offering them so that no
+// command can choose not to be drawn. This suite is the rule's own test.
+import { plain, plainError } from "../../src/util/ui/write.ts";
 import { capture } from "../support/capture.ts";
 
 /**
