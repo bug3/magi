@@ -102,10 +102,12 @@ export async function magi(
 ): Promise<Run> {
   const child = spawn(process.execPath, [LAUNCHER, ...argv], {
     cwd: workspace.repo,
-    // Exactly what the tool asks the process for, plus the colour opt-out.
-    // A wider environment would let a variable on the machine running the
-    // suite change what the assertions see.
-    env: { HOME: workspace.home, PATH: workspace.bin, NO_COLOR: "1" },
+    // Exactly what the tool asks the process for, and nothing else. A wider
+    // environment would let a variable on the machine running the suite
+    // change what the assertions see. NO_COLOR is deliberately not among
+    // them: setting it would make "nothing escapes into a pipe" true by test
+    // setup, when the claim under test is that the code holds it on its own.
+    env: { HOME: workspace.home, PATH: workspace.bin },
     stdio: ["ignore", "pipe", "pipe"],
     timeout: RUN_TIMEOUT_MS,
   });

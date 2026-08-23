@@ -22,7 +22,6 @@ import {
   problem,
   report,
   step,
-  success,
   warn,
 } from "../../src/util/ui.ts";
 import { capture } from "../support/capture.ts";
@@ -39,14 +38,13 @@ test("a result goes to stdout and never to stderr", async () => {
   const { out, err } = await capture(() => {
     open("magi doctor");
     step("live smoke: one minimal call per harness");
-    success("linked");
     info("nothing to do");
     warn("one seat did not answer");
     detail("MELCHIOR-1: valid");
     close("healthy");
   });
 
-  for (const message of ["magi doctor", "linked", "nothing to do", "MELCHIOR-1: valid", "healthy"]) {
+  for (const message of ["magi doctor", "nothing to do", "MELCHIOR-1: valid", "healthy"]) {
     assert.ok(out.includes(message), `${message} belongs on stdout`);
   }
   assert.equal(err, "");

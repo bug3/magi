@@ -57,7 +57,9 @@ the branch and the tag together, then draw a GitHub release from that tag.
   module size, template contents, fixture coverage, publication hygiene.
 - Every byte a command prints goes through `src/util/ui.ts`. It decides the
   stream (a result on stdout, a refusal on stderr), and it is where the
-  `@clack/prompts` rendering lives; nothing under `src/` calls `console`.
+  `@clack/prompts` rendering lives. Nothing else under `src/` calls
+  `console`, touches `process.stdout`/`process.stderr`, or imports the
+  renderer directly; `test/spec/writers.test.ts` is the guard.
   Machine-read output (`--version`, the usage block) goes through it too and
   comes out plain. Nothing animates: clack draws a spinner by seizing stdin
   and calling `process.exit(0)` on the cancel key, so an interrupted fan-out

@@ -33,6 +33,14 @@ const WRITERS: ReadonlyArray<{ pattern: RegExp; instead: string }> = [
     pattern: new RegExp(`\\bprocess\\s*\\.\\s*std(out|err)\\b`, "u"),
     instead: "import plain or plainError from src/util/ui.ts",
   },
+  {
+    // The quietest way around the rule, and so the one worth catching: a
+    // renderer imported straight from the dependency writes to the real
+    // stdout unless every call is handed an output, which is precisely the
+    // decision the writer exists to make once.
+    pattern: new RegExp(`from\\s*["']@clack/[a-z]+["']`, "u"),
+    instead: "the renderer is reached through src/util/ui.ts",
+  },
 ];
 
 function sourceFiles(): readonly string[] {
@@ -68,6 +76,7 @@ test("the guard sees a reach it is written to catch", () => {
     [["console", ".error('x')"].join(""), 0],
     [["process", ".stdout.write('x')"].join(""), 1],
     [["process", ".stderr.write('x')"].join(""), 1],
+    [["import { log } from ", '"@clack/', 'prompts"'].join(""), 2],
   ];
   for (const [source, at] of cases) {
     assert.ok(WRITERS[at]?.pattern.test(source), `${source} is a reach the guard must see`);
