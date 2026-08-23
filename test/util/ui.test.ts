@@ -25,6 +25,7 @@ import {
   refuseUsage,
   report,
   step,
+  transcript,
   usage,
   usageText,
   verdict,
@@ -301,5 +302,44 @@ test("a verdict that went wrong is a warning wherever it lands", async () => {
     }, { tty });
     assert.ok(out.includes("Casper-3: INVALID (schema)"), `on stdout with tty ${String(tty)}`);
     assert.equal(err, "", `never on stderr, with tty ${String(tty)}`);
+  }
+});
+
+test("a pipe is told what is running and what came of it, in two lines", async () => {
+  // Exactly the two lines `magi checks` has always printed around its run.
+  const { out } = await capture(() => {
+    const runs = transcript("planning the checks proposed by 3 valid seats");
+    runs.ran("Melchior-1 f1: ran [git status] -> exit 0", true, "M src/cli.ts");
+    runs.done("1 proposed check");
+  });
+
+  assert.ok(out.includes("planning the checks proposed by 3 valid seats"));
+  assert.ok(out.includes("1 proposed check"));
+  // The rows are the command's to print down a pipe, in the order it has
+  // always printed them, which is what `drawn` tells it.
+  assert.ok(!out.includes("Melchior-1"), "the rows are not the transcript's on this path");
+});
+
+test("a terminal is shown what a check printed when the check did not pass", async () => {
+  // The whole point of the command: `ran [git status --short] -> exit 0` said
+  // whether a check passed and never once said what it found.
+  const { out, result } = await capture(() => {
+    const runs = transcript("planning the checks proposed by 3 valid seats");
+    runs.ran("Melchior-1 f1: ran [git status] -> exit 0", true, "M src/cli.ts");
+    runs.ran("Balthasar-2 f2: ran [git log] -> exit 1", false, "fatal: not a git repository");
+    runs.done("2 proposed checks");
+    return runs.drawn;
+  }, { tty: true });
+
+  assert.equal(result, true, "the runs were drawn, so the command prints no rows of its own");
+  // What a terminal is left looking at, which is everything from the closing
+  // summary on. A capture holds what the live log wrote and then erased with
+  // cursor escapes, because erasing moves a real terminal's cursor and appends
+  // to a buffer; the settled screen is the part after the last erase.
+  const settled = out.slice(out.lastIndexOf("2 proposed checks"));
+  assert.ok(settled.includes("fatal: not a git repository"), "the failing run kept its output");
+  assert.ok(!settled.includes("M src/cli.ts"), "and the passing one folded its away");
+  for (const row of ["Melchior-1 f1", "Balthasar-2 f2"]) {
+    assert.ok(settled.includes(row), `${row} is still on screen when the log has settled`);
   }
 });

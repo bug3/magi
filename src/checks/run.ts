@@ -44,6 +44,12 @@ export interface CheckRunInputs {
   readonly repoDir: string;
   readonly path: string;
   readonly checksDir: string;
+  /**
+   * Fired as each proposal settles, after its record is on disk. The checks
+   * run one at a time and can take a couple of minutes each, so a caller that
+   * only sees the array at the end has nothing to show for the wait.
+   */
+  readonly onRecord?: (record: CheckRecord) => void;
 }
 
 /** Only PATH is inherited. HOME and every other entry are fixed here. */
@@ -75,6 +81,9 @@ export async function runProposedChecks(inputs: CheckRunInputs): Promise<readonl
         join(inputs.checksDir, `${String(records.length).padStart(2, "0")}-${slot}-${finding.id}.json`),
         `${JSON.stringify(record, null, 2)}\n`,
       );
+      // After the record is durable, so a caller cannot be told about a run
+      // that is not on disk yet.
+      inputs.onRecord?.(record);
     }
   }
   return records;

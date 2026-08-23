@@ -6,7 +6,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { runProposedChecks } from "../checks.ts";
+import { runProposedChecks, type CheckRecord } from "../checks.ts";
 import { consultPaths, type SeatVerdict } from "../consult.ts";
 import { consultId } from "../core/ids.ts";
 import { slot } from "../core/slots.ts";
@@ -17,7 +17,7 @@ import {
   open,
   problem,
   refuseUsage,
-  step,
+  transcript,
   verdict,
   type UsageScreen,
 } from "../util/ui.ts";
@@ -63,33 +63,57 @@ export async function checksCommand(
     }));
 
   open(`magi checks ${id}`);
-  // The proposals run as real subprocesses, so the wait is real: it is
-  // announced before it starts and accounted for after it ends.
-  step(`planning the checks proposed by ${opinions.length} valid seats`);
+  // The proposals run as real subprocesses, one at a time, so the wait is
+  // real. On a terminal each one keeps what it printed under its own line
+  // while it runs; down a pipe it is the two lines it has always been.
+  const runs = transcript(`planning the checks proposed by ${opinions.length} valid seats`);
   const records = await runProposedChecks({
     opinions,
     repoDir,
     path,
     checksDir: paths.checksDir,
+    onRecord: (record) => {
+      runs.ran(row(record), passed(record), printed(record));
+    },
   });
-  step(`${records.length} proposed check${records.length === 1 ? "" : "s"}`);
+  runs.done(`${records.length} proposed check${records.length === 1 ? "" : "s"}`);
 
-  for (const record of records) {
-    const label = `${slot(record.slot).label} ${record.finding}`;
-    if (record.decision === "refused") {
-      // A refusal here is the vocabulary doing its job, not a failed run, so
-      // it is a warning on stdout and never a stderr refusal.
-      verdict(`${label}: REFUSED (${sanitizeLine(record.reason ?? "", 120)})`, false);
-    } else {
-      const outcome =
-        record.outcome?.kind === "exit" ? `exit ${record.outcome.code}` : record.outcome?.kind;
-      verdict(
-        `${label}: ran [${record.argv?.join(" ")}] -> ${outcome}, ${record.durationMs} ms`,
-        true,
-      );
-    }
+  // Already said, run by run, where the runs were drawn as they happened.
+  if (!runs.drawn) {
+    for (const record of records) verdict(row(record), record.decision === "ran");
   }
   if (records.length === 0) detail("no seat-proposed checks in this consult");
   close(`records: ${paths.checksDir}`);
   return 0;
+}
+
+/**
+ * One proposal's line. A refusal here is the vocabulary doing its job, not a
+ * failed run, so it is reported on stdout beside the runs and never as a
+ * stderr refusal.
+ */
+function row(record: CheckRecord): string {
+  const label = `${slot(record.slot).label} ${record.finding}`;
+  if (record.decision === "refused") {
+    return `${label}: REFUSED (${sanitizeLine(record.reason ?? "", 120)})`;
+  }
+  const outcome =
+    record.outcome?.kind === "exit" ? `exit ${record.outcome.code}` : record.outcome?.kind;
+  return `${label}: ran [${record.argv?.join(" ")}] -> ${outcome}, ${record.durationMs} ms`;
+}
+
+/**
+ * Whether a proposal needs no further reading: it ran, and it ran clean. The
+ * piped rows keep their older and coarser split, where anything that reached a
+ * subprocess is a run and only a refusal is not; what this decides is which
+ * runs keep their output on screen, and a check that exited non-zero is
+ * exactly the one somebody opened this command for.
+ */
+function passed(record: CheckRecord): boolean {
+  return record.decision === "ran" && record.outcome?.kind === "exit" && record.outcome.code === 0;
+}
+
+/** What the run put on either stream, which is the part nobody could see. */
+function printed(record: CheckRecord): string {
+  return [record.stdout ?? "", record.stderr ?? ""].filter((text) => text !== "").join("\n");
 }
