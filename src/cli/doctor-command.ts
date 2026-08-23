@@ -31,12 +31,13 @@ import {
 } from "../doctor.ts";
 import { skillStatus } from "../skill.ts";
 import { sha256Text } from "../util/fs.ts";
+import { close, open, problem, report, step } from "../util/ui.ts";
 import { MAGI_ROOT, SKILL_SOURCE, ambient } from "./environment.ts";
 
 export async function doctorCommand(rest: readonly string[]): Promise<number> {
   const unknown = rest.find((flag) => flag !== "--live" && flag !== "--calibrate");
   if (unknown !== undefined) {
-    console.error(`unknown doctor flag: ${unknown}`);
+    problem(`unknown doctor flag: ${unknown}`);
     return 2;
   }
   const live = rest.includes("--live");
@@ -45,10 +46,12 @@ export async function doctorCommand(rest: readonly string[]): Promise<number> {
   const schemaPath = join(MAGI_ROOT, "schemas", "opinion.v1.schema.json");
   const ledgerFile = join(repoDir, ".magi", "ledger.jsonl");
 
+  open("magi doctor");
+
   // An installation that moved leaves the harness link behind, and nothing
   // else notices until the orchestrator reaches for the skill.
   const skills = SLOTS.map((definition) => skillStatus(definition.harness, home, SKILL_SOURCE));
-  const report = await staticChecks({
+  const staticReport = await staticChecks({
     skills,
     briefPath: "<consult>/brief.md",
     schemaPath,
@@ -58,23 +61,24 @@ export async function doctorCommand(rest: readonly string[]): Promise<number> {
     path,
     ledgerPath: ledgerFile,
   });
-  console.log(formatStaticReport(report));
+  report(formatStaticReport(staticReport));
 
   const consults = existsSync(ledgerFile)
     ? foldLedger(readFileSync(ledgerFile, "utf8").split("\n"))
     : [];
   const magiDir = join(repoDir, ".magi");
-  console.log(
+  report(
     formatCompleteness(completenessFromLedger(consults, gateExpectedReader(magiDir, consults))),
   );
-  console.log(formatTelemetry(skewFromLedger(consults), valueFromLedger(consults)));
-  let healthy = report.healthy;
+  report(formatTelemetry(skewFromLedger(consults), valueFromLedger(consults)));
+  let healthy = staticReport.healthy;
 
   if (live) {
     const workDir = join(repoDir, ".magi", "doctor");
     mkdirSync(workDir, { recursive: true });
+    step("live smoke: one minimal call per harness, this spends quota");
     const results = await liveSmoke({ repoDir, home, path, workDir });
-    console.log(formatSmokeResults(results));
+    report(formatSmokeResults(results));
     healthy =
       healthy && results.every((result) => result.parsed && result.canaryHits.length === 0);
   }
@@ -82,6 +86,7 @@ export async function doctorCommand(rest: readonly string[]): Promise<number> {
   if (rest.includes("--calibrate")) {
     const workDir = join(repoDir, ".magi", "doctor");
     mkdirSync(workDir, { recursive: true });
+    step("canary calibration: two rounds, six seat calls, this spends quota");
     const calibration = await calibrateCanaries({
       home,
       path,
@@ -90,7 +95,7 @@ export async function doctorCommand(rest: readonly string[]): Promise<number> {
       ledgerPath: ledgerFile,
       nonce: `magi-canary-${Date.now().toString(36)}`,
     });
-    console.log(formatCalibration(calibration));
+    report(formatCalibration(calibration));
     healthy = healthy && calibration.pass;
   }
 
@@ -101,7 +106,7 @@ export async function doctorCommand(rest: readonly string[]): Promise<number> {
     : [];
   const health = calibrationHealth({
     rows: readCalibrationRows(ledgerLines),
-    seated: report.seats.map((seat) => ({
+    seated: staticReport.seats.map((seat) => ({
       harness: SLOTS.find((definition) => definition.id === seat.slot)?.harness ?? seat.slot,
       ...(seat.cliVersion === undefined ? {} : { version: seat.cliVersion }),
     })),
@@ -117,7 +122,10 @@ export async function doctorCommand(rest: readonly string[]): Promise<number> {
     }),
     recoveryPending: existsSync(join(repoDir, ".magi", "doctor", RECOVERY_FILE)),
   });
-  console.log(formatCalibrationHealth(health));
+  report(formatCalibrationHealth(health));
   healthy = healthy && health.failures.length === 0;
+
+  close(healthy ? "healthy" : "PROBLEMS FOUND, see the reports above");
+  if (!healthy) problem("doctor found problems; the reports above name each one");
   return healthy ? 0 : 1;
 }

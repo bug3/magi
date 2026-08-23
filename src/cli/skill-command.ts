@@ -13,6 +13,7 @@ import {
   skillStatus,
   type SkillReport,
 } from "../skill.ts";
+import { close, detail, info, open, problem, step } from "../util/ui.ts";
 import { SKILL_SOURCE, ambient } from "./environment.ts";
 
 /** The council's own harnesses, in slot order. */
@@ -33,14 +34,14 @@ export function skillCommand(rest: readonly string[]): number {
     if (arg === "--harness") {
       const value = rest[at + 1];
       if (value === undefined || !isHarness(value)) {
-        console.error(`--harness needs one of: ${HARNESSES.join(", ")}`);
+        problem(`--harness needs one of: ${HARNESSES.join(", ")}`);
         return 2;
       }
       chosen.push(value);
       at += 1;
       continue;
     }
-    console.error(`unknown skill argument: ${arg}`);
+    problem(`unknown skill argument: ${arg}`);
     return 2;
   }
 
@@ -49,23 +50,27 @@ export function skillCommand(rest: readonly string[]): number {
   const targets = chosen.length > 0 ? chosen : install ? [DEFAULT_INSTALL] : HARNESSES;
 
   const name = skillName(source);
-  console.log(`skill ${name} -> ${source}`);
+  open(`magi skill ${name}`);
+  step(`skill ${name} -> ${source}`);
   const reports = targets.map((harness) =>
     install ? installSkill(harness, home, source) : skillStatus(harness, home, source),
   );
-  for (const report of reports) console.log(`  ${describe(report)}`);
+  for (const report of reports) detail(describe(report));
 
   if (!install) {
-    console.log("  --install links it; --harness picks a harness, repeat it for more");
+    close("--install links it; --harness picks a harness, repeat it for more");
     return 0;
   }
   const refused = reports.filter((report) => report.state !== "linked");
   if (refused.length === 0) {
-    console.log(`  start a new session, then /${name}, or state the decision and let it trigger`);
+    close(`start a new session, then /${name}, or state the decision and let it trigger`);
     return 0;
   }
+  // Every refusal is named before the exit code says there was one: a run that
+  // linked two harnesses and refused the third has to show which was which.
+  info(`${reports.length - refused.length} of ${reports.length} linked`);
   for (const report of refused) {
-    console.error(`refused ${report.harness}: ${report.path} is not ours to replace`);
+    problem(`refused ${report.harness}: ${report.path} is not ours to replace`);
   }
   return 1;
 }

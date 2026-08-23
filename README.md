@@ -78,7 +78,7 @@ editing your `.gitignore` for you.
   subscriptions. A seat is passed `HOME` and `PATH` and nothing else: no API
   keys, no copied credentials.
 - `.magi/` ignored by the target repository, normally through `.gitignore`.
-- Zero runtime dependencies.
+- One runtime dependency, `@clack/prompts`, which draws the command line.
 
 ## Install
 
@@ -307,8 +307,9 @@ and proceeds only on your explicit decision.
 
 ## Development
 
-Node is pinned through mise, and `npm install` pulls dev dependencies only
-(`typescript`, `@types/node`, `publish-preflight`):
+Node is pinned through mise. `npm install` pulls the one runtime dependency,
+`@clack/prompts`, plus the dev ones (`typescript`, `@types/node`,
+`publish-preflight`); every version is pinned exact:
 
 ```
 mise install
@@ -321,6 +322,15 @@ npm run check
 on your PATH in place of the published one, and `node bin/magi.js` works just
 as well. If `npm run check` cannot find its test files, the shell is
 resolving an older `node` than the pinned one.
+
+`test/e2e/` runs each command the way a user runs it: a spawned
+`bin/magi.js`, a temporary repository, a temporary `HOME`, and a `PATH`
+holding nothing but that workspace. The three harness CLIs are stubs
+installed under the names the launch profiles resolve, so a review really
+convenes, really parses three different envelope shapes and really gates the
+answers, while no subscription is spent. The sealed `PATH` is the point: a
+workspace directory merely put in front of your own would let a test that
+expects a missing harness find the real one instead.
 
 ## Documentation
 
