@@ -13,7 +13,7 @@ import {
   skillStatus,
   type SkillReport,
 } from "../skill.ts";
-import { close, detail, info, open, problem, step } from "../util/ui.ts";
+import { approve, choose, close, detail, info, open, problem, step } from "../util/ui.ts";
 import { SKILL_SOURCE, ambient } from "./environment.ts";
 
 /** The council's own harnesses, in slot order. */
@@ -22,7 +22,10 @@ const HARNESSES: readonly Harness[] = SLOTS.map((definition) => definition.harne
 /** Installing without naming a harness targets the documented orchestrator. */
 const DEFAULT_INSTALL: Harness = "claude";
 
-export function skillCommand(rest: readonly string[]): number {
+/** What the shell reports for a command a person stopped rather than answered. */
+const CANCELLED = 130;
+
+export async function skillCommand(rest: readonly string[]): Promise<number> {
   let install = false;
   const chosen: Harness[] = [];
   for (let at = 0; at < rest.length; at += 1) {
@@ -47,14 +50,35 @@ export function skillCommand(rest: readonly string[]): number {
 
   const { home } = ambient();
   const source = SKILL_SOURCE;
-  const targets = chosen.length > 0 ? chosen : install ? [DEFAULT_INSTALL] : HARNESSES;
-
   const name = skillName(source);
   open(`magi skill ${name}`);
   step(`skill ${name} -> ${source}`);
-  const reports = targets.map((harness) =>
-    install ? installSkill(harness, home, source) : skillStatus(harness, home, source),
-  );
+
+  // Installing without naming a harness has always gone to the documented
+  // orchestrator. On a terminal the same run asks first, because there are
+  // three and picking one is the user's call; everywhere else the answer is
+  // the one it has always been.
+  let targets = chosen.length > 0 ? chosen : install ? [DEFAULT_INSTALL] : HARNESSES;
+  if (install && chosen.length === 0) {
+    const picked = await choose(
+      "which harness gets the skill?",
+      HARNESSES.map((harness) => ({ value: harness, label: harness })),
+      DEFAULT_INSTALL,
+    );
+    if (picked.cancelled) return CANCELLED;
+    targets = [picked.value];
+  }
+
+  const reports: SkillReport[] = [];
+  for (const harness of targets) {
+    if (!install) {
+      reports.push(skillStatus(harness, home, source));
+      continue;
+    }
+    const settled = await installOne(harness, home, source);
+    if (settled === undefined) return CANCELLED;
+    reports.push(settled);
+  }
   for (const report of reports) detail(describe(report));
 
   if (!install) {
@@ -73,6 +97,30 @@ export function skillCommand(rest: readonly string[]): number {
     problem(`refused ${report.harness}: ${report.path} is not ours to replace`);
   }
   return 1;
+}
+
+/**
+ * One harness, installed. A path this installation did not fill belongs to
+ * somebody else, and the only thing that may replace it is a person at a
+ * terminal saying so: off one, and on `--yes` just the same, it is reported
+ * and left exactly as it was. Returns nothing where the question was
+ * cancelled rather than answered.
+ */
+async function installOne(
+  harness: Harness,
+  home: string,
+  source: string,
+): Promise<SkillReport | undefined> {
+  const before = skillStatus(harness, home, source);
+  if (before.state !== "foreign") return installSkill(harness, home, source);
+
+  const occupant = before.occupant === undefined ? "something else" : before.occupant;
+  const replace = await approve(`${before.path} holds ${occupant}; replace it?`, {
+    otherwise: false,
+  });
+  if (replace.cancelled) return undefined;
+  if (!replace.value) return before;
+  return installSkill(harness, home, source, { replaceForeign: true });
 }
 
 function describe(report: SkillReport): string {

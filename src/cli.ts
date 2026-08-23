@@ -28,14 +28,14 @@ const HELP: readonly string[] = ["help", "--help"];
 const VERSION: readonly string[] = ["--version", "-v"];
 
 export const COMMAND_USAGE = `usage:
-  magi doctor [--live] [--calibrate]
+  magi doctor [--live] [--calibrate] [--yes]
   magi skill  [--harness <claude|codex|grok>]... [--install]
   magi plan   --brief <file> [--slug <slug>] [--excerpt <path[:start-end]>]...
               [--test-output <file>] [--waive-headroom] [--waive-backfill]
-              [--dry-run]
+              [--dry-run] [--yes]
   magi review --brief <file> [--slug <slug>] [--base <ref>] [--patch <file>]
               [--excerpt <path[:start-end]>]... [--test-output <file>]
-              [--waive-headroom] [--waive-backfill] [--dry-run]
+              [--waive-headroom] [--waive-backfill] [--dry-run] [--yes]
   magi checks <consult-id>
   magi triggers [--base <ref>]
   magi help | --help
@@ -57,7 +57,9 @@ doctor --calibrate is the owner-approved canary calibration for CLI
 updates: it spends quota (two rounds, six seat calls), briefly writes a
 nonce into each ambient config layer and restores every layer after,
 asserts the nonce surfaces without isolation and stays out with it, and
-records both directions in the ledger.`,
+records both directions in the ledger.
+Both spending flags ask once before they spend, on a terminal; --yes skips
+that question and a pipe is never asked.`,
   },
   {
     title: "skill",
@@ -66,7 +68,10 @@ records both directions in the ledger.`,
 cannot drift. Installing leaves a marker beside the link naming the source it
 claims, and only a link that marker still claims is repointed later; a link
 nobody here made, a real file or a directory is reported and left exactly as
-it was. Without --harness it reports all three and installs for claude.`,
+it was, and at a terminal the run asks once before replacing it: no flag
+answers that question, because overwriting somebody else's file needs a
+person. Without --harness it asks which harness at a terminal and installs
+for claude anywhere else.`,
   },
   {
     title: "plan and review",
@@ -86,7 +91,9 @@ preflight lists consults whose findings still lack ledger dispositions
 and refuses when one is overdue; --waive-backfill is the matching
 override, also recorded. --dry-run does everything a consult does except
 spend it: curation, both gates and both preflights run, what would be sent
-is reported, and nothing is convened.`,
+is reported, and nothing is convened. A terminal is asked once before the
+fan-out spends anything; --yes skips the question, --dry-run is never asked,
+and down a pipe the invocation is the approval.`,
   },
   {
     title: "checks",

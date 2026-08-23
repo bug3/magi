@@ -31,16 +31,23 @@ import {
 } from "../doctor.ts";
 import { skillStatus } from "../skill.ts";
 import { sha256Text } from "../util/fs.ts";
-import { close, open, problem, report, waiting } from "../util/ui.ts";
+import { approve, close, info, open, problem, report, waiting } from "../util/ui.ts";
 import { MAGI_ROOT, SKILL_SOURCE, ambient } from "./environment.ts";
 
+/** Every flag doctor takes, as the set the refusal is derived from. */
+const FLAGS: ReadonlySet<string> = new Set(["--live", "--calibrate", "--yes"]);
+
+/** What the shell reports for a command a person stopped rather than answered. */
+const CANCELLED = 130;
+
 export async function doctorCommand(rest: readonly string[]): Promise<number> {
-  const unknown = rest.find((flag) => flag !== "--live" && flag !== "--calibrate");
+  const unknown = rest.find((flag) => !FLAGS.has(flag));
   if (unknown !== undefined) {
     problem(`unknown doctor flag: ${unknown}`);
     return 2;
   }
-  const live = rest.includes("--live");
+  let live = rest.includes("--live");
+  let calibrate = rest.includes("--calibrate");
   const repoDir = process.cwd();
   const { home, path } = ambient();
   const schemaPath = join(MAGI_ROOT, "schemas", "opinion.v1.schema.json");
@@ -73,6 +80,29 @@ export async function doctorCommand(rest: readonly string[]): Promise<number> {
   report(formatTelemetry(skewFromLedger(consults), valueFromLedger(consults)));
   let healthy = staticReport.healthy;
 
+  // Both spending flags, asked once. Asked here rather than at the top so a
+  // decline still leaves the free reports on screen, which is the whole
+  // command minus the part that costs.
+  if (live || calibrate) {
+    const spends = [
+      live ? "one minimal call per harness" : undefined,
+      calibrate ? "two rounds of six seat calls" : undefined,
+    ].filter((what) => what !== undefined);
+    const go = await approve(`this spends quota: ${spends.join(", and ")}. go ahead?`, {
+      otherwise: true,
+      skip: rest.includes("--yes"),
+    });
+    if (go.cancelled) return CANCELLED;
+    if (!go.value) {
+      // Not a refusal and not a problem: the user declined a spend, and the
+      // reports that did run are still what they say they are. Reporting 1
+      // here would tell a script doctor found something, which it did not.
+      info("declined: nothing was spent, and the checks above are the free ones");
+      live = false;
+      calibrate = false;
+    }
+  }
+
   if (live) {
     const workDir = join(repoDir, ".magi", "doctor");
     mkdirSync(workDir, { recursive: true });
@@ -84,7 +114,7 @@ export async function doctorCommand(rest: readonly string[]): Promise<number> {
       healthy && results.every((result) => result.parsed && result.canaryHits.length === 0);
   }
 
-  if (rest.includes("--calibrate")) {
+  if (calibrate) {
     const workDir = join(repoDir, ".magi", "doctor");
     mkdirSync(workDir, { recursive: true });
     const calibration = await waiting(

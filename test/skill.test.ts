@@ -84,6 +84,21 @@ test("a directory this command did not create is reported, never replaced", () =
   assert.equal(readFileSync(join(occupied, "SKILL.md"), "utf8"), "someone else's skill\n");
 });
 
+test("a stranger's directory is replaced only when the caller was told to", () => {
+  // The one thing that may overwrite somebody else's file is a person at a
+  // terminal answering a question, and this is what the answer reaches. An
+  // occupant can be a whole directory, which the removal a stale link needs
+  // will not take, so the two cases are not the same removal.
+  const { home, source } = world();
+  const occupied = join(home, ".grok", "skills", "magi");
+  mkdirSync(occupied, { recursive: true });
+  writeFileSync(join(occupied, "SKILL.md"), "someone else's skill\n");
+
+  const report = installSkill("grok", home, source, { replaceForeign: true });
+  assert.equal(report.state, "linked");
+  assert.equal(readlinkSync(occupied), source);
+});
+
 test("a link pointing somewhere else is foreign, and its target is named", () => {
   const { home, source } = world();
   const elsewhere = mkdtempSync(join(tmpdir(), "magi-other-"));

@@ -24,6 +24,11 @@ export interface ReviewArgs {
    * preflights, report what would be sent, and stop before the fan-out.
    */
   readonly dryRun: boolean;
+  /**
+   * Do not ask before spending. Only ever skips a question, never answers one
+   * that falls through to no: nothing here can be unlocked by a flag.
+   */
+  readonly yes: boolean;
 }
 
 /** "path" or "path:12-40"; a trailing colon segment that is not N-N is path. */
@@ -50,6 +55,7 @@ export function parseReviewArgs(
   let waiveHeadroom = false;
   let waiveBackfill = false;
   let dryRun = false;
+  let yes = false;
   const excerpts: ExcerptRequest[] = [];
 
   for (let at = 0; at < argv.length; at += 1) {
@@ -88,6 +94,9 @@ export function parseReviewArgs(
       case "--dry-run":
         dryRun = true;
         break;
+      case "--yes":
+        yes = true;
+        break;
       default:
         throw new Error(`unknown flag: ${flag}`);
     }
@@ -104,6 +113,7 @@ export function parseReviewArgs(
     waiveHeadroom,
     waiveBackfill,
     dryRun,
+    yes,
     ...(patchFile === undefined ? {} : { patchFile }),
     ...(base === undefined ? {} : { base }),
     ...(testOutputFile === undefined ? {} : { testOutputFile }),

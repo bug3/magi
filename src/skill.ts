@@ -128,21 +128,40 @@ export function skillStatus(harness: Harness, home: string, source: string): Ski
   return { harness, path, state: "linked" };
 }
 
+export interface InstallOptions {
+  /**
+   * Replace an occupant this installation did not put there. Only ever set
+   * from a person answering a question at a terminal: the caller asks, this
+   * does what it is told, and nothing off a terminal can set it.
+   */
+  readonly replaceForeign?: boolean;
+}
+
 /**
  * Links the skill into one harness and reports what stands afterwards.
  * A dangling link holds nothing and a stale one is this tool's own, so both
  * are replaced; a real file, directory or foreign link belongs to someone
- * else and is left exactly as it was.
+ * else and is left exactly as it was unless the caller has been told
+ * otherwise, once, by a person.
  *
  * The marker is written on every run that leaves our link standing, already
  * linked included, so a link an older version left unclaimed is adopted here
  * rather than reading as a stranger's the next time this installation moves.
  */
-export function installSkill(harness: Harness, home: string, source: string): SkillReport {
+export function installSkill(
+  harness: Harness,
+  home: string,
+  source: string,
+  options: InstallOptions = {},
+): SkillReport {
   const before = skillStatus(harness, home, source);
-  if (before.state === "foreign") return before;
+  const replacing = before.state === "foreign" && options.replaceForeign === true;
+  if (before.state === "foreign" && !replacing) return before;
   if (before.state !== "linked") {
-    if (skillRepairable(before)) rmSync(before.path);
+    // A stranger's occupant can be a whole directory, which the plain removal
+    // a dangling or stale link needs will not take.
+    if (replacing) rmSync(before.path, { recursive: true, force: true });
+    else if (skillRepairable(before)) rmSync(before.path);
     mkdirSync(dirname(before.path), { recursive: true });
     symlinkSync(source, before.path);
   }

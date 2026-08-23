@@ -26,7 +26,8 @@ approves every convene, so a wrong pick is caught before quota is spent.
 ## Protocol
 
 1. **Approval and state.** No approval, no consult. Direct invocation is the
-   CLI-level approval because there is no interactive confirmation. Before
+   CLI-level approval: down a pipe there is no interactive confirmation, and
+   at a terminal the CLI additionally asks once before it spends. Before
    invoking, ensure `.magi/` is untracked and ignored; MAGI refuses a Git
    repository where either condition fails. The preflight prints an estimated
    token burn and disposition lag before any seat call, and refuses by default

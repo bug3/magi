@@ -23,6 +23,7 @@ function args(over: Partial<ReviewArgs> & { briefFile: string }): ReviewArgs {
     waiveHeadroom: false,
     waiveBackfill: false,
     dryRun: false,
+    yes: false,
     ...over,
   };
 }

@@ -157,3 +157,28 @@ test("a token the catalog does not name is an invocation error", async () => {
     assert.equal(await quietMain([word]), 2, `${word} is refused as exit 2`);
   }
 });
+
+test("the flag that says not to ask is a flag, and only that", () => {
+  // It skips a question that already falls through to yes. Nothing it can be
+  // passed to falls through to no, so there is nothing here for it to unlock.
+  const asked = parseReviewArgs(["--brief", "b.md"]);
+  const told = parseReviewArgs(["--brief", "b.md", "--yes"]);
+
+  assert.equal(asked.yes, false);
+  assert.equal(told.yes, true);
+  assert.throws(() => parseReviewArgs(["--brief", "b.md", "--yes-really"]), /unknown flag/u);
+});
+
+test("every flag the usage block offers is a flag the parser takes", () => {
+  // The drift this tool holds three harness CLIs to, asserted on itself: a
+  // flag printed and not accepted is a documented invocation that exits 2.
+  const printed = [...COMMAND_USAGE.matchAll(/--[a-z-]+/gu)].map((match) => match[0]);
+  const consult = new Set(printed.filter((flag) => flag !== "--help" && flag !== "--version"));
+  for (const flag of ["--yes", "--dry-run", "--waive-headroom", "--waive-backfill"]) {
+    assert.ok(consult.has(flag), `${flag} is offered by the usage block`);
+    assert.doesNotThrow(
+      () => parseReviewArgs(["--brief", "b.md", flag]),
+      `${flag} is offered and must be taken`,
+    );
+  }
+});

@@ -28,6 +28,7 @@ import { gitText } from "../runtime/git.ts";
 import { sanitizeLine } from "../util/text.ts";
 import {
   announce,
+  approve,
   close,
   detail,
   info,
@@ -44,6 +45,9 @@ import {
 import { parseReviewArgs, type ReviewArgs } from "./args.ts";
 import { checkInputs, emptyReviewTarget } from "./consult-inputs.ts";
 import { MAGI_ROOT, ambient } from "./environment.ts";
+
+/** What the shell reports for a command a person stopped rather than answered. */
+const CANCELLED = 130;
 
 /** What git has never been told about, so no delta can carry it. */
 async function untrackedPaths(repoDir: string): Promise<readonly string[]> {
@@ -159,6 +163,22 @@ export async function consultCommand(
     );
     close("nothing was spent; drop --dry-run to convene");
     return 0;
+  }
+
+  // Everything above refuses for free, and `--dry-run` has already returned.
+  // This is the last line before any quota is spent, so it is where the
+  // question goes. Down a pipe there is no question: invoking the command is
+  // the approval, which is what `skills/magi/SKILL.md` has always said, and a
+  // consult that stopped to ask there would hang the caller MAGI was built
+  // for.
+  const go = await approve(`convene ${SLOTS.length} seats on this ${mode}? this spends quota`, {
+    otherwise: true,
+    skip: args.yes,
+  });
+  if (go.cancelled) return CANCELLED;
+  if (!go.value) {
+    close("declined: nothing was convened and nothing was spent");
+    return 1;
   }
 
   // The fan-out is three harness processes answering at once, and it is the

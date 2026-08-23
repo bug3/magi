@@ -177,14 +177,14 @@ the ledger.
 
 ```
 usage:
-  magi doctor [--live] [--calibrate]
+  magi doctor [--live] [--calibrate] [--yes]
   magi skill  [--harness <claude|codex|grok>]... [--install]
   magi plan   --brief <file> [--slug <slug>] [--excerpt <path[:start-end]>]...
               [--test-output <file>] [--waive-headroom] [--waive-backfill]
-              [--dry-run]
+              [--dry-run] [--yes]
   magi review --brief <file> [--slug <slug>] [--base <ref>] [--patch <file>]
               [--excerpt <path[:start-end]>]... [--test-output <file>]
-              [--waive-headroom] [--waive-backfill] [--dry-run]
+              [--waive-headroom] [--waive-backfill] [--dry-run] [--yes]
   magi checks <consult-id>
   magi triggers [--base <ref>]
   magi help | --help
@@ -194,6 +194,27 @@ usage:
 `--slug` is optional and defaults to the mode name. `--base` and `--patch`
 are review-only. `--excerpt` is additive commentary: it can add context, but
 it cannot remove the rule-derived floor or narrow the patch-derived scope.
+
+### On a terminal, and down a pipe
+
+How much MAGI draws is decided once, on whether a person is looking. A
+terminal gets framed reports, a timer over the long waits, folded subprocess
+output, and a question where there is a decision to make. A pipe gets the
+plain text it has always been given, because `--version` is parsed, the usage
+block is copied out, and MAGI's own check transcript travels in every evidence
+pack. CI counts as a pipe, and so does a terminal too narrow to frame a block.
+
+Interaction is never required. Every question carries the answer it takes when
+nobody can be asked, and the two directions are not the same:
+
+- Spending quota falls through to yes. Invoking the command is the approval,
+  which is what makes MAGI drivable from a pipeline; `--yes` skips the
+  question a terminal would ask.
+- Replacing something this installation did not put there falls through to no,
+  and no flag unlocks it. That one needs a person at a terminal.
+
+Cancelling a question is not a no: it ends the command at 130, the same as
+interrupting a wait.
 
 ### `skill`
 
