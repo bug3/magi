@@ -27,8 +27,13 @@ import {
 } from "../../src/util/ui.ts";
 import { capture } from "../support/capture.ts";
 
-/** Any escape sequence at all: a cursor move begins with one of these. */
-const ESCAPE = /\[/u;
+/**
+ * An escape sequence, which is how every cursor move begins. Matched on the
+ * control character and not on the bracket alone: a bare bracket is ordinary
+ * text, and a message carrying one ("ran [git status]") would otherwise fail
+ * this suite on a machine where nothing was wrong.
+ */
+const ESCAPE = /\u001B\[/u;
 
 test("a result goes to stdout and never to stderr", async () => {
   const { out, err } = await capture(() => {
