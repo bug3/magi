@@ -31,7 +31,7 @@ import {
 } from "../doctor.ts";
 import { skillStatus } from "../skill.ts";
 import { sha256Text } from "../util/fs.ts";
-import { close, open, problem, report, step } from "../util/ui.ts";
+import { close, open, problem, report, waiting } from "../util/ui.ts";
 import { MAGI_ROOT, SKILL_SOURCE, ambient } from "./environment.ts";
 
 export async function doctorCommand(rest: readonly string[]): Promise<number> {
@@ -76,8 +76,9 @@ export async function doctorCommand(rest: readonly string[]): Promise<number> {
   if (live) {
     const workDir = join(repoDir, ".magi", "doctor");
     mkdirSync(workDir, { recursive: true });
-    step("live smoke: one minimal call per harness, this spends quota");
-    const results = await liveSmoke({ repoDir, home, path, workDir });
+    const results = await waiting("live smoke: one minimal call per harness, this spends quota", () =>
+      liveSmoke({ repoDir, home, path, workDir }),
+    );
     report(formatSmokeResults(results));
     healthy =
       healthy && results.every((result) => result.parsed && result.canaryHits.length === 0);
@@ -86,15 +87,18 @@ export async function doctorCommand(rest: readonly string[]): Promise<number> {
   if (rest.includes("--calibrate")) {
     const workDir = join(repoDir, ".magi", "doctor");
     mkdirSync(workDir, { recursive: true });
-    step("canary calibration: two rounds, six seat calls, this spends quota");
-    const calibration = await calibrateCanaries({
-      home,
-      path,
-      repoDir,
-      workDir,
-      ledgerPath: ledgerFile,
-      nonce: `magi-canary-${Date.now().toString(36)}`,
-    });
+    const calibration = await waiting(
+      "canary calibration: two rounds, six seat calls, this spends quota",
+      () =>
+        calibrateCanaries({
+          home,
+          path,
+          repoDir,
+          workDir,
+          ledgerPath: ledgerFile,
+          nonce: `magi-canary-${Date.now().toString(36)}`,
+        }),
+    );
     report(formatCalibration(calibration));
     healthy = healthy && calibration.pass;
   }

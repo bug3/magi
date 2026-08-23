@@ -43,6 +43,7 @@ export {
   verdict,
   warn,
 } from "./ui/write.ts";
+export { announce, waiting, type Wait } from "./ui/progress.ts";
 export { report } from "./ui/report.ts";
 export {
   refuseUsage,

@@ -10,6 +10,7 @@ import { join } from "node:path";
 
 import {
   NON_PACK_FENCE_BUDGET_LINES,
+  type ConsultRunResult,
   estimateBriefTokens,
   foldLedger,
   formatHeadroomReport,
@@ -26,6 +27,7 @@ import { buildEvidencePack } from "../evidence/pack.ts";
 import { gitText } from "../runtime/git.ts";
 import { sanitizeLine } from "../util/text.ts";
 import {
+  announce,
   close,
   detail,
   info,
@@ -37,6 +39,7 @@ import {
   verdict,
   warn,
   type UsageScreen,
+  type Wait,
 } from "../util/ui.ts";
 import { parseReviewArgs, type ReviewArgs } from "./args.ts";
 import { checkInputs, emptyReviewTarget } from "./consult-inputs.ts";
@@ -158,47 +161,58 @@ export async function consultCommand(
     return 0;
   }
 
-  const result = await runConsult({
-    mode,
-    repoDir,
-    magiDir,
-    slug: args.slug,
-    briefMd,
-    evidence: { excerpts: args.excerpts },
-    curated,
-    templatePath,
-    schemaPath,
-    home,
-    path,
-    headroom: { ...headroom, ...(args.waiveHeadroom ? { waived: true } : {}) },
-    // Exclusions and fence residue surface before any seat is spawned, and
-    // the announcement comes last so what the fan-out is about is the line
-    // still on screen while it runs.
-    beforeFanOut: (evidence, fences) => {
-      for (const exclusion of evidence.exclusions) {
-        detail(`excluded from the pack: ${exclusion.path} (${exclusion.reason})`);
-      }
-      if (fences.nonPackLines > 0) {
-        detail(
-          `brief fences: ${fences.nonPackLines} non-pack lines ` +
-            `(budget ${NON_PACK_FENCE_BUDGET_LINES}, hashed in the manifest)`,
-        );
-      }
-      step(`convening ${SLOTS.length} seats, blind and in parallel`);
-    },
-    ...(overdue.length === 0
-      ? {}
-      : {
-          completeness: {
-            overdue: overdue.map((entry) => ({
-              consult: entry.consult,
-              undispositioned: entry.missing.length,
-              expected: entry.expected,
-            })),
-            ...(args.waiveBackfill ? { waived: true } : {}),
-          },
-        }),
-  });
+  // The fan-out is three harness processes answering at once, and it is the
+  // one wait here long enough to read as a hang. It cannot be wrapped from the
+  // outside: what it waits on begins inside the runner, after curation, at the
+  // callback below. So the wait is opened there and closed in a `finally`,
+  // because an open wait holds an exit guard that rewrites a zero exit.
+  let fanOut: Wait | undefined;
+  let result: ConsultRunResult;
+  try {
+    result = await runConsult({
+      mode,
+      repoDir,
+      magiDir,
+      slug: args.slug,
+      briefMd,
+      evidence: { excerpts: args.excerpts },
+      curated,
+      templatePath,
+      schemaPath,
+      home,
+      path,
+      headroom: { ...headroom, ...(args.waiveHeadroom ? { waived: true } : {}) },
+      // Exclusions and fence residue surface before any seat is spawned, and
+      // the announcement comes last so what the fan-out is about is the line
+      // still on screen while it runs.
+      beforeFanOut: (evidence, fences) => {
+        for (const exclusion of evidence.exclusions) {
+          detail(`excluded from the pack: ${exclusion.path} (${exclusion.reason})`);
+        }
+        if (fences.nonPackLines > 0) {
+          detail(
+            `brief fences: ${fences.nonPackLines} non-pack lines ` +
+              `(budget ${NON_PACK_FENCE_BUDGET_LINES}, hashed in the manifest)`,
+          );
+        }
+        fanOut = announce(`convening ${SLOTS.length} seats, blind and in parallel`);
+      },
+      ...(overdue.length === 0
+        ? {}
+        : {
+            completeness: {
+              overdue: overdue.map((entry) => ({
+                consult: entry.consult,
+                undispositioned: entry.missing.length,
+                expected: entry.expected,
+              })),
+              ...(args.waiveBackfill ? { waived: true } : {}),
+            },
+          }),
+    });
+  } finally {
+    fanOut?.done();
+  }
 
   // The run's own identity, printed unconditionally: everything downstream,
   // `magi checks` included, is addressed by this id.

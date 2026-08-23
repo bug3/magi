@@ -1,12 +1,12 @@
 /**
  * The rules `src/util/ui.ts` states, asserted rather than described.
  *
- * The decoration itself is not asserted anywhere here. Which symbol clack
- * draws depends on the terminal's unicode support and on clack's own version,
- * so a test that pinned one would fail on a machine where nothing was wrong.
- * What is pinned is the part a caller depends on: which stream a line lands
- * on, that a machine-read line carries nothing around it, and that nothing
- * this module writes moves a cursor.
+ * Which symbols the renderer draws is not asserted anywhere here. They depend
+ * on the terminal's unicode support and on the renderer's version, so a test
+ * that pinned one would fail on a machine where nothing was wrong. What is
+ * pinned is what a caller depends on: which stream a line lands on, that a
+ * machine-read line carries nothing around it, that a pipe is written to as it
+ * always was, and that a terminal gets more than a pipe does.
  */
 
 import assert from "node:assert/strict";
@@ -88,12 +88,11 @@ test("what a machine reads carries no bar, no symbol and no colour", async () =>
   assert.equal(err, "usage:\n  magi doctor\n");
 });
 
-test("nothing this module writes moves a cursor, on either stream", async () => {
+test("nothing reaches a pipe that moves a cursor, on either stream", async () => {
   // A redraw is invisible on a terminal and is litter in a pipe, and MAGI's
-  // output is read by an orchestrating assistant through one. It is also how
-  // a spinner would come back: clack draws one by seizing stdin and calling
-  // process.exit(0) on the cancel key, which turns an interrupted fan-out
-  // into a reported success. So the rule is asserted over every writer here.
+  // output is read by an orchestrating assistant through one and carried into
+  // evidence packs. The terminal is where the drawing goes; this is the rule
+  // for everything else, asserted over every writer at once.
   const { out, err } = await capture(() => {
     open("magi review");
     step("convening 3 seats, blind and in parallel");
