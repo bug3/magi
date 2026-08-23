@@ -345,3 +345,32 @@ test("a terminal is shown what a check printed when the check did not pass", asy
     assert.ok(settled.includes(row), `${row} is still on screen when the log has settled`);
   }
 });
+
+test("a terminal that will not say how wide it is is not drawn to", async () => {
+  // Absent is not eighty. Taking a missing width as the renderer's own default
+  // framed a block at a width the terminal had never claimed, while this
+  // module's own documentation said such a terminal gets the flat rendering.
+  const unsaid = await capture(() => decorated(), { tty: true, columns: "unsaid" });
+  const zero = await capture(() => decorated(), { tty: true, columns: 0 });
+  const said = await capture(() => decorated(), { tty: true, columns: 80 });
+
+  assert.equal(unsaid.result, false, "a width nobody claimed is not a width");
+  assert.equal(zero.result, false);
+  assert.equal(said.result, true);
+});
+
+test("a terminal too narrow to frame a block still has a person on it", async () => {
+  // Asking is not drawing. The width floor is about frames, and reusing it as
+  // the ask predicate meant a person in an ordinary narrow split was never
+  // asked: a run that spends quota fell through to yes with somebody sitting
+  // right there. Measured: the renderer's prompts draw and answer correctly at
+  // every width, including a terminal reporting none, which is exactly where
+  // its framed blocks throw.
+  const narrow = await capture(
+    () => ({ drawn: decorated(), asked: interactive() }),
+    { tty: true, columns: 40, inputTty: true },
+  );
+
+  assert.equal(narrow.result.drawn, false, "no frame fits");
+  assert.equal(narrow.result.asked, true, "the question still does");
+});

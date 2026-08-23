@@ -60,7 +60,7 @@ export function inStream(): Readable {
 }
 
 /**
- * The narrowest terminal still worth drawing to.
+ * The narrowest terminal still worth drawing a frame in.
  *
  * Below it the framed blocks come apart: the usage table stops being
  * copy-pasteable once it wraps, and prose wrapped into a box two characters
@@ -73,13 +73,18 @@ export function inStream(): Readable {
 const NARROWEST = 60;
 
 /**
- * How wide the drawing may be. A stream that does not say is taken as eighty,
- * which is what the renderer itself assumes; one that says zero is taken at
- * its word and fails the floor above.
+ * How wide the stream says it is, or nothing where it will not say.
+ *
+ * Absent is not eighty. Taking a missing width as the renderer's own default
+ * drew a framed block at an assumed width on a terminal that had never
+ * claimed one, which is the opposite of what this module documents: a
+ * terminal that will not say how wide it is gets the rendering that fits any
+ * width. Zero, negative and non-finite are the same case by another spelling.
  */
-export function columns(stream: Writable = streams.out): number {
+export function columns(stream: Writable = streams.out): number | undefined {
   const declared = (stream as { columns?: number }).columns;
-  return typeof declared === "number" ? declared : 80;
+  if (typeof declared !== "number" || !Number.isFinite(declared) || declared <= 0) return undefined;
+  return declared;
 }
 
 /**
@@ -91,16 +96,25 @@ export function columns(stream: Writable = streams.out): number {
  * a run with stdout piped and stderr on the terminal still draws the refusal.
  */
 export function decorated(stream: Writable = streams.out): boolean {
-  return !isCI() && isTTY(stream) && columns(stream) >= NARROWEST;
+  const wide = columns(stream);
+  return !isCI() && isTTY(stream) && wide !== undefined && wide >= NARROWEST;
 }
 
 /**
- * Whether a question may be asked. Stricter than `decorated`, and it has to
- * be: a prompt that draws with nowhere to read from hangs forever, and MAGI's
- * caller is a pipeline. Both ends are checked, and every prompt in this module
- * carries a default it falls through to when this is false.
+ * Whether a question may be asked. Both ends are checked, because a prompt
+ * drawn with nowhere to read from hangs until the pipeline gives up, and
+ * MAGI's caller is a pipeline. Every prompt in this module carries the answer
+ * it falls through to when this is false.
+ *
+ * Deliberately not `decorated`. Asking is not drawing, and the width floor
+ * above is about frames: reusing it here meant a person in an ordinary narrow
+ * split was never asked, and a run that spends quota fell through to yes on a
+ * terminal with somebody sitting at it. Measured rather than assumed: the
+ * renderer's `confirm` and `select` draw and answer correctly at every width
+ * down to a terminal reporting none at all, which is exactly where `box`
+ * throws.
  */
 export function interactive(): boolean {
   const input = inStream() as { isTTY?: boolean };
-  return decorated(streams.out) && input.isTTY === true;
+  return !isCI() && isTTY(streams.out) && input.isTTY === true;
 }

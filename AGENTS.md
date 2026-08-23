@@ -69,8 +69,10 @@ the branch and the tag together, then draw a GitHub release from that tag.
   and MAGI's own check transcript travels in every evidence pack. CI counts as
   a pipe, and so does a terminal too narrow to frame a block or one that will
   not say how wide it is.
-- Interaction is never required. MAGI is driven by an orchestrating assistant
-  through a pipe, so every question states the answer it falls through to.
+- Interaction is never required, and asking is not drawing: a terminal too
+  narrow to frame a block is still a terminal with a person at it, and is
+  still asked. MAGI is driven by an orchestrating assistant through a pipe, so
+  every question states the answer it falls through to.
   Spending quota falls through to yes, because invoking the command is the
   approval, and `--yes` skips the question a terminal would ask; replacing
   something this installation did not put there falls through to no, and no

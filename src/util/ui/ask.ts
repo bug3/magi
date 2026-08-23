@@ -41,15 +41,19 @@ export interface Fallthrough {
   /** The answer where nobody can be asked. Stated, never assumed. */
   readonly otherwise: boolean;
   /**
-   * The user answered on the command line already. Only a question that falls
-   * through to yes may be skipped this way: a flag on a pipe is not a person.
+   * The user said on the command line not to ask. It means exactly that and
+   * never "yes": the answer is still the one the question falls through to,
+   * so `--yes` skips a spend question that already falls through to yes, and
+   * a skip on the replace question would still be no. A flag on a pipe is not
+   * a person, and this is what keeps that structural rather than a rule about
+   * which call sites remember to pass it.
    */
   readonly skip?: boolean;
 }
 
 /** Ask to go ahead. */
 export async function approve(question: string, fall: Fallthrough): Promise<Answer<boolean>> {
-  if (fall.skip === true) return { cancelled: false, value: true };
+  if (fall.skip === true) return { cancelled: false, value: fall.otherwise };
   if (!interactive()) return { cancelled: false, value: fall.otherwise };
 
   const input = inStream();

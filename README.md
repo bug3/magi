@@ -202,10 +202,13 @@ terminal gets framed reports, a timer over the long waits, folded subprocess
 output, and a question where there is a decision to make. A pipe gets the
 plain text it has always been given, because `--version` is parsed, the usage
 block is copied out, and MAGI's own check transcript travels in every evidence
-pack. CI counts as a pipe, and so does a terminal too narrow to frame a block.
+pack. CI counts as a pipe, and so does a terminal too narrow to frame a block
+or one that will not say how wide it is.
 
-Interaction is never required. Every question carries the answer it takes when
-nobody can be asked, and the two directions are not the same:
+Interaction is never required. Asking is not drawing, though: a narrow
+terminal gets the flat rendering and still gets the question, because there is
+a person at it. Every question carries the answer it takes when nobody can be
+asked, and the two directions are not the same:
 
 - Spending quota falls through to yes. Invoking the command is the approval,
   which is what makes MAGI drivable from a pipeline; `--yes` skips the

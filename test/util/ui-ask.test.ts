@@ -64,14 +64,26 @@ test("a terminal with nothing to type at is not a terminal for this", async () =
   assert.equal(answer.out, "");
 });
 
-test("the flag that says not to ask skips the question, at a terminal too", async () => {
-  const answer = await capture(
+test("the flag that says not to ask means that, and never means yes", async () => {
+  // It skips the question and takes the answer the question already falls
+  // through to. Spending falls through to yes, so `--yes` is yes; the replace
+  // question falls through to no, so a skip there would still be no. Returning
+  // true outright would have made a single `skip: true` at that call site
+  // unlock a replacement no flag can reach, which is the lock this keeps
+  // structural rather than a rule about who remembers not to pass it.
+  const spend = await capture(
     () => approve("convene 3 seats?", { otherwise: true, skip: true }),
     { tty: true, input: typing(ENTER), inputTty: true },
   );
+  const replace = await capture(
+    () => approve("replace it?", { otherwise: false, skip: true }),
+    { tty: true, input: typing(ENTER), inputTty: true },
+  );
 
-  assert.deepEqual(answer.result, { cancelled: false, value: true });
-  assert.equal(answer.out, "", "nothing was asked, so nothing was drawn");
+  assert.deepEqual(spend.result, { cancelled: false, value: true });
+  assert.deepEqual(replace.result, { cancelled: false, value: false });
+  assert.equal(spend.out, "", "nothing was asked, so nothing was drawn");
+  assert.equal(replace.out, "");
 });
 
 test("a person at a terminal is asked, and answering takes what they answered", async () => {

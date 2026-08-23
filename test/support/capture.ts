@@ -34,9 +34,11 @@ export interface CaptureOptions {
   readonly input?: Readable;
   /**
    * How wide the terminal says it is. Zero is a pty nobody sized, which is
-   * where the renderer's framed blocks throw rather than wrap.
+   * where the renderer's framed blocks throw rather than wrap. `"unsaid"`
+   * leaves the property off the stream entirely, which is a different case
+   * again: a terminal that never claimed a width at all.
    */
-  readonly columns?: number;
+  readonly columns?: number | "unsaid";
   /** Whether the input claims to be a terminal, which is what lets a prompt run. */
   readonly inputTty?: boolean;
   /**
@@ -48,14 +50,15 @@ export interface CaptureOptions {
 }
 
 /** A sink that records, and answers the one question the writer asks it. */
-function sink(into: string[], tty: boolean, columns: number): Writable {
+function sink(into: string[], tty: boolean, columns: number | "unsaid"): Writable {
   const stream = new Writable({
     write(chunk, _encoding, done) {
       into.push(String(chunk));
       done();
     },
   });
-  return Object.assign(stream, { isTTY: tty, columns, rows: 24 });
+  const said = columns === "unsaid" ? {} : { columns };
+  return Object.assign(stream, { isTTY: tty, rows: 24, ...said });
 }
 
 export async function capture<T>(

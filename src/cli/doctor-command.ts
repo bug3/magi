@@ -86,7 +86,7 @@ export async function doctorCommand(rest: readonly string[]): Promise<number> {
   if (live || calibrate) {
     const spends = [
       live ? "one minimal call per harness" : undefined,
-      calibrate ? "two rounds of six seat calls" : undefined,
+      calibrate ? "two rounds, six seat calls in total" : undefined,
     ].filter((what) => what !== undefined);
     const go = await approve(`this spends quota: ${spends.join(", and ")}. go ahead?`, {
       otherwise: true,
