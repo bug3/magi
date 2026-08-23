@@ -92,6 +92,9 @@ test("review with nothing pending refuses rather than convening on an empty patc
 
     assert.equal(run.code, 2);
     assert.match(run.err, /nothing to review/u);
+    // Refused before a line reached stdout, so no block was opened for a
+    // command that had nothing to put in it.
+    assert.equal(run.out, "");
   } finally {
     space.remove();
   }
@@ -120,6 +123,7 @@ test("a repository that does not ignore the state directory refuses to convene",
 
     assert.equal(run.code, 1);
     assert.match(run.err, /not ignored by this repository/u);
+    assert.equal(run.out, "");
   } finally {
     space.remove();
   }

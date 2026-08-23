@@ -77,11 +77,6 @@ export function step(message: string): void {
   log.step(message, { output: streams.out });
 }
 
-/** A step that did what it said. */
-export function success(message: string): void {
-  log.success(message, { output: streams.out });
-}
-
 /** Something the user should read but need not act on. */
 export function info(message: string): void {
   log.info(message, { output: streams.out });

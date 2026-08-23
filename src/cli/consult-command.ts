@@ -73,8 +73,6 @@ export async function consultCommand(
     return 1;
   }
 
-  open(`magi ${mode}`);
-
   // Curation runs before preflight so the headroom projection can see
   // this consult's rendered size, not just the historical mean.
   const briefMd = checked.briefMd;
@@ -112,8 +110,13 @@ export async function consultCommand(
     new Date(),
     estimateBriefTokens(renderedChars),
   );
+  // Opened here rather than at the top: everything above refuses before a
+  // single line reaches stdout, and a block opened for a command that then
+  // printed nothing into it is a block left hanging.
+  open(`magi ${mode}`);
   report(formatHeadroomReport(headroom));
   if (headroom.refuse && !args.waiveHeadroom) {
+    close("refused: nothing was convened and nothing was spent");
     problem(
       "postpone the consult, raise the budget in .magi/headroom.local.json, or re-run with --waive-headroom",
     );
@@ -127,6 +130,7 @@ export async function consultCommand(
   report(formatCompleteness(completeness));
   const overdue = completeness.filter((entry) => entry.overdue);
   if (overdue.length > 0 && !args.waiveBackfill) {
+    close("refused: nothing was convened and nothing was spent");
     problem(
       "disposition the overdue consults above (ledger backfill rows), or re-run with --waive-backfill",
     );
