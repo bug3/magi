@@ -4,7 +4,7 @@
  */
 
 import { SchemaCompileError } from "./errors.ts";
-import { escapePointerToken } from "./pointer.ts";
+import { escapePointerSegment } from "./pointer.ts";
 import type { CompileContext, NodeValidator, ValidationIssue } from "./types.ts";
 import { isPlainObject } from "./values.ts";
 
@@ -50,7 +50,7 @@ export function compileCombinators(
         const index = typeof tag === "string" ? byValue.get(tag) : undefined;
         if (index === undefined) {
           issues.push({
-            path: `${path}/${escapePointerToken(key)}`,
+            path: `${path}/${escapePointerSegment(key)}`,
             keyword: "oneOf",
             message: `must be one of ${[...byValue.keys()].map((v) => JSON.stringify(v)).join(", ")}`,
           });

@@ -11,7 +11,7 @@ import {
   calibrateCanaries,
   unisolatedProfile,
 } from "../../src/doctor/calibrate.ts";
-import { tokenWasFetched } from "../../src/doctor/calibration-evidence.ts";
+import { nonceWasFetched } from "../../src/doctor/calibration-evidence.ts";
 import { formatCalibration } from "../../src/doctor/format.ts";
 import { foldLedger } from "../../src/consult/ledger.ts";
 import { seatProfile, type SeatInputs } from "../../src/seats/profiles.ts";
@@ -255,7 +255,7 @@ test("a token a retrieval returned in its own output is the seat fetching it", (
     `{"type":"item.completed","item":{"type":"command_execution","aggregated_output":"./AGENTS.md:${NONCE}"}}`,
     `{"type":"item.completed","item":{"type":"agent_message","text":"${NONCE}"}}`,
   ].join("\n");
-  assert.equal(tokenWasFetched("codex", stream, NONCE), true);
+  assert.equal(nonceWasFetched("codex", stream, NONCE), true);
 });
 
 test("a token the seat only said is not fetched, whatever it ran first", () => {
@@ -266,13 +266,13 @@ test("a token the seat only said is not fetched, whatever it ran first", () => {
     '{"type":"item.completed","item":{"type":"command_execution","aggregated_output":"no token here"}}',
     `{"type":"item.completed","item":{"type":"agent_message","text":"${NONCE}"}}`,
   ].join("\n");
-  assert.equal(tokenWasFetched("codex", stream, NONCE), false);
+  assert.equal(nonceWasFetched("codex", stream, NONCE), false);
 });
 
 test("a harness whose stream cannot answer keeps the whole of its evidence", () => {
   const stream = `{"type":"command_execution","output":"${NONCE}"}`;
   for (const harness of ["claude", "grok"] as const) {
-    assert.equal(tokenWasFetched(harness, stream, NONCE), false);
+    assert.equal(nonceWasFetched(harness, stream, NONCE), false);
   }
 });
 
@@ -334,10 +334,17 @@ test("the marker list is matched against a real codex stream, not one written he
     join("fixtures", "seat-capture", "balthasar-fetched-token.ndjson"),
     "utf8",
   );
-  const token = "magi-canary-fixture1";
-  assert.ok(capture.includes(token), "the capture carries its own token");
-  assert.equal(tokenWasFetched("codex", capture, token), true);
-  assert.equal(tokenWasFetched("claude", capture, token), false, "scope is enforced, not documented");
+  // Named for what it is, not for what it is handed to. Under the other name
+  // this line reads as a live credential to a scanner walking public commits,
+  // and once did; test/spec/release-hygiene.test.ts keeps the shape out.
+  const fixtureNonce = "magi-canary-fixture1";
+  assert.ok(capture.includes(fixtureNonce), "the capture carries its own nonce");
+  assert.equal(nonceWasFetched("codex", capture, fixtureNonce), true);
+  assert.equal(
+    nonceWasFetched("claude", capture, fixtureNonce),
+    false,
+    "scope is enforced, not documented",
+  );
 });
 
 test("grok's directions are recorded as unproven, the other two as proof", async () => {
@@ -362,9 +369,9 @@ test("a token the seat only searched for is not a token it fetched", () => {
     `{"type":"item.completed","item":{"type":"command_execution","command":"rg -n ${NONCE} .","aggregated_output":"","exit_code":1,"status":"completed"}}`,
     `{"type":"item.completed","item":{"type":"agent_message","text":"${NONCE}"}}`,
   ].join("\n");
-  assert.equal(tokenWasFetched("codex", stream, NONCE), false, "the command named it; nothing returned it");
+  assert.equal(nonceWasFetched("codex", stream, NONCE), false, "the command named it; nothing returned it");
 });
 
 test("a line that is not an event proves nothing either way", () => {
-  assert.equal(tokenWasFetched("codex", `plain text mentioning ${NONCE}`, NONCE), false);
+  assert.equal(nonceWasFetched("codex", `plain text mentioning ${NONCE}`, NONCE), false);
 });

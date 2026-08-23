@@ -15,7 +15,7 @@ export {
 export {
   RETRIEVAL_TYPES,
   RETRIEVAL_READABLE,
-  tokenWasFetched,
+  nonceWasFetched,
 } from "./doctor/calibration-evidence.ts";
 export {
   calibrationHealth,

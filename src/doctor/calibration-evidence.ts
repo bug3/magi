@@ -76,13 +76,13 @@ const OUTPUT_FIELDS: readonly string[] = ["aggregated_output", "output", "result
  * a retrieval marker proves nothing: `rg magi-canary-x` names the token in an
  * event whose output is still empty. Only what the retrieval returned counts.
  */
-export function tokenWasFetched(harness: Harness, stdout: string, token: string): boolean {
+export function nonceWasFetched(harness: Harness, stdout: string, nonce: string): boolean {
   if (!RETRIEVAL_READABLE.has(harness)) return false;
-  return stdout.split("\n").some((line) => retrievedInLine(line, token));
+  return stdout.split("\n").some((line) => retrievedInLine(line, nonce));
 }
 
-function retrievedInLine(line: string, token: string): boolean {
-  if (!line.includes(token)) return false;
+function retrievedInLine(line: string, nonce: string): boolean {
+  if (!line.includes(nonce)) return false;
   let parsed: unknown;
   try {
     parsed = JSON.parse(line);
@@ -95,6 +95,6 @@ function retrievedInLine(line: string, token: string): boolean {
   if (typeof event["type"] !== "string" || !RETRIEVAL_TYPES.has(event["type"])) return false;
   return OUTPUT_FIELDS.some((field) => {
     const value = event[field];
-    return typeof value === "string" && value.includes(token);
+    return typeof value === "string" && value.includes(nonce);
   });
 }

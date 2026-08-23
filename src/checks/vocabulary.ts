@@ -19,20 +19,20 @@ const GIT_DENIED = ["--output", "--ext-diff", "--exec", "--upload", "--receive"]
 /** A short-flag cluster carrying `f` smuggles a pattern-file read: -f, -rf, -f/etc/x. */
 const SHORT_FILE_FLAG = /^-[a-zA-Z]*f/;
 
-function pathEscape(token: string): string | undefined {
-  if (token.startsWith("/") || token.startsWith("~")) return `absolute path: ${token}`;
-  if (token.split("/").includes("..")) return `path escapes the repo: ${token}`;
+function pathEscape(arg: string): string | undefined {
+  if (arg.startsWith("/") || arg.startsWith("~")) return `absolute path: ${arg}`;
+  if (arg.split("/").includes("..")) return `path escapes the repo: ${arg}`;
   return undefined;
 }
 
 /** Non-flag tokens must stay inside the repo; the first `freeform` are exempt. */
 function refuseEscapes(args: readonly string[], freeform = 0): string | undefined {
   let seen = 0;
-  for (const token of args) {
-    if (token.startsWith("-")) continue;
+  for (const arg of args) {
+    if (arg.startsWith("-")) continue;
     seen += 1;
     if (seen <= freeform) continue;
-    const refusal = pathEscape(token);
+    const refusal = pathEscape(arg);
     if (refusal !== undefined) return refusal;
   }
   return undefined;
@@ -43,12 +43,12 @@ function refuseFlags(
   longPrefixes: readonly string[],
   shortCluster?: RegExp,
 ): string | undefined {
-  for (const token of args) {
+  for (const arg of args) {
     for (const prefix of longPrefixes) {
-      if (token.startsWith(prefix)) return `denied flag: ${token}`;
+      if (arg.startsWith(prefix)) return `denied flag: ${arg}`;
     }
-    if (shortCluster !== undefined && shortCluster.test(token)) {
-      return `denied flag: ${token}`;
+    if (shortCluster !== undefined && shortCluster.test(arg)) {
+      return `denied flag: ${arg}`;
     }
   }
   return undefined;

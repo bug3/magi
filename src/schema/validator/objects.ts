@@ -5,7 +5,7 @@
 
 import { SchemaCompileError } from "./errors.ts";
 import { numberKeyword } from "./keywords.ts";
-import { escapePointerToken } from "./pointer.ts";
+import { escapePointerSegment } from "./pointer.ts";
 import type { CompileContext, NodeValidator } from "./types.ts";
 import { isPlainObject } from "./values.ts";
 
@@ -84,7 +84,7 @@ export function compileObjectKeywords(
     checks.push((data, path, issues) => {
       if (!isPlainObject(data)) return;
       for (const [key, value] of Object.entries(data)) {
-        const childPath = `${path}/${escapePointerToken(key)}`;
+        const childPath = `${path}/${escapePointerSegment(key)}`;
         const declared = propertySchemas.get(key);
         if (declared) {
           declared(value, childPath, issues);
@@ -116,10 +116,10 @@ export function compileObjectKeywords(
       if (!isPlainObject(data)) return;
       for (const key of Object.keys(data)) {
         const before = issues.length;
-        nameValidator(key, `${path}/${escapePointerToken(key)}`, issues);
+        nameValidator(key, `${path}/${escapePointerSegment(key)}`, issues);
         if (issues.length > before) {
           issues.splice(before, issues.length - before, {
-            path: `${path}/${escapePointerToken(key)}`,
+            path: `${path}/${escapePointerSegment(key)}`,
             keyword: "propertyNames",
             message: `property name "${key}" is not allowed here`,
           });

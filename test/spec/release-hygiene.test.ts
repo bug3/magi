@@ -25,6 +25,14 @@ interface HygieneRule {
   readonly pattern: RegExp;
   /** What a match would publish. */
   readonly leaks: string;
+  /**
+   * The Shannon entropy the captured value must reach, for a rule that models
+   * a scanner applying one. Below it the scanner outside stays quiet, so a hit
+   * here would be a failure nothing beyond this repository would raise. The
+   * limit is stated rather than hidden: a scanner tuned lower than this floor
+   * still sees what the floor skips.
+   */
+  readonly entropy?: number;
 }
 
 /**
@@ -98,6 +106,25 @@ export const RULES: readonly HygieneRule[] = [
       /[A-Za-z0-9._%+-]+@(?![A-Za-z0-9.-]*\.(?:invalid|test|example|localhost)\b)(?!example\.(?:com|net|org)\b)[A-Za-z0-9.-]+\.[A-Za-z]{2,}/u,
     leaks: "a personal mail address",
   },
+  {
+    id: "credential-shape",
+    // A calibration nonce is a marker worth nothing, shaped on purpose like
+    // the thing it detects: a fixed prefix and enough entropy to read as a
+    // key. One sat in a test under a name that completed the shape, and a
+    // scanner walking public commits reported it to a security team as a
+    // leaked credential. The value was never the problem, and no allowlist
+    // this repository writes can reach that scanner, so the rule refuses the
+    // shape itself and does not look at what stands on the right of it.
+    pattern:
+      /(?:api[_-]?key|access|auth|credential|key|passwd|password|secret|token)["']?[ \t]*[:=]{1,2}[ \t]*["']([A-Za-z0-9._=-]{10,150})["']/iu,
+    // The scanner that reported this repository applies gitleaks' entropy
+    // floor to the value it captured, so this rule applies the same one.
+    // Without it the rule refuses a manifest field naming an npm access
+    // level, which is raised nowhere outside this walk, and the catalog has
+    // no place to put an exception.
+    entropy: 3.5,
+    leaks: "a string shaped like a live credential, which a scanner reads as one",
+  },
 ];
 
 /**
@@ -144,6 +171,33 @@ function lineOf(text: string, index: number): number {
   return text.slice(0, index).split("\n").length;
 }
 
+function shannon(value: string): number {
+  const counts = new Map<string, number>();
+  for (const char of value) counts.set(char, (counts.get(char) ?? 0) + 1);
+  let bits = 0;
+  for (const count of counts.values()) {
+    const share = count / value.length;
+    bits -= share * Math.log2(share);
+  }
+  return bits;
+}
+
+/**
+ * A global twin of a catalog pattern, built once. A rule carrying a floor has
+ * to walk every match: the first one may be under the floor, and a single
+ * exec would let it hide whatever stands behind it.
+ */
+const WALKED = new Map<RegExp, RegExp>();
+
+function everyMatch(pattern: RegExp, text: string): RegExpExecArray[] {
+  let walker = WALKED.get(pattern);
+  if (walker === undefined) {
+    walker = new RegExp(pattern.source, `${pattern.flags}g`);
+    WALKED.set(pattern, walker);
+  }
+  return [...text.matchAll(walker)] as RegExpExecArray[];
+}
+
 function hitsIn(path: string, rules: readonly HygieneRule[]): string[] {
   const text = readFileSync(path, "utf8");
   // Fail closed: a file the walk cannot read as text is not one it cleared.
@@ -151,8 +205,13 @@ function hitsIn(path: string, rules: readonly HygieneRule[]): string[] {
   const hits: string[] = [];
   for (const rule of rules) {
     if (rule.pattern.test(path)) hits.push(`${path}: path carries ${rule.id} (${rule.leaks})`);
-    const match = rule.pattern.exec(text);
-    if (match) hits.push(`${path}:${lineOf(text, match.index)}: ${rule.id} (${rule.leaks})`);
+    for (const match of everyMatch(rule.pattern, text)) {
+      // Skipping a value under the floor is modelling, not an exception: it
+      // is a value the scanner this rule stands in for would never raise.
+      if (rule.entropy !== undefined && shannon(match[1] ?? "") < rule.entropy) continue;
+      hits.push(`${path}:${lineOf(text, match.index)}: ${rule.id} (${rule.leaks})`);
+      break;
+    }
   }
   return hits;
 }
@@ -199,6 +258,38 @@ test("no pattern matches this file, so the catalog is scanned like any other", (
   const source = readFileSync(join("test", "spec", "release-hygiene.test.ts"), "utf8");
   const matched = RULES.filter((rule) => rule.pattern.test(source)).map((rule) => rule.id);
   assert.deepEqual(matched, [], "a rule that matches its own catalog hides the catalog");
+});
+
+test("the credential shape is watched being refused, not only described", () => {
+  // Spelled out, the case would be a hit in the file that holds it, so it is
+  // assembled instead. A rule nobody has watched refuse anything is a rule
+  // nobody has proved, which is the same reason a canary is calibrated.
+  const rule = RULES.find((entry) => entry.id === "credential-shape");
+  if (!rule) throw new Error("the catalog no longer carries the credential-shape rule");
+
+  const shape = ["token", " = ", '"', "magi-canary-fixture1", '"'].join("");
+  assert.ok(rule.pattern.test(shape), "the shape that reached a scanner is still refused");
+  assert.ok(
+    !rule.pattern.test(shape.replace("token", "fixtureNonce")),
+    "the same nonce under a name that is not a credential carries no shape",
+  );
+});
+
+test("the entropy floor separates a manifest field from something that reads as a key", () => {
+  const rule = RULES.find((entry) => entry.id === "credential-shape");
+  if (!rule) throw new Error("the catalog no longer carries the credential-shape rule");
+  if (rule.entropy === undefined) throw new Error("the rule no longer carries a floor");
+
+  // Both are the shape exactly. One is a word this repository's own manifest
+  // is one edit away from carrying; the other is what the rule exists for.
+  const captured = (value: string): string => {
+    const match = rule.pattern.exec(["access", '": "', value, '"'].join(""));
+    if (!match?.[1]) throw new Error(`the shape no longer matches ${value}`);
+    return match[1];
+  };
+
+  assert.ok(shannon(captured("restricted")) < rule.entropy, "a word stays under the floor");
+  assert.ok(shannon(captured("aG7xQ2mZ9pLk4Tw")) >= rule.entropy, "a key does not");
 });
 
 // Source comments point at the protocol by heading name and never by number,

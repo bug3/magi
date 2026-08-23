@@ -149,7 +149,7 @@ test("the usage text names every command the CLI accepts", () => {
   // The drift rule this tool applies to three harness CLIs, applied to its own
   // surface: a command that works and is not printed is the same defect.
   const missing = COMMANDS.filter(
-    (token) => !new RegExp(String.raw`(?:^|[\s|])${token}(?:$|[\s|[])`, "mu").test(COMMAND_USAGE),
+    (command) => !new RegExp(String.raw`(?:^|[\s|])${command}(?:$|[\s|[])`, "mu").test(COMMAND_USAGE),
   );
   assert.deepEqual(missing, [], "every accepted token belongs in the usage block");
 });
@@ -157,8 +157,8 @@ test("the usage text names every command the CLI accepts", () => {
 test("a token the catalog does not name is an invocation error", async () => {
   // `magi delete` and `magi --live` were both typed at a real session and both
   // did nothing but print usage; the catalog is the line between the two.
-  for (const token of ["delete", "--live", "consult", "calibrate"]) {
-    assert.ok(!COMMANDS.includes(token), `${token} is not a command`);
-    assert.equal(await quietMain([token]), 2, `${token} is refused as exit 2`);
+  for (const word of ["delete", "--live", "consult", "calibrate"]) {
+    assert.ok(!COMMANDS.includes(word), `${word} is not a command`);
+    assert.equal(await quietMain([word]), 2, `${word} is refused as exit 2`);
   }
 });

@@ -23,7 +23,7 @@ import { mkdirSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 import { appendLedgerCalibration } from "../consult.ts";
-import { UNPROVEN_BY_CONSTRUCTION, tokenWasFetched } from "./calibration-evidence.ts";
+import { UNPROVEN_BY_CONSTRUCTION, nonceWasFetched } from "./calibration-evidence.ts";
 import {
   CALIBRATION_LAYERS,
   RECOVERY_FILE,
@@ -146,7 +146,7 @@ export async function calibrateCanaries(inputs: CalibrateInputs): Promise<Calibr
   for (const direction of ["isolated", "unisolated"] as const) {
     for (const layer of CALIBRATION_LAYERS) {
       const stdout = outputs[direction].get(layer.harness) ?? "";
-      const nonceFetched = tokenWasFetched(layer.harness, stdout, inputs.nonce);
+      const nonceFetched = nonceWasFetched(layer.harness, stdout, inputs.nonce);
       const nonceSeen = !nonceFetched && stdout.includes(inputs.nonce);
       const expectation = direction === "unisolated" ? "present" : layer.isolated;
       const pass =
