@@ -14,8 +14,10 @@ import { test } from "node:test";
 
 import {
   close,
+  decorated,
   detail,
   info,
+  interactive,
   open,
   plain,
   plainError,
@@ -138,4 +140,31 @@ test("the streams are restored after a capture, so no test leaks into the next",
   });
   assert.equal(first.out, "inside\n");
   assert.equal(second.out, "after\n");
+});
+
+test("the terminal question is asked of the stream held, not of the process", async () => {
+  // The writer holds its streams so a test can capture them, and the same hold
+  // is what makes the split provable in-process: asking `process.stdout` would
+  // have made every assertion about the drawn path depend on how the suite was
+  // launched, and left the drawn path unreachable under `node --test`.
+  const piped = await capture(() => decorated());
+  const terminal = await capture(() => decorated(), { tty: true });
+
+  assert.equal(piped.result, false, "a sink is not a terminal");
+  assert.equal(terminal.result, true, "a stream that says it is a terminal is one");
+});
+
+test("a build agent's terminal is a pipe: nobody is reading the redraw", async () => {
+  const built = await capture(() => decorated(), { tty: true, ci: true });
+  assert.equal(built.result, false);
+});
+
+test("a question is asked only when both ends are a terminal", async () => {
+  // A prompt drawn with nowhere to read from hangs until the pipeline times
+  // out, and MAGI's caller is a pipeline.
+  const halfway = await capture(() => interactive(), { tty: true, inputTty: false });
+  const both = await capture(() => interactive(), { tty: true, inputTty: true });
+
+  assert.equal(halfway.result, false, "stdout alone is not enough to ask");
+  assert.equal(both.result, true);
 });

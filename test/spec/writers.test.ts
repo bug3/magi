@@ -14,11 +14,24 @@ import { test } from "node:test";
 // one that comes back.
 //
 // The writer is excluded structurally rather than by name-checking an
-// allowlist: it is the file the rule points at, and it is the only file whose
+// allowlist: it is the path the rule points at, and it is the only place whose
 // job is to hold the two streams.
 
 const SRC = "src";
-const WRITER = "util/ui.ts";
+
+/**
+ * The rule's subject: the facade and the folder it fronts. It was one file
+ * until the renderer grew a TTY split, a spinner, folded subprocess output and
+ * prompts, and outgrew the module ceiling. Excluding the folder rather than
+ * renaming the exception keeps the rule the same one: there is a single place
+ * that holds the streams, and it is allowed to be more than one file.
+ */
+const WRITER = "util/ui";
+
+/** Whether a walked path is the writer itself, facade or folder. */
+function isWriter(file: string): boolean {
+  return file === `${WRITER}.ts` || file.startsWith(`${WRITER}/`);
+}
 
 /** Reaching a stream directly, by either of the two spellings that work. */
 const WRITERS: ReadonlyArray<{ pattern: RegExp; instead: string }> = [
@@ -53,11 +66,20 @@ test("nothing under src/ writes to a stream except the one writer", () => {
   const files = sourceFiles();
   // A walk that found nothing would pass every assertion under it.
   assert.ok(files.length >= 50, `only ${files.length} files walked: the walk is broken`);
-  assert.ok(files.includes(WRITER), `the walk missed ${WRITER}, which is the rule's subject`);
+  assert.ok(
+    files.includes(`${WRITER}.ts`),
+    `the walk missed ${WRITER}.ts, which is the rule's subject`,
+  );
+  // The folder is excluded from the rule, so a walk that never entered it
+  // would exclude nothing and prove nothing.
+  assert.ok(
+    files.some((file) => file.startsWith(`${WRITER}/`)),
+    `the walk missed the ${WRITER}/ modules the facade fronts`,
+  );
 
   const reaches: string[] = [];
   for (const file of files) {
-    if (file === WRITER) continue;
+    if (isWriter(file)) continue;
     const text = readFileSync(join(SRC, file), "utf8");
     for (const { pattern, instead } of WRITERS) {
       if (pattern.test(text)) reaches.push(`src/${file} reaches a stream directly; ${instead}`);
@@ -81,6 +103,14 @@ test("the guard sees a reach it is written to catch", () => {
   for (const [source, at] of cases) {
     assert.ok(WRITERS[at]?.pattern.test(source), `${source} is a reach the guard must see`);
   }
+
+  // The exclusion is the facade and its folder, and nothing that merely
+  // starts with the same letters: a sibling module named ui-something is an
+  // ordinary file the rule still binds.
+  assert.ok(isWriter("util/ui.ts"), "the facade is the writer");
+  assert.ok(isWriter("util/ui/streams.ts"), "a module behind the facade is the writer");
+  assert.ok(!isWriter("util/ui-helpers.ts"), "a sibling is not the writer");
+  assert.ok(!isWriter("cli/ui.ts"), "another ui elsewhere is not the writer");
 
   // And does not see what is not one: the writer's own name in prose, and a
   // local variable that merely shares a word with the shapes above.

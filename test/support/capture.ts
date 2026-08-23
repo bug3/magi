@@ -12,7 +12,7 @@
  * stream a piped caller reads.
  */
 
-import { Writable } from "node:stream";
+import { Readable, Writable } from "node:stream";
 
 import { setStreams } from "../../src/util/ui.ts";
 
@@ -21,25 +21,62 @@ export interface Captured {
   readonly err: string;
 }
 
-/** A sink that is explicitly not a TTY, so nothing tries to animate into it. */
-function sink(into: string[]): Writable {
-  return new Writable({
+export interface CaptureOptions {
+  /**
+   * Whether the sinks claim to be a person's terminal. The writer asks the
+   * stream it holds and not `process.stdout`, so this is what exercises the
+   * drawn path in-process: without it every test here would only ever see the
+   * piped rendering, and the terminal one would be provable only by spawning
+   * a pty.
+   */
+  readonly tty?: boolean;
+  /** What a prompt reads its keypresses from. */
+  readonly input?: Readable;
+  /** Whether the input claims to be a terminal, which is what lets a prompt run. */
+  readonly inputTty?: boolean;
+  /**
+   * Whether the run believes it is in CI. A terminal owned by a build agent is
+   * a log file with nobody reading it, so the writer treats it as a pipe; this
+   * is how a test says so, because the default is to clear the variable.
+   */
+  readonly ci?: boolean;
+}
+
+/** A sink that records, and answers the one question the writer asks it. */
+function sink(into: string[], tty: boolean): Writable {
+  const stream = new Writable({
     write(chunk, _encoding, done) {
       into.push(String(chunk));
       done();
     },
   });
+  return Object.assign(stream, { isTTY: tty, columns: 80, rows: 24 });
 }
 
 export async function capture<T>(
   run: () => T | Promise<T>,
+  options: CaptureOptions = {},
 ): Promise<Captured & { readonly result: T }> {
   const out: string[] = [];
   const err: string[] = [];
-  const restore = setStreams({ out: sink(out), err: sink(err) });
+  const tty = options.tty === true;
+  const input = options.input ?? Readable.from([]);
+  const restore = setStreams({
+    out: sink(out, tty),
+    err: sink(err, tty),
+    in: Object.assign(input, { isTTY: options.inputTty ?? tty }),
+  });
+  // The renderer treats CI as a pipe however good the terminal is, and this
+  // suite runs in one. Without this, every assertion about the drawn path
+  // would pass on a laptop and fail on the machine that gates the release.
+  const ci = process.env["CI"];
+  if (options.ci === true) process.env["CI"] = "true";
+  else if (tty) delete process.env["CI"];
   try {
     return { result: await run(), out: out.join(""), err: err.join("") };
   } finally {
     restore();
+    if (ci === undefined) delete process.env["CI"];
+    else process.env["CI"] = ci;
   }
 }
