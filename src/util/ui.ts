@@ -40,6 +40,7 @@ export {
   problem,
   step,
   success,
+  verdict,
   warn,
 } from "./ui/write.ts";
 export { report } from "./ui/report.ts";

@@ -19,7 +19,7 @@
 
 import { intro, log, outro } from "@clack/prompts";
 
-import { errStream, outStream } from "./streams.ts";
+import { decorated, errStream, outStream } from "./streams.ts";
 
 /** The name of the interaction, opening the bar every later line hangs off. */
 export function open(title: string): void {
@@ -47,6 +47,25 @@ export function info(message: string): void {
 /** A stage that ended well, where saying so is the point of the line. */
 export function success(message: string): void {
   log.success(message, { output: outStream() });
+}
+
+/**
+ * One of several verdicts the command is reporting in a row: a seat's answer,
+ * a harness's link, a proposed check.
+ *
+ * A terminal gets a symbol per line, because three seats are three verdicts
+ * and the eye finds the one that went wrong. A pipe keeps the bar: a symbol on
+ * each of eight lines reads as eight unrelated events there, and these bytes
+ * are read by an orchestrating assistant that was reading them before any of
+ * this was drawn.
+ */
+export function verdict(message: string, ok: boolean): void {
+  if (!ok) {
+    warn(message);
+    return;
+  }
+  if (decorated(outStream())) success(message);
+  else detail(message);
 }
 
 /** Not yet a refusal, but on the way to one. */

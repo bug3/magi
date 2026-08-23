@@ -34,6 +34,7 @@ import {
   refuseUsage,
   report,
   step,
+  verdict,
   warn,
   type UsageScreen,
 } from "../util/ui.ts";
@@ -203,10 +204,10 @@ export async function consultCommand(
   // `magi checks` included, is addressed by this id.
   step(`consult ${result.id}: ${result.status}`);
 
-  for (const verdict of result.verdicts) {
-    const label = slot(verdict.slot).label;
-    if (verdict.valid) detail(`${label}: valid`);
-    else warn(`${label}: INVALID (${sanitizeLine(verdict.reasons.join("; "), 160)})`);
+  for (const seat of result.verdicts) {
+    const label = slot(seat.slot).label;
+    if (seat.valid) verdict(`${label}: valid`, true);
+    else verdict(`${label}: INVALID (${sanitizeLine(seat.reasons.join("; "), 160)})`, false);
   }
   for (const warning of result.canaryWarnings) {
     warn(

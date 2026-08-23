@@ -18,7 +18,7 @@ import {
   problem,
   refuseUsage,
   step,
-  warn,
+  verdict,
   type UsageScreen,
 } from "../util/ui.ts";
 import { ambient } from "./environment.ts";
@@ -79,11 +79,14 @@ export async function checksCommand(
     if (record.decision === "refused") {
       // A refusal here is the vocabulary doing its job, not a failed run, so
       // it is a warning on stdout and never a stderr refusal.
-      warn(`${label}: REFUSED (${sanitizeLine(record.reason ?? "", 120)})`);
+      verdict(`${label}: REFUSED (${sanitizeLine(record.reason ?? "", 120)})`, false);
     } else {
       const outcome =
         record.outcome?.kind === "exit" ? `exit ${record.outcome.code}` : record.outcome?.kind;
-      detail(`${label}: ran [${record.argv?.join(" ")}] -> ${outcome}, ${record.durationMs} ms`);
+      verdict(
+        `${label}: ran [${record.argv?.join(" ")}] -> ${outcome}, ${record.durationMs} ms`,
+        true,
+      );
     }
   }
   if (records.length === 0) detail("no seat-proposed checks in this consult");

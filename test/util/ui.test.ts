@@ -27,6 +27,7 @@ import {
   step,
   usage,
   usageText,
+  verdict,
   version,
   warn,
   type UsageScreen,
@@ -253,4 +254,53 @@ test("a refused invocation puts the whole screen on stderr, drawn or not", async
   assert.ok(terminal.err.includes("unknown command: frobnicate"), "a person is told what broke");
   assert.ok(terminal.err.includes("magi doctor [--live]"), "and still gets the block");
   assert.equal(terminal.out, "", "a caller reading stdout for a result gets nothing");
+});
+
+test("a report is framed under its own title on a terminal", async () => {
+  // `magi doctor` prints five of these. One bar down the left of all of them
+  // is a wall of text with five headings somewhere inside it.
+  const body = "static checks\n\nMelchior-1 (claude)\n  version: 0.0.0\n";
+  const piped = await capture(() => {
+    report(body);
+  });
+  const terminal = await capture(() => {
+    report(body);
+  }, { tty: true });
+
+  assert.notEqual(terminal.out, piped.out, "a terminal gets the frame, a pipe does not");
+  for (const line of ["static checks", "Melchior-1 (claude)", "version: 0.0.0"]) {
+    assert.ok(terminal.out.includes(line), `${line} survived the framing`);
+    assert.ok(piped.out.includes(line), `${line} survived the pipe`);
+  }
+});
+
+test("a verdict is its own symbol on a terminal and stays on the bar in a pipe", async () => {
+  const piped = await capture(() => {
+    verdict("MELCHIOR-1: valid", true);
+  });
+  const terminal = await capture(() => {
+    verdict("MELCHIOR-1: valid", true);
+  }, { tty: true });
+
+  assert.ok(piped.out.includes("MELCHIOR-1: valid"));
+  assert.ok(terminal.out.includes("MELCHIOR-1: valid"));
+  // Three seats are three verdicts and the eye should find the one that went
+  // wrong; eight harness rows are one list, and a symbol on each of them reads
+  // as eight unrelated events. The pipe keeps the bar for the second reason
+  // and because those bytes are read by something that was reading them
+  // before any of this was drawn.
+  assert.notEqual(terminal.out, piped.out);
+});
+
+test("a verdict that went wrong is a warning wherever it lands", async () => {
+  // Never a stderr refusal: one seat answering badly is a result the command
+  // still returns 0 for, and a caller reading stderr for refusals must not
+  // find it there.
+  for (const tty of [false, true]) {
+    const { out, err } = await capture(() => {
+      verdict("Casper-3: INVALID (schema)", false);
+    }, { tty });
+    assert.ok(out.includes("Casper-3: INVALID (schema)"), `on stdout with tty ${String(tty)}`);
+    assert.equal(err, "", `never on stderr, with tty ${String(tty)}`);
+  }
 });
