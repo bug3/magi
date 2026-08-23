@@ -25,6 +25,7 @@ import { curateEvidence } from "../evidence/curate.ts";
 import { buildEvidencePack } from "../evidence/pack.ts";
 import { gitText } from "../runtime/git.ts";
 import { sanitizeLine } from "../util/text.ts";
+import { close, detail, info, open, plainError, problem, report, step, warn } from "../util/ui.ts";
 import { parseReviewArgs, type ReviewArgs } from "./args.ts";
 import { checkInputs, emptyReviewTarget } from "./consult-inputs.ts";
 import { MAGI_ROOT, ambient } from "./environment.ts";
@@ -48,8 +49,8 @@ export async function consultCommand(
   try {
     args = parseReviewArgs(rest, mode);
   } catch (error) {
-    console.error(String((error as Error).message));
-    console.error(usage);
+    problem(String((error as Error).message));
+    plainError(usage);
     return 2;
   }
   const { home, path } = ambient();
@@ -58,19 +59,21 @@ export async function consultCommand(
 
   const checked = await checkInputs(args, repoDir, mode);
   if (!checked.ok) {
-    console.error(checked.problem);
+    problem(checked.problem);
     return 2;
   }
 
   const ignoreStatus = await stateIgnoreStatus(repoDir);
   if (ignoreStatus === "not-ignored" || ignoreStatus === "tracked") {
-    console.error(
+    problem(
       ignoreStatus === "tracked"
         ? ".magi/ contains tracked files; remove them from version control before convening"
         : ".magi/ is not ignored by this repository; add `.magi/` to .gitignore before convening",
     );
     return 1;
   }
+
+  open(`magi ${mode}`);
 
   // Curation runs before preflight so the headroom projection can see
   // this consult's rendered size, not just the historical mean.
@@ -88,7 +91,7 @@ export async function consultCommand(
   });
   const empty = emptyReviewTarget(mode, curated.pack.patch, await untrackedPaths(repoDir));
   if (empty !== undefined) {
-    console.error(empty);
+    problem(empty);
     return 2;
   }
   const pack = buildEvidencePack(curated.pack);
@@ -103,15 +106,15 @@ export async function consultCommand(
   const consults = existsSync(ledgerFile)
     ? foldLedger(readFileSync(ledgerFile, "utf8").split("\n"))
     : [];
-  const report = headroomReport(
+  const headroom = headroomReport(
     consults,
     loadHeadroomConfig(magiDir),
     new Date(),
     estimateBriefTokens(renderedChars),
   );
-  console.log(formatHeadroomReport(report));
-  if (report.refuse && !args.waiveHeadroom) {
-    console.error(
+  report(formatHeadroomReport(headroom));
+  if (headroom.refuse && !args.waiveHeadroom) {
+    problem(
       "postpone the consult, raise the budget in .magi/headroom.local.json, or re-run with --waive-headroom",
     );
     return 1;
@@ -121,21 +124,21 @@ export async function consultCommand(
   // surfaced in the same preflight report, and an overdue consult refuses by
   // default; the waiver is the user's and lands in the ledger row.
   const completeness = completenessFromLedger(consults, gateExpectedReader(magiDir, consults));
-  console.log(formatCompleteness(completeness));
+  report(formatCompleteness(completeness));
   const overdue = completeness.filter((entry) => entry.overdue);
   if (overdue.length > 0 && !args.waiveBackfill) {
-    console.error(
+    problem(
       "disposition the overdue consults above (ledger backfill rows), or re-run with --waive-backfill",
     );
     return 1;
   }
 
   if (args.dryRun) {
-    console.log(
+    info(
       `dry run: ${mode} would convene ${SLOTS.length} seats on ` +
         `${pack.markdown.length} characters of pack plus a ${briefMd.length}-character brief`,
     );
-    console.log("  nothing was spent; drop --dry-run to convene");
+    close("nothing was spent; drop --dry-run to convene");
     return 0;
   }
 
@@ -151,18 +154,21 @@ export async function consultCommand(
     schemaPath,
     home,
     path,
-    headroom: { ...report, ...(args.waiveHeadroom ? { waived: true } : {}) },
-    // Exclusions and fence residue surface before any seat is spawned.
+    headroom: { ...headroom, ...(args.waiveHeadroom ? { waived: true } : {}) },
+    // Exclusions and fence residue surface before any seat is spawned, and
+    // the announcement comes last so what the fan-out is about is the line
+    // still on screen while it runs.
     beforeFanOut: (evidence, fences) => {
       for (const exclusion of evidence.exclusions) {
-        console.log(`excluded from the pack: ${exclusion.path} (${exclusion.reason})`);
+        detail(`excluded from the pack: ${exclusion.path} (${exclusion.reason})`);
       }
       if (fences.nonPackLines > 0) {
-        console.log(
+        detail(
           `brief fences: ${fences.nonPackLines} non-pack lines ` +
             `(budget ${NON_PACK_FENCE_BUDGET_LINES}, hashed in the manifest)`,
         );
       }
+      step(`convening ${SLOTS.length} seats, blind and in parallel`);
     },
     ...(overdue.length === 0
       ? {}
@@ -178,23 +184,23 @@ export async function consultCommand(
         }),
   });
 
-  console.log(`consult ${result.id}: ${result.status}`);
+  // The run's own identity, printed unconditionally: everything downstream,
+  // `magi checks` included, is addressed by this id.
+  step(`consult ${result.id}: ${result.status}`);
+
   for (const verdict of result.verdicts) {
     const label = slot(verdict.slot).label;
-    console.log(
-      verdict.valid
-        ? `  ${label}: valid`
-        : `  ${label}: INVALID (${sanitizeLine(verdict.reasons.join("; "), 160)})`,
-    );
+    if (verdict.valid) detail(`${label}: valid`);
+    else warn(`${label}: INVALID (${sanitizeLine(verdict.reasons.join("; "), 160)})`);
   }
   for (const warning of result.canaryWarnings) {
-    console.log(
-      `  ${slot(warning.slot).label}: CANARY WARNING (${warning.hits.join(", ")}): recorded in the ledger, not a degrade`,
+    warn(
+      `${slot(warning.slot).label}: CANARY WARNING (${warning.hits.join(", ")}): recorded in the ledger, not a degrade`,
     );
   }
-  console.log(`  synthesis scaffold: ${result.paths.synthesisPath}`);
-  if (result.status === "degraded") {
-    console.log("  degraded: proceeding is an explicit user decision");
-  }
+  // A degraded consult is a result and exits 0, so the one thing that makes it
+  // visible is this line. It is a warning rather than a plain one for that.
+  if (result.status === "degraded") warn("degraded: proceeding is an explicit user decision");
+  close(`synthesis scaffold: ${result.paths.synthesisPath}`);
   return 0;
 }

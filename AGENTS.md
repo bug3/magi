@@ -14,8 +14,9 @@ mechanism here implements.
   `tsconfig.build.json` and the tarball ships that instead of the sources;
   `prepack` runs it, and `bin/magi.js` prefers the build when it is there.
 - Node is pinned by `.mise.toml`.
-- Zero runtime dependencies. Dev dependencies: `typescript`,
-  `@types/node` and `publish-preflight`, all pinned exact.
+- Runtime dependency: `@clack/prompts`, for the command-line rendering in
+  `src/util/ui.ts`. Dev dependencies: `typescript`, `@types/node` and
+  `publish-preflight`. Every dependency is pinned exact.
 - `npm run check` = `tsc --noEmit` + every `test/**/*.test.ts` file. Green at
   every commit.
 - `npm run preflight` packs the package and installs it the way a consumer
@@ -54,6 +55,18 @@ the branch and the tag together, then draw a GitHub release from that tag.
   import `src/consult.ts`, never `src/consult/*`.
 - Rules that must hold over the whole tree have a guard under `test/spec/`:
   module size, template contents, fixture coverage, publication hygiene.
+- Every byte a command prints goes through `src/util/ui.ts`. It decides the
+  stream (a result on stdout, a refusal on stderr), and it is where the
+  `@clack/prompts` rendering lives; nothing under `src/` calls `console`.
+  Machine-read output (`--version`, the usage block) goes through it too and
+  comes out plain. Nothing animates: clack draws a spinner by seizing stdin
+  and calling `process.exit(0)` on the cancel key, so an interrupted fan-out
+  would have reported success. A long wait is announced and then accounted
+  for, in two ordinary lines.
+- `test/e2e/` runs each command as a spawned process against a temporary
+  repository, HOME and PATH. The PATH holds only that workspace, so a test
+  cannot reach a real harness CLI; `fixtures/seats/stub-harness.mjs` is
+  installed into it under the three names the launch profiles resolve.
 
 ## File size
 

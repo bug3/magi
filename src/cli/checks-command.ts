@@ -11,6 +11,7 @@ import { consultPaths, type SeatVerdict } from "../consult.ts";
 import { consultId } from "../core/ids.ts";
 import { slot } from "../core/slots.ts";
 import { sanitizeLine } from "../util/text.ts";
+import { close, detail, open, plainError, problem, step, warn } from "../util/ui.ts";
 import { ambient } from "./environment.ts";
 
 export async function checksCommand(
@@ -19,12 +20,12 @@ export async function checksCommand(
 ): Promise<number> {
   const rawId = rest[0];
   if (rawId === undefined) {
-    console.error("checks needs a consult id");
-    console.error(usage);
+    problem("checks needs a consult id");
+    plainError(usage);
     return 2;
   }
   if (rest.length !== 1) {
-    console.error(`unknown checks argument: ${rest[1]}`);
+    problem(`unknown checks argument: ${rest[1]}`);
     return 2;
   }
   const { path } = ambient();
@@ -33,12 +34,12 @@ export async function checksCommand(
   try {
     id = consultId(rawId);
   } catch (error) {
-    console.error(String((error as Error).message));
+    problem(String((error as Error).message));
     return 2;
   }
   const paths = consultPaths(join(repoDir, ".magi"), id);
   if (!existsSync(paths.gatePath)) {
-    console.error(`no gate record at ${paths.gatePath}; run the consult first`);
+    problem(`no gate record at ${paths.gatePath}; run the consult first`);
     return 2;
   }
 
@@ -52,25 +53,31 @@ export async function checksCommand(
       opinion: verdict.opinion as NonNullable<typeof verdict.opinion>,
     }));
 
+  open(`magi checks ${id}`);
+  // The proposals run as real subprocesses, so the wait is real: it is
+  // announced before it starts and accounted for after it ends.
+  step(`planning the checks proposed by ${opinions.length} valid seats`);
   const records = await runProposedChecks({
     opinions,
     repoDir,
     path,
     checksDir: paths.checksDir,
   });
+  step(`${records.length} proposed check${records.length === 1 ? "" : "s"}`);
+
   for (const record of records) {
     const label = `${slot(record.slot).label} ${record.finding}`;
     if (record.decision === "refused") {
-      console.log(`${label}: REFUSED (${sanitizeLine(record.reason ?? "", 120)})`);
+      // A refusal here is the vocabulary doing its job, not a failed run, so
+      // it is a warning on stdout and never a stderr refusal.
+      warn(`${label}: REFUSED (${sanitizeLine(record.reason ?? "", 120)})`);
     } else {
       const outcome =
         record.outcome?.kind === "exit" ? `exit ${record.outcome.code}` : record.outcome?.kind;
-      console.log(
-        `${label}: ran [${record.argv?.join(" ")}] -> ${outcome}, ${record.durationMs} ms`,
-      );
+      detail(`${label}: ran [${record.argv?.join(" ")}] -> ${outcome}, ${record.durationMs} ms`);
     }
   }
-  if (records.length === 0) console.log("no seat-proposed checks in this consult");
-  console.log(`records: ${paths.checksDir}`);
+  if (records.length === 0) detail("no seat-proposed checks in this consult");
+  close(`records: ${paths.checksDir}`);
   return 0;
 }

@@ -15,6 +15,7 @@ import { doctorCommand } from "./cli/doctor-command.ts";
 import { MAGI_ROOT } from "./cli/environment.ts";
 import { skillCommand } from "./cli/skill-command.ts";
 import { triggersCommand } from "./cli/triggers-command.ts";
+import { plain, plainError } from "./util/ui.ts";
 
 /** The two spellings of each of the two commands that are not subcommands. */
 const HELP: readonly string[] = ["help", "--help"];
@@ -117,16 +118,16 @@ function version(): string {
 export async function main(argv: readonly string[]): Promise<number> {
   const [command, ...rest] = argv;
   if (command !== undefined && HELP.includes(command)) {
-    console.log(USAGE);
+    plain(USAGE);
     return 0;
   }
   if (command !== undefined && VERSION.includes(command)) {
-    console.log(version());
+    plain(version());
     return 0;
   }
   const subcommand = command === undefined ? undefined : SUBCOMMANDS[command];
   if (subcommand !== undefined) return subcommand(rest);
-  console.error(USAGE);
+  plainError(USAGE);
   return 2;
 }
 

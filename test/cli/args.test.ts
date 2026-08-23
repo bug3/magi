@@ -3,30 +3,21 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 import { COMMAND_USAGE, COMMANDS, main, parseExcerpt, parseReviewArgs } from "../../src/cli.ts";
+import { capture } from "../support/capture.ts";
 
 /**
- * `main` writes usage and versions to the console. A suite that lets that
- * through puts the whole usage block in the repository check transcript,
+ * `main` writes usage and versions through the UI facade. A suite that lets
+ * that through puts the whole usage block in the repository check transcript,
  * which the evidence floor then carries into every pack, for every seat. So
- * the output is captured and asserted on here rather than printed.
+ * both streams are held in memory here and asserted on rather than printed.
  */
 async function runMain(argv: readonly string[]): Promise<{
   readonly code: number;
-  readonly printed: readonly string[];
+  readonly out: string;
+  readonly err: string;
 }> {
-  const { log, error } = console;
-  const printed: string[] = [];
-  const capture = (...args: unknown[]): void => {
-    printed.push(args.map(String).join(" "));
-  };
-  console.log = capture;
-  console.error = capture;
-  try {
-    return { code: await main(argv), printed };
-  } finally {
-    console.log = log;
-    console.error = error;
-  }
+  const { result, out, err } = await capture(() => main(argv));
+  return { code: result, out, err };
 }
 
 /** The exit code alone, for the cases that only assert refusal. */
@@ -136,8 +127,12 @@ test("version is a successful command that reports the shipped manifest", async 
   assert.equal(long.code, 0);
   assert.equal(short.code, 0);
   // Read, never hardcoded: a literal here would pass while the published
-  // package reported something else.
-  assert.deepEqual([...long.printed, ...short.printed], [manifest.version, manifest.version]);
+  // package reported something else. Compared whole rather than by substring:
+  // the version is parsed by whatever asked for it, so a bar or a symbol
+  // around it would be a break, and only an exact compare can see one.
+  assert.equal(long.out, `${manifest.version}\n`);
+  assert.equal(short.out, `${manifest.version}\n`);
+  assert.equal(long.err, "");
 });
 
 test("the README command reference stays identical to CLI usage", () => {

@@ -24,7 +24,9 @@ const STATE_IGNORE_LINE: Readonly<Record<StateIgnoreStatus, string>> = {
 };
 
 export function formatStaticReport(report: StaticReport): string {
-  const lines: string[] = ["magi doctor", ""];
+  // The first line titles the block. It named the command before the command
+  // was the thing printing it, which put "magi doctor" on screen twice.
+  const lines: string[] = ["static checks (nothing here spends quota)", ""];
   for (const seat of report.seats) {
     lines.push(`${slot(seat.slot).label} (${seat.profile.command})`);
     lines.push(`  version: ${seat.cliVersion ?? "NOT FOUND"}`);
