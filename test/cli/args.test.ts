@@ -236,6 +236,19 @@ test("help takes the command whose screen was asked for", async () => {
   assert.match(named.out, /--base <ref>/u);
 });
 
+test("the spelling no screen prints is not a spelling that works", async () => {
+  // The grammar takes `--help` and only that. `-h` is the spelling every other
+  // CLI has and MAGI does not print, and a flag that works unprinted is the
+  // drift this tool holds three harness CLIs to.
+  for (const name of Object.keys(SUBCOMMANDS)) {
+    const { code, out } = await runMain([name, "-h"]);
+
+    assert.equal(code, 2, `magi ${name} -h is refused`);
+    assert.equal(out, "", `magi ${name} -h prints no screen`);
+  }
+  assert.equal(await quietMain(["-h"]), 2, "and it is not a command either");
+});
+
 test("a command refused by name is refused with its own screen", async () => {
   // The root screen names the commands and not their flags, so a caller that
   // read a refusal down a pipe lost the grammar it had just got wrong.
