@@ -1,9 +1,20 @@
 /**
  * The magi command line: usage and dispatch only. Each subcommand lives in
- * src/cli/ as its own module; bin/magi.js only hands argv over. Exit codes:
- * 0 the command did its job (a degraded consult is a result, not an error),
- * 1 doctor found problems or a preflight refused, 2 the invocation itself
- * is wrong.
+ * src/cli/ as its own module; bin/magi.js only hands argv over.
+ *
+ * Exit codes, all four of them:
+ *
+ * - 0 the command did its job. A degraded consult is a result, not an error,
+ *   and so is a declined spend on `doctor`, whose free reports still say what
+ *   they say.
+ * - 1 the work did not come out clean: doctor found problems, a preflight
+ *   refused, an install was left alone, or a consult was declined rather than
+ *   convened.
+ * - 2 the invocation itself is wrong.
+ * - 130 a person stopped a question rather than answering it, which is what a
+ *   shell reports for an interrupt.
+ *
+ * `test/spec/exit-codes.test.ts` holds the source to this list.
  */
 
 import { readFileSync } from "node:fs";

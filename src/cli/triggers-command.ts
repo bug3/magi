@@ -28,10 +28,11 @@ export const TRIGGERS_GRAMMAR: Grammar = (command) =>
 
 /** Proposing is not convening, and the thresholds are not this command's. */
 export const TRIGGERS_NOTE: CommandNote = {
-  decides: `The size thresholds and the risk-domain seed are the owner's, set under
-.magi/. What this prints is a proposal and never a convene: the user approves
-every consult, and orchestrator judgment may add proposals but may not
-suppress these.`,
+  decides: `The size thresholds and the risk-domain seed are settings this repository
+ships, in src/consult/triggers.ts, rather than something read from .magi/ at
+run time. What this prints is a proposal and never a convene: the user
+approves every consult, and orchestrator judgment may add proposals but may
+not suppress these.`,
 };
 
 export async function triggersCommand(rest: readonly string[]): Promise<number> {
