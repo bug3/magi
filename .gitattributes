@@ -1,6 +1,9 @@
-# The usage screens are generated, and README.md carries one of them verbatim:
-# `test/cli/args.test.ts` compares the two byte for byte. A checkout that
-# converted these files to CRLF would fail that compare for a reason that has
-# nothing to do with the command line, so the working tree is LF wherever git
-# is what decides.
-* text=auto eol=lf
+# README.md carries a generated screen verbatim and `test/cli/args.test.ts`
+# compares the two byte for byte, so a checkout that converted it to CRLF would
+# fail that compare for a reason that has nothing to do with the command line.
+#
+# Markdown and nothing else. `* text=auto eol=lf` was the first spelling, and
+# it also normalized what a fixture captured from a subprocess: this repository
+# records what three harness CLIs printed, and a fixture is evidence rather
+# than text git may tidy.
+*.md text eol=lf
