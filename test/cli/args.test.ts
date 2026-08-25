@@ -232,6 +232,19 @@ test("help takes the command whose screen was asked for", async () => {
   assert.match(named.out, /--base <ref>/u);
 });
 
+test("a command refused by name is refused with its own screen", async () => {
+  // The root screen names the commands and not their flags, so a caller that
+  // read a refusal down a pipe lost the grammar it had just got wrong.
+  const consult = await runMain(["review", "--bogus"]);
+  assert.equal(consult.code, 2);
+  assert.match(consult.err, /Usage: magi review/u);
+  assert.match(consult.err, /--waive-headroom/u);
+
+  const checks = await runMain(["checks"]);
+  assert.equal(checks.code, 2);
+  assert.match(checks.err, /Usage: magi checks/u);
+});
+
 test("a screen takes its one argument and no more", async () => {
   // `magi --version extra` and `magi help review extra` answered as though the
   // extra word were not there. Under the exit codes this file's module states,

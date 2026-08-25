@@ -78,6 +78,25 @@ export function commandUsage(text: string): void {
 }
 
 /**
+ * The same refusal for one command rather than for the tool: the screen that
+ * command prints, on the stream a pipeline reads separately.
+ *
+ * The root screen names the commands and not their flags, so a caller that
+ * got a consult's grammar wrong and read the refusal down a pipe was handed
+ * a list that could not tell it what it had got wrong.
+ */
+export function refuseCommand(text: string, reason?: string): void {
+  if (!decorated(errStream())) {
+    plainError(text);
+    return;
+  }
+  intro("magi", { output: errStream() });
+  if (reason !== undefined) problem(reason);
+  box(text, "usage", { output: errStream(), width: "auto" });
+  cancel("magi help explains each command", { output: errStream() });
+}
+
+/**
  * The version, and nothing around it where it is being parsed.
  *
  * The exact-compare in the end-to-end suite is the contract: a bar or a colour

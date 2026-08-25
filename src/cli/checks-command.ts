@@ -17,13 +17,12 @@ import {
   detail,
   open,
   problem,
-  refuseUsage,
+  refuseCommand,
   transcript,
   verdict,
-  type UsageScreen,
 } from "../util/ui.ts";
 import { ambient } from "./environment.ts";
-import { parseArgv, type Grammar } from "./parse.ts";
+import { commandScreen, parseArgv, type Grammar } from "./parse.ts";
 
 /** Checks takes no flag: one consult id, and nothing beside it. */
 export const CHECKS_GRAMMAR: Grammar = (command) =>
@@ -31,10 +30,7 @@ export const CHECKS_GRAMMAR: Grammar = (command) =>
     .description("run the checks the seats proposed for one consult")
     .argument("[consult-id]", "the consult whose proposed checks are run");
 
-export async function checksCommand(
-  rest: readonly string[],
-  screen: UsageScreen,
-): Promise<number> {
+export async function checksCommand(rest: readonly string[]): Promise<number> {
   const parsed = parseArgv("magi checks", CHECKS_GRAMMAR, rest);
   if (parsed.kind === "help") {
     commandUsage(parsed.screen);
@@ -49,7 +45,7 @@ export async function checksCommand(
   // types the command without its one argument is asking what it takes.
   if (rawId === undefined) {
     problem("checks needs a consult id");
-    refuseUsage(screen);
+    refuseCommand(commandScreen("magi checks", CHECKS_GRAMMAR));
     return 2;
   }
   const { path } = ambient();

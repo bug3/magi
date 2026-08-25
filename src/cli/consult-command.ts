@@ -35,17 +35,17 @@ import {
   info,
   open,
   problem,
-  refuseUsage,
+  refuseCommand,
   report,
   step,
   verdict,
   warn,
-  type UsageScreen,
   type Wait,
 } from "../util/ui.ts";
-import { HelpAsked, parseReviewArgs, type ReviewArgs } from "./args.ts";
+import { HelpAsked, consultGrammar, parseReviewArgs, type ReviewArgs } from "./args.ts";
 import { checkInputs, emptyReviewTarget } from "./consult-inputs.ts";
 import { MAGI_ROOT, ambient } from "./environment.ts";
+import { commandScreen } from "./parse.ts";
 
 /** What the shell reports for a command a person stopped rather than answered. */
 const CANCELLED = 130;
@@ -63,7 +63,6 @@ async function untrackedPaths(repoDir: string): Promise<readonly string[]> {
 export async function consultCommand(
   mode: ConsultMode,
   rest: readonly string[],
-  screen: UsageScreen,
 ): Promise<number> {
   let args: ReviewArgs;
   try {
@@ -75,7 +74,7 @@ export async function consultCommand(
       return 0;
     }
     problem(String((error as Error).message));
-    refuseUsage(screen);
+    refuseCommand(commandScreen(`magi ${mode}`, consultGrammar(mode)));
     return 2;
   }
   const { home, path } = ambient();

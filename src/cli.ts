@@ -124,14 +124,14 @@ export const SUBCOMMANDS: Readonly<Record<string, CommandEntry>> = {
   doctor: { run: (rest) => doctorCommand(rest), grammar: DOCTOR_GRAMMAR },
   skill: { run: (rest) => skillCommand(rest), grammar: SKILL_GRAMMAR },
   plan: {
-    run: (rest) => consultCommand("plan", rest, SCREEN),
+    run: (rest) => consultCommand("plan", rest),
     grammar: consultGrammar("plan"),
   },
   review: {
-    run: (rest) => consultCommand("review", rest, SCREEN),
+    run: (rest) => consultCommand("review", rest),
     grammar: consultGrammar("review"),
   },
-  checks: { run: (rest) => checksCommand(rest, SCREEN), grammar: CHECKS_GRAMMAR },
+  checks: { run: (rest) => checksCommand(rest), grammar: CHECKS_GRAMMAR },
   triggers: { run: (rest) => triggersCommand(rest), grammar: TRIGGERS_GRAMMAR },
 };
 

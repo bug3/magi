@@ -61,6 +61,7 @@ export { report } from "./ui/report.ts";
 export { transcript, type Transcript } from "./ui/transcript.ts";
 export {
   commandUsage,
+  refuseCommand,
   refuseUsage,
   usage,
   usageText,
