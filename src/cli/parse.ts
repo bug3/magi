@@ -101,6 +101,15 @@ export function parseArgv<T>(name: string, grammar: Grammar, argv: readonly stri
 }
 
 /**
+ * One command's own screen, without an invocation to parse: what `magi help
+ * review` prints, which is the same text `magi review --help` prints because
+ * it is generated from the same declaration.
+ */
+export function commandScreen(name: string, grammar: Grammar): string {
+  return grammar(contained(name, [])).helpInformation().trimEnd();
+}
+
+/**
  * The screen `magi help` prints: every command, and what each one is for.
  *
  * Generated from the same grammars the commands are parsed with, so a flag
@@ -111,7 +120,7 @@ export function parseArgv<T>(name: string, grammar: Grammar, argv: readonly stri
 export function rootScreen(name: string, commands: Readonly<Record<string, Grammar>>): string {
   const said: string[] = [];
   const program = contained(name, said)
-    .helpCommand("help", "print this screen")
+    .helpCommand("help [command]", "print this screen, or one command's")
     .option("-v, --version", "print the version and nothing around it");
   for (const [command, grammar] of Object.entries(commands)) grammar(program.command(command));
   return program.helpInformation().trimEnd();

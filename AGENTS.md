@@ -21,8 +21,9 @@ mechanism here implements.
   through `src/cli/parse.ts`, which forbids it a stream and an exit of its
   own. No command's flags are written out anywhere: `magi help` and
   `magi <command> --help` are generated from the grammars the commands are
-  parsed with, and README.md carries the generated block verbatim. Dev dependencies: `typescript`,
-  `@types/node` and `publish-preflight`. Every dependency is pinned exact.
+  parsed with, and README.md carries the generated block verbatim. Dev
+  dependencies: `typescript`, `@types/node` and `publish-preflight`. Every
+  dependency is pinned exact.
 - `npm run check` = `tsc --noEmit` + every `test/**/*.test.ts` file. Green at
   every commit.
 - `npm run preflight` packs the package and installs it the way a consumer

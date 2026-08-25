@@ -14,10 +14,11 @@ import { CHECKS_GRAMMAR, checksCommand } from "./cli/checks-command.ts";
 import { consultCommand } from "./cli/consult-command.ts";
 import { DOCTOR_GRAMMAR, doctorCommand } from "./cli/doctor-command.ts";
 import { MAGI_ROOT } from "./cli/environment.ts";
-import { parseArgv, rootScreen, type Grammar } from "./cli/parse.ts";
+import { commandScreen, parseArgv, rootScreen, type Grammar } from "./cli/parse.ts";
 import { SKILL_GRAMMAR, skillCommand } from "./cli/skill-command.ts";
 import { TRIGGERS_GRAMMAR, triggersCommand } from "./cli/triggers-command.ts";
 import {
+  commandUsage,
   refuseUsage,
   usage,
   version,
@@ -200,7 +201,19 @@ function notACommand(token: string): string {
 export async function main(argv: readonly string[]): Promise<number> {
   const [command, ...rest] = argv;
   if (command !== undefined && HELP.includes(command)) {
-    usage(SCREEN);
+    // `magi help review` is `magi review --help` asked the other way round,
+    // and a word here that names nothing is as wrong as it is anywhere else.
+    const named = rest[0];
+    if (named === undefined) {
+      usage(SCREEN);
+      return 0;
+    }
+    const asked = SUBCOMMANDS[named];
+    if (asked === undefined) {
+      refuseUsage(SCREEN, notACommand(named));
+      return 2;
+    }
+    commandUsage(commandScreen(`magi ${named}`, asked.grammar));
     return 0;
   }
   if (command !== undefined && VERSION.includes(command)) {

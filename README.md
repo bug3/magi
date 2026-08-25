@@ -193,7 +193,7 @@ Commands:
   review [options]     convene the council on a plan or a diff
   checks [consult-id]  run the checks the seats proposed for one consult
   triggers [options]   say which deterministic triggers propose a consult
-  help                 print this screen
+  help [command]       print this screen, or one command's
 ```
 
 `magi review --help` and `magi plan --help` print the consult flags in full.

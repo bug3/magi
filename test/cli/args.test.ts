@@ -220,6 +220,30 @@ test("every command answers --help itself, and answering is not an error", async
   }
 });
 
+test("help takes the command whose screen was asked for", async () => {
+  // `magi help review` printed the screen for everything and ignored the word
+  // that said which one, which is the same defect as a flag that is accepted
+  // and does nothing.
+  const named = await runMain(["help", "review"]);
+  const flagged = await runMain(["review", "--help"]);
+
+  assert.equal(named.code, 0);
+  assert.equal(named.out, flagged.out, "one screen, whichever way it was asked for");
+  assert.match(named.out, /--base <ref>/u);
+});
+
+test("help asked for something that is not a command is still a mistake", async () => {
+  const piped = await runMain(["help", "revieww"]);
+  assert.equal(piped.code, 2);
+  assert.equal(piped.out, "", "a refusal is not a result");
+
+  // The reason is drawn where a person is reading it; a pipe gets the screen
+  // alone on this path, which is the older contract of the two.
+  const drawn = await capture(() => main(["help", "revieww"]), { tty: true });
+  assert.match(drawn.err, /unknown command 'revieww'/u);
+  assert.match(drawn.err, /Did you mean review/u);
+});
+
 test("each command's own screen prints every flag it accepts", () => {
   // The block is generated from these grammars now, so the drift that needed
   // watching is gone and what a guard can still ask is the other half: the
