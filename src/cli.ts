@@ -19,6 +19,7 @@ import { SKILL_GRAMMAR, SKILL_NOTE, skillCommand } from "./cli/skill-command.ts"
 import { TRIGGERS_GRAMMAR, TRIGGERS_NOTE, triggersCommand } from "./cli/triggers-command.ts";
 import {
   commandUsage,
+  problem,
   refuseUsage,
   usage,
   version,
@@ -149,6 +150,19 @@ function notACommand(token: string): string {
   return parsed.kind === "refused" ? parsed.reason : `unknown command: ${token}`;
 }
 
+/**
+ * The tool-wide refusal, said on both streams a caller might be reading.
+ *
+ * `refuseUsage` draws the reason on a terminal only, because the block down a
+ * pipe is a byte contract older than any of this. The line that says which
+ * token was wrong is not part of that block, so it goes out first, the way
+ * every named command says it.
+ */
+function refuseRoot(reason: string): void {
+  problem(reason);
+  refuseUsage(SCREEN, reason);
+}
+
 export async function main(argv: readonly string[]): Promise<number> {
   const [command, ...rest] = argv;
   if (command !== undefined && HELP.includes(command)) {
@@ -162,7 +176,7 @@ export async function main(argv: readonly string[]): Promise<number> {
       rest,
     );
     if (asked.kind !== "invocation") {
-      refuseUsage(SCREEN, asked.kind === "refused" ? asked.reason : undefined);
+      refuseRoot(asked.kind === "refused" ? asked.reason : "magi help takes one command");
       return 2;
     }
     const named = asked.args[0];
@@ -172,7 +186,7 @@ export async function main(argv: readonly string[]): Promise<number> {
     }
     const wanted = SUBCOMMANDS[named];
     if (wanted === undefined) {
-      refuseUsage(SCREEN, notACommand(named));
+      refuseRoot(notACommand(named));
       return 2;
     }
     commandUsage(commandScreen(`magi ${named}`, wanted.grammar), wanted.note);
@@ -183,7 +197,7 @@ export async function main(argv: readonly string[]): Promise<number> {
     // cannot use is refused rather than printed past.
     const asked = parseArgv<never>("magi --version", (root) => root.helpOption(false), rest);
     if (asked.kind !== "invocation") {
-      refuseUsage(SCREEN, asked.kind === "refused" ? asked.reason : undefined);
+      refuseRoot(asked.kind === "refused" ? asked.reason : "magi --version takes nothing");
       return 2;
     }
     version(declaredVersion());
@@ -193,7 +207,7 @@ export async function main(argv: readonly string[]): Promise<number> {
   if (subcommand !== undefined) return subcommand.run(rest);
   // The reason is drawn on a terminal only: what a pipe receives here is the
   // block alone, and that is a contract the end-to-end suite pins.
-  refuseUsage(SCREEN, command === undefined ? "magi needs a command" : notACommand(command));
+  refuseRoot(command === undefined ? "magi needs a command" : notACommand(command));
   return 2;
 }
 

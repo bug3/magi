@@ -22,11 +22,12 @@ import {
   info,
   open,
   problem,
+  refuseCommand,
   step,
   type CommandNote,
 } from "../util/ui.ts";
 import { SKILL_SOURCE, ambient } from "./environment.ts";
-import { InvalidArgumentError, parseArgv, type Grammar } from "./parse.ts";
+import { InvalidArgumentError, commandScreen, parseArgv, type Grammar } from "./parse.ts";
 
 /** The council's own harnesses, in slot order. */
 const HARNESSES: readonly Harness[] = SLOTS.map((definition) => definition.harness);
@@ -80,7 +81,7 @@ export async function skillCommand(rest: readonly string[]): Promise<number> {
     return 0;
   }
   if (parsed.kind === "refused") {
-    problem(parsed.reason);
+    refuseCommand(commandScreen("magi skill", SKILL_GRAMMAR), parsed.reason);
     return 2;
   }
   const { harness: chosen, install } = parsed.opts;

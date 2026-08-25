@@ -46,15 +46,14 @@ export async function checksCommand(rest: readonly string[]): Promise<number> {
     return 0;
   }
   if (parsed.kind === "refused") {
-    problem(parsed.reason);
+    refuseCommand(commandScreen("magi checks", CHECKS_GRAMMAR), parsed.reason);
     return 2;
   }
   const rawId = parsed.args[0];
   // Told what to do but not to what: the whole screen, because somebody who
   // types the command without its one argument is asking what it takes.
   if (rawId === undefined) {
-    problem("checks needs a consult id");
-    refuseCommand(commandScreen("magi checks", CHECKS_GRAMMAR));
+    refuseCommand(commandScreen("magi checks", CHECKS_GRAMMAR), "checks needs a consult id");
     return 2;
   }
   const { path } = ambient();

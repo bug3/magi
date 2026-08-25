@@ -128,13 +128,20 @@ export function commandUsage(text: string, about: CommandNote = {}): void {
  * The screen and nothing else: what a command costs is read before it is run,
  * and stderr on this path is what a pipeline greps for the reason it failed.
  */
-export function refuseCommand(text: string, reason?: string): void {
+export function refuseCommand(text: string, reason: string): void {
   if (!decorated(errStream())) {
+    // Both, and the reason first: a pipeline greps stderr for why it failed,
+    // and a screen without the line that says which flag was wrong is a
+    // catalogue it has to diff against its own invocation to learn anything.
+    plainError(reason);
     plainError(text);
     return;
   }
+  // Opened before the reason rather than after it. A caller that says why with
+  // `problem` and then opens a bar leaves its own refusal hanging above the
+  // frame, which is what both of these paths did.
   intro("magi", { output: errStream() });
-  if (reason !== undefined) problem(reason);
+  problem(reason);
   box(text, "usage", { output: errStream(), width: "auto" });
   cancel("magi help explains each command", { output: errStream() });
 }

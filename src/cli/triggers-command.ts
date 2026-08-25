@@ -13,11 +13,12 @@ import {
   detail,
   open,
   problem,
+  refuseCommand,
   step,
   warn,
   type CommandNote,
 } from "../util/ui.ts";
-import { parseArgv, type Grammar } from "./parse.ts";
+import { commandScreen, parseArgv, type Grammar } from "./parse.ts";
 
 /** Every flag triggers takes, as the catalogue the usage block is held to. */
 export const TRIGGERS_GRAMMAR: Grammar = (command) =>
@@ -40,7 +41,7 @@ export async function triggersCommand(rest: readonly string[]): Promise<number> 
     return 0;
   }
   if (parsed.kind === "refused") {
-    problem(parsed.reason);
+    refuseCommand(commandScreen("magi triggers", TRIGGERS_GRAMMAR), parsed.reason);
     return 2;
   }
   const { base } = parsed.opts;

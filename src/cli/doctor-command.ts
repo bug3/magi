@@ -38,12 +38,13 @@ import {
   info,
   open,
   problem,
+  refuseCommand,
   report,
   waiting,
   type CommandNote,
 } from "../util/ui.ts";
 import { MAGI_ROOT, SKILL_SOURCE, ambient } from "./environment.ts";
-import { parseArgv, type Grammar } from "./parse.ts";
+import { commandScreen, parseArgv, type Grammar } from "./parse.ts";
 
 /** Every flag doctor takes, as the catalogue the usage block is held to. */
 export const DOCTOR_GRAMMAR: Grammar = (command) =>
@@ -78,7 +79,7 @@ export async function doctorCommand(rest: readonly string[]): Promise<number> {
     return 0;
   }
   if (parsed.kind === "refused") {
-    problem(parsed.reason);
+    refuseCommand(commandScreen("magi doctor", DOCTOR_GRAMMAR), parsed.reason);
     return 2;
   }
   let { live, calibrate } = parsed.opts;

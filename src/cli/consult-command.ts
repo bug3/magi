@@ -79,8 +79,10 @@ export async function consultCommand(
       commandUsage(error.screen, consultNote(mode));
       return 0;
     }
-    problem(String((error as Error).message));
-    refuseCommand(commandScreen(`magi ${mode}`, consultGrammar(mode)));
+    refuseCommand(
+      commandScreen(`magi ${mode}`, consultGrammar(mode)),
+      String((error as Error).message),
+    );
     return 2;
   }
   const { home, path } = ambient();
