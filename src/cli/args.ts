@@ -10,6 +10,7 @@
 
 import type { ExcerptRequest } from "../evidence/pack.ts";
 import type { ConsultMode } from "../core/consult.ts";
+import type { CommandNote } from "../util/ui.ts";
 import { InvalidArgumentError, Option, parseArgv, type Grammar } from "./parse.ts";
 
 /**
@@ -110,12 +111,41 @@ export function consultGrammar(mode: ConsultMode): Grammar {
       .option("--waive-headroom", "convene past a refusing headroom check", false)
       .option("--waive-backfill", "convene over overdue dispositions", false)
       .option("--dry-run", "curate and gate both ways, convene nothing", false)
-      .option("--yes", "do not ask before spending", false);
+      .option("--yes", "do not ask first", false);
     return mode === "review"
       ? shared
           .option("--base <ref>", "derive the review patch from git")
           .option("--patch <file>", "the diff under review")
       : shared.addOption(reviewOnly("--base <ref>")).addOption(reviewOnly("--patch <file>"));
+  };
+}
+
+/**
+ * What convening costs, what the preflights refuse, and what is written down,
+ * for whichever of the two modes is being asked about. The patch pins are
+ * review's alone, so plan is not told about them.
+ */
+export function consultNote(mode: ConsultMode): CommandNote {
+  const pins = `With --base the patch derives from git and the base and head SHAs are pinned
+in the manifest; a --patch beside a --base is checked against the full delta
+and every scoped-out file is recorded as an exclusion; a --patch alone is
+recorded caller-supplied-unpinned. `;
+  return {
+    spends: `Convening spends quota: three seats, once each, on the repository at the
+current working directory. A terminal is asked once before the fan-out spends
+anything; --yes skips the question, --dry-run is never asked, and down a pipe
+the invocation is the approval.`,
+    refuses: `A headroom preflight refuses when a configured budget cannot fit the projected
+burn. A completeness preflight refuses when a consult's findings are overdue a
+disposition. --waive-headroom and --waive-backfill are the user's explicit
+overrides, one for each.`,
+    records: `${mode === "review" ? pins : ""}Both waivers are recorded in the ledger, beside
+the consult they were given for.`,
+    decides: `Curation is rule-driven: conventions are collected from the tree and both
+modes carry the same repository floor, so --excerpt only adds commentary and
+cannot narrow what was derived. --dry-run does everything a consult does
+except spend it: curation, both gates and both preflights run, what would be
+sent is reported, and nothing is convened.`,
   };
 }
 

@@ -9,20 +9,20 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { consultGrammar } from "./cli/args.ts";
-import { CHECKS_GRAMMAR, checksCommand } from "./cli/checks-command.ts";
+import { consultGrammar, consultNote } from "./cli/args.ts";
+import { CHECKS_GRAMMAR, CHECKS_NOTE, checksCommand } from "./cli/checks-command.ts";
 import { consultCommand } from "./cli/consult-command.ts";
-import { DOCTOR_GRAMMAR, doctorCommand } from "./cli/doctor-command.ts";
+import { DOCTOR_GRAMMAR, DOCTOR_NOTE, doctorCommand } from "./cli/doctor-command.ts";
 import { MAGI_ROOT } from "./cli/environment.ts";
 import { commandScreen, parseArgv, rootScreen, type Grammar } from "./cli/parse.ts";
-import { SKILL_GRAMMAR, skillCommand } from "./cli/skill-command.ts";
-import { TRIGGERS_GRAMMAR, triggersCommand } from "./cli/triggers-command.ts";
+import { SKILL_GRAMMAR, SKILL_NOTE, skillCommand } from "./cli/skill-command.ts";
+import { TRIGGERS_GRAMMAR, TRIGGERS_NOTE, triggersCommand } from "./cli/triggers-command.ts";
 import {
   commandUsage,
   refuseUsage,
   usage,
   version,
-  type CommandGuide,
+  type CommandNote,
   type UsageScreen,
 } from "./util/ui.ts";
 
@@ -30,83 +30,14 @@ import {
 const HELP: readonly string[] = ["help", "--help"];
 const VERSION: readonly string[] = ["--version", "-v"];
 
-/**
- * What each command does, and what its flags cost, one entry per command.
- *
- * Kept apart rather than as one block of prose because it is drawn two ways: a
- * terminal gets a note per command, and a pipe gets them run together into the
- * block that has always been copied out of one. `usageText` assembles the
- * second from the first, so the two cannot drift.
- */
-const GUIDE: readonly CommandGuide[] = [
-  {
-    title: "doctor",
-    body: `doctor --live spends quota: one minimal call per harness.
-doctor --calibrate is the owner-approved canary calibration for CLI
-updates: it spends quota (two rounds, six seat calls), briefly writes a
-nonce into each ambient config layer and restores every layer after,
-asserts the nonce surfaces without isolation and stays out with it, and
-records both directions in the ledger.
-Both spending flags ask once before they spend, on a terminal; --yes skips
-that question and a pipe is never asked.`,
-  },
-  {
-    title: "skill",
-    body: `skill reports where each harness would find the orchestrator skill and, on
---install, links it there: a symlink to this clone so the installed skill
-cannot drift. Installing leaves a marker beside the link naming the source it
-claims, and only a link that marker still claims is repointed later; a link
-nobody here made, a real file or a directory is reported and left exactly as
-it was, and at a terminal the run asks once before replacing it: no flag
-answers that question, because overwriting somebody else's file needs a
-person. Without --harness it asks which harness at a terminal and installs
-for claude anywhere else.`,
-  },
-  {
-    title: "plan and review",
-    body: `review and plan convene the council on the repo at the current working
-directory; review critiques a plan or diff, plan asks for independent
-approaches before one exists. Curation is rule-driven: conventions are
-collected from the tree, review packs derive from the patch and carry
-the same repository floor as plan packs; excerpts only add commentary.
-With --base the review patch derives from git (base/head SHAs pinned in
-the manifest); a --patch beside a --base is checked against the full
-delta and every scoped-out file is recorded as an exclusion; a --patch
-alone is recorded caller-supplied-unpinned. A preflight headroom
-check precedes the fan-out and refuses when a configured budget cannot
-fit the projected burn; --waive-headroom is the user's explicit
-override, and the waiver is recorded in the ledger. A completeness
-preflight lists consults whose findings still lack ledger dispositions
-and refuses when one is overdue; --waive-backfill is the matching
-override, also recorded. --dry-run does everything a consult does except
-spend it: curation, both gates and both preflights run, what would be sent
-is reported, and nothing is convened. A terminal is asked once before the
-fan-out spends anything; --yes skips the question, --dry-run is never asked,
-and down a pipe the invocation is the approval.`,
-  },
-  {
-    title: "checks",
-    body: `checks plans every seat-proposed check against a built-in read-only
-vocabulary, runs only what matches without a shell, and records every
-proposal. Project-code commands such as npm and node tests are refused.`,
-  },
-  {
-    title: "triggers",
-    body: `triggers evaluates the tracked base-to-worktree diff plus non-ignored
-untracked files against the owner-set size thresholds and risk-domain
-seed and prints which deterministic triggers propose a consult;
-proposing never convenes, and judgment may add proposals but not
-suppress these.`,
-  },
-];
-
 /** What a subcommand does with the argv after its own name. */
 type Subcommand = (rest: readonly string[]) => number | Promise<number>;
 
-/** One command: what it does, and what it accepts. */
+/** One command: what it does, what it accepts, and what it costs. */
 interface CommandEntry {
   readonly run: Subcommand;
   readonly grammar: Grammar;
+  readonly note: CommandNote;
 }
 
 /**
@@ -121,18 +52,24 @@ interface CommandEntry {
  * no reading of the usage text against a regexp could make.
  */
 export const SUBCOMMANDS: Readonly<Record<string, CommandEntry>> = {
-  doctor: { run: (rest) => doctorCommand(rest), grammar: DOCTOR_GRAMMAR },
-  skill: { run: (rest) => skillCommand(rest), grammar: SKILL_GRAMMAR },
+  doctor: { run: (rest) => doctorCommand(rest), grammar: DOCTOR_GRAMMAR, note: DOCTOR_NOTE },
+  skill: { run: (rest) => skillCommand(rest), grammar: SKILL_GRAMMAR, note: SKILL_NOTE },
   plan: {
     run: (rest) => consultCommand("plan", rest),
     grammar: consultGrammar("plan"),
+    note: consultNote("plan"),
   },
   review: {
     run: (rest) => consultCommand("review", rest),
     grammar: consultGrammar("review"),
+    note: consultNote("review"),
   },
-  checks: { run: (rest) => checksCommand(rest), grammar: CHECKS_GRAMMAR },
-  triggers: { run: (rest) => triggersCommand(rest), grammar: TRIGGERS_GRAMMAR },
+  checks: { run: (rest) => checksCommand(rest), grammar: CHECKS_GRAMMAR, note: CHECKS_NOTE },
+  triggers: {
+    run: (rest) => triggersCommand(rest),
+    grammar: TRIGGERS_GRAMMAR,
+    note: TRIGGERS_NOTE,
+  },
 };
 
 /**
@@ -152,8 +89,22 @@ export const COMMAND_USAGE: string = rootScreen(
   Object.fromEntries(Object.entries(SUBCOMMANDS).map(([name, { grammar }]) => [name, grammar])),
 );
 
-/** The whole screen: the generated table, and the prose under it. */
-const SCREEN: UsageScreen = { commands: COMMAND_USAGE, guide: GUIDE };
+/**
+ * The whole screen: the generated table, and the line that says where the
+ * prose about each command went.
+ *
+ * It used to be five paragraphs of prose run on underneath, kept in this file,
+ * beside no flag it was about. Nothing bound a sentence about what `--live`
+ * spends to the declaration of `--live`, so renaming a flag left the prose
+ * stale and no check noticed. Each command carries its own note now, and this
+ * is the line that sends a reader to it: the screen a piped orchestrator reads
+ * first must still say that the cost is written down somewhere.
+ */
+const SCREEN: UsageScreen = {
+  commands: COMMAND_USAGE,
+  pointer:
+    "magi <command> --help adds what that command spends, refuses, records, and leaves to you.",
+};
 
 /**
  * Every token `main` accepts as its first argument, derived from what it
@@ -224,7 +175,7 @@ export async function main(argv: readonly string[]): Promise<number> {
       refuseUsage(SCREEN, notACommand(named));
       return 2;
     }
-    commandUsage(commandScreen(`magi ${named}`, wanted.grammar));
+    commandUsage(commandScreen(`magi ${named}`, wanted.grammar), wanted.note);
     return 0;
   }
   if (command !== undefined && VERSION.includes(command)) {

@@ -23,6 +23,7 @@ import {
   open,
   problem,
   step,
+  type CommandNote,
 } from "../util/ui.ts";
 import { SKILL_SOURCE, ambient } from "./environment.ts";
 import { InvalidArgumentError, parseArgv, type Grammar } from "./parse.ts";
@@ -54,6 +55,20 @@ export const SKILL_GRAMMAR: Grammar = (command) =>
     )
     .option("--install", "link the skill where the harness finds it", false);
 
+/** What installing writes, what it will not touch, and what it asks. */
+export const SKILL_NOTE: CommandNote = {
+  records: `--install links the skill where the harness looks for it: a symlink to this
+clone, so the installed skill cannot drift, with a marker beside it naming the
+source it claims.`,
+  refuses: `Only a link that marker still claims is repointed later. A link nobody here
+made, a real file and a directory are each reported and left exactly as they
+were.`,
+  decides: `At a terminal the run asks once before replacing somebody else's file, and no
+flag answers that question, because overwriting it needs a person. Without
+--harness it asks which harness at a terminal, and installs for claude
+anywhere else.`,
+};
+
 export async function skillCommand(rest: readonly string[]): Promise<number> {
   const parsed = parseArgv<{ readonly harness: readonly Harness[]; readonly install: boolean }>(
     "magi skill",
@@ -61,7 +76,7 @@ export async function skillCommand(rest: readonly string[]): Promise<number> {
     rest,
   );
   if (parsed.kind === "help") {
-    commandUsage(parsed.screen);
+    commandUsage(parsed.screen, SKILL_NOTE);
     return 0;
   }
   if (parsed.kind === "refused") {

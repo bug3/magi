@@ -11,6 +11,7 @@ import {
   parseReviewArgs,
 } from "../../src/cli.ts";
 import { flagsOf, parseArgv } from "../../src/cli/parse.ts";
+import { noteText } from "../../src/util/ui.ts";
 import { capture } from "../support/capture.ts";
 
 /**
@@ -221,6 +222,17 @@ test("every command answers --help itself, and answering is not an error", async
     assert.equal(code, 0, `magi ${name} --help exits 0`);
     assert.match(out, new RegExp(`^Usage: magi ${name}`, "mu"), `magi ${name} --help is its own`);
     assert.equal(err, "", `magi ${name} --help is a result, not a refusal`);
+  }
+});
+
+test("what a command costs reaches the screen a pipe reads", async () => {
+  // The prose was asserted only against a fixture before it moved: the real
+  // paragraphs reached no test at all, which is how five of them could sit in
+  // src/cli.ts describing flags nobody had checked they still matched.
+  for (const [name, { note }] of Object.entries(SUBCOMMANDS)) {
+    const { out } = await runMain([name, "--help"]);
+
+    assert.ok(out.endsWith(`${noteText(note)}\n`), `magi ${name} --help ends with its own note`);
   }
 });
 

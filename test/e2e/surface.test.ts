@@ -126,6 +126,24 @@ test("a flag joined to its value with = is the same invocation", async () => {
   }
 });
 
+test("a command's screen tells a pipe what the command costs", async () => {
+  // The screen an orchestrating assistant reads before it spends anything.
+  // Generated flags are half of it; the other half is the note, and it has to
+  // survive the same pipe the flags do.
+  const space = workspace();
+  try {
+    const run = await magi(["doctor", "--help"], space);
+
+    assert.equal(run.code, 0);
+    assert.match(run.out, /^Usage: magi doctor/mu);
+    assert.match(run.out, /^spends: /mu, "what it spends, on the stream a pipe reads");
+    assert.match(run.out, /^records: /mu, "and what it writes down");
+    assert.equal(run.err, "");
+  } finally {
+    space.remove();
+  }
+});
+
 test("nothing a command prints carries a cursor escape, having no terminal", async () => {
   // MAGI's output is read by an orchestrating assistant through a pipe, and
   // its own check transcript is carried into evidence packs. A redrawn line

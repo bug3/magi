@@ -174,9 +174,12 @@ the ledger.
 
 ## Command reference
 
-`magi --help` lists the commands, and `magi <command> --help` prints what
-each one takes. Both screens are generated from the flags the commands are
-parsed with, so neither can drift from what the CLI accepts:
+`magi --help` lists the commands, and `magi <command> --help` prints what that
+one takes and what it costs. The flags are generated from the grammar the
+command is parsed with, so they cannot drift from what the CLI accepts; the
+note under them says what the generated half cannot, in four categories:
+what the command spends, what it refuses, what it records, and what it leaves
+to you.
 
 ```
 Usage: magi [options] [command]
@@ -197,9 +200,10 @@ Commands:
 ```
 
 `magi review --help` and `magi plan --help` print the consult flags in full.
-`--slug` is optional and defaults to the mode name. `--base` and `--patch`
-are review-only, and a plan invocation is refused by name for either. `--excerpt` is additive commentary: it can add context, but
-it cannot remove the rule-derived floor or narrow the patch-derived scope.
+`--slug` is optional and defaults to the mode name. `--base` and `--patch` are
+review-only, and a plan invocation is refused by name for either. `--excerpt`
+is additive commentary: it can add context, but it cannot remove the
+rule-derived floor or narrow the patch-derived scope.
 
 ### On a terminal, and down a pipe
 

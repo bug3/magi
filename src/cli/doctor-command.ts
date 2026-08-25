@@ -40,6 +40,7 @@ import {
   problem,
   report,
   waiting,
+  type CommandNote,
 } from "../util/ui.ts";
 import { MAGI_ROOT, SKILL_SOURCE, ambient } from "./environment.ts";
 import { parseArgv, type Grammar } from "./parse.ts";
@@ -48,9 +49,20 @@ import { parseArgv, type Grammar } from "./parse.ts";
 export const DOCTOR_GRAMMAR: Grammar = (command) =>
   command
     .description("check the installation, the seats and the ledger")
-    .option("--live", "spend quota: one minimal call per harness", false)
+    .option("--live", "the live smoke: one minimal call per harness", false)
     .option("--calibrate", "the owner-approved canary calibration", false)
-    .option("--yes", "do not ask before spending", false);
+    .option("--yes", "do not ask first", false);
+
+/** What doctor costs and writes down, beside the flags that cost it. */
+export const DOCTOR_NOTE: CommandNote = {
+  spends: `--live spends quota: one minimal call per harness. --calibrate spends more,
+two rounds and six seat calls, and is the owner-approved canary calibration for
+CLI updates. Both ask once before they spend, on a terminal; --yes skips that
+question and a pipe is never asked.`,
+  records: `--calibrate briefly writes a nonce into each ambient config layer and
+restores every layer after, asserts that the nonce surfaces without isolation
+and stays out with it, and records both directions in the ledger.`,
+};
 
 /** What the shell reports for a command a person stopped rather than answered. */
 const CANCELLED = 130;
@@ -62,7 +74,7 @@ export async function doctorCommand(rest: readonly string[]): Promise<number> {
     readonly yes: boolean;
   }>("magi doctor", DOCTOR_GRAMMAR, rest);
   if (parsed.kind === "help") {
-    commandUsage(parsed.screen);
+    commandUsage(parsed.screen, DOCTOR_NOTE);
     return 0;
   }
   if (parsed.kind === "refused") {

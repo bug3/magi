@@ -7,7 +7,16 @@
  */
 
 import { evaluateTriggers, triggerChanges } from "../consult.ts";
-import { close, commandUsage, detail, open, problem, step, warn } from "../util/ui.ts";
+import {
+  close,
+  commandUsage,
+  detail,
+  open,
+  problem,
+  step,
+  warn,
+  type CommandNote,
+} from "../util/ui.ts";
 import { parseArgv, type Grammar } from "./parse.ts";
 
 /** Every flag triggers takes, as the catalogue the usage block is held to. */
@@ -16,10 +25,18 @@ export const TRIGGERS_GRAMMAR: Grammar = (command) =>
     .description("say which deterministic triggers propose a consult")
     .option("--base <ref>", "the ref the diff is taken from");
 
+/** Proposing is not convening, and the thresholds are not this command's. */
+export const TRIGGERS_NOTE: CommandNote = {
+  decides: `The size thresholds and the risk-domain seed are the owner's, set under
+.magi/. What this prints is a proposal and never a convene: the user approves
+every consult, and orchestrator judgment may add proposals but may not
+suppress these.`,
+};
+
 export async function triggersCommand(rest: readonly string[]): Promise<number> {
   const parsed = parseArgv<{ readonly base?: string }>("magi triggers", TRIGGERS_GRAMMAR, rest);
   if (parsed.kind === "help") {
-    commandUsage(parsed.screen);
+    commandUsage(parsed.screen, TRIGGERS_NOTE);
     return 0;
   }
   if (parsed.kind === "refused") {

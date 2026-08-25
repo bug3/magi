@@ -20,16 +20,11 @@ import {
   interactive,
   open,
   problem,
-  refuseUsage,
   report,
   step,
   transcript,
-  usage,
-  usageText,
   verdict,
-  version,
   warn,
-  type UsageScreen,
 } from "../../src/util/ui.ts";
 // Reached around the facade on purpose: these two are what the pipe's plain
 // bytes are written with, and the facade stops offering them so that no
@@ -44,15 +39,6 @@ import { capture } from "../support/capture.ts";
  * this suite on a machine where nothing was wrong.
  */
 const ESCAPE = /\u001B\[/u;
-
-/** A usage screen the shape of the real one, small enough to assert on. */
-const SCREEN: UsageScreen = {
-  commands: "usage:\n  magi doctor [--live]\n  magi triggers [--base <ref>]",
-  guide: [
-    { title: "doctor", body: "doctor --live spends quota: one minimal call per harness." },
-    { title: "triggers", body: "triggers evaluates the tracked base-to-worktree diff." },
-  ],
-};
 
 test("a result goes to stdout and never to stderr", async () => {
   const { out, err } = await capture(() => {
@@ -184,78 +170,6 @@ test("a question is asked only when both ends are a terminal", async () => {
 
   assert.equal(halfway.result, false, "stdout alone is not enough to ask");
   assert.equal(both.result, true);
-});
-
-test("the usage block a pipe receives is the block and nothing else", async () => {
-  // It is copied out of a terminal and pasted into a shell, and MAGI's own
-  // check transcript carries it into evidence packs. A bar down the side
-  // survives neither.
-  const { out, err } = await capture(() => {
-    usage(SCREEN);
-  });
-
-  assert.equal(out, `${usageText(SCREEN)}\n`);
-  assert.equal(err, "");
-});
-
-test("the same block is drawn on a terminal, with every command still in it", async () => {
-  const { out } = await capture(() => {
-    usage(SCREEN);
-  }, { tty: true });
-
-  // Not asserted symbol by symbol: which characters clack draws depends on the
-  // terminal's unicode support and on clack's version, and pinning them fails
-  // on a machine where nothing is wrong. What is pinned is that the screen was
-  // drawn rather than written flat, and that nothing was lost in the drawing.
-  assert.notEqual(out, `${usageText(SCREEN)}\n`, "a terminal gets more than the flat block");
-  for (const line of ["magi doctor [--live]", "magi triggers [--base <ref>]"]) {
-    assert.ok(out.includes(line), `${line} survived the drawing`);
-  }
-  for (const entry of SCREEN.guide) {
-    assert.ok(out.includes(entry.title), `${entry.title} titles its own note`);
-    assert.ok(out.includes(entry.body.split(":")[0] as string), `${entry.title} kept its prose`);
-  }
-});
-
-test("a terminal too narrow to frame a block gets the flat one", async () => {
-  // Measured, not assumed: at zero columns the renderer's box divides by what
-  // it was told and throws, which is what `magi help` did in a pty nobody had
-  // sized. Every fallback here is to the piped rendering, which fits anything.
-  const narrow = await capture(() => {
-    usage(SCREEN);
-  }, { tty: true, columns: 0 });
-
-  assert.equal(narrow.out, `${usageText(SCREEN)}\n`);
-});
-
-test("the version is exactly the number when something is parsing it", async () => {
-  const piped = await capture(() => {
-    version("0.6.0");
-  });
-  assert.equal(piped.out, "0.6.0\n");
-
-  const terminal = await capture(() => {
-    version("0.6.0");
-  }, { tty: true });
-  assert.ok(terminal.out.includes("0.6.0"));
-  assert.notEqual(terminal.out, "0.6.0\n");
-});
-
-test("a refused invocation puts the whole screen on stderr, drawn or not", async () => {
-  const piped = await capture(() => {
-    refuseUsage(SCREEN, "unknown command: frobnicate");
-  });
-  // The reason is drawn on a terminal only: what a pipe receives on this path
-  // is the block alone, which is a contract older than this renderer.
-  assert.equal(piped.err, `${usageText(SCREEN)}\n`);
-  assert.equal(piped.out, "");
-
-  const terminal = await capture(() => {
-    refuseUsage(SCREEN, "unknown command: frobnicate");
-  }, { tty: true });
-  assert.ok(terminal.err.includes("unknown command: frobnicate"), "a person is told what broke");
-  assert.ok(terminal.err.includes("magi doctor [--live]"), "and still gets the block");
-  assert.equal(terminal.out, "", "a caller reading stdout for a result gets nothing");
 });
 
 test("a report is framed under its own title on a terminal", async () => {

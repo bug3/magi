@@ -21,7 +21,12 @@ mechanism here implements.
   through `src/cli/parse.ts`, which forbids it a stream and an exit of its
   own. No command's flags are written out anywhere: `magi help` and
   `magi <command> --help` are generated from the grammars the commands are
-  parsed with, and README.md carries the generated block verbatim. Dev
+  parsed with, and README.md carries the generated block verbatim. What the
+  generated half cannot say lives beside the grammar it is about, as that
+  command's `CommandNote`: what it spends, refuses, records and leaves to the
+  user. A flag that admits one of those obliges the matching category, and the
+  generated half makes no claim about cost; `test/spec/notes.test.ts` holds
+  both. Dev
   dependencies: `typescript`, `@types/node` and `publish-preflight`. Every
   dependency is pinned exact.
 - `npm run check` = `tsc --noEmit` + every `test/**/*.test.ts` file. Green at

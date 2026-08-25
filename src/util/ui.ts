@@ -61,11 +61,12 @@ export { report } from "./ui/report.ts";
 export { transcript, type Transcript } from "./ui/transcript.ts";
 export {
   commandUsage,
+  noteText,
   refuseCommand,
   refuseUsage,
   usage,
   usageText,
   version,
-  type CommandGuide,
+  type CommandNote,
   type UsageScreen,
 } from "./ui/usage.ts";

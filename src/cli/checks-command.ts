@@ -20,6 +20,7 @@ import {
   refuseCommand,
   transcript,
   verdict,
+  type CommandNote,
 } from "../util/ui.ts";
 import { ambient } from "./environment.ts";
 import { commandScreen, parseArgv, type Grammar } from "./parse.ts";
@@ -30,10 +31,18 @@ export const CHECKS_GRAMMAR: Grammar = (command) =>
     .description("run the checks the seats proposed for one consult")
     .argument("[consult-id]", "the consult whose proposed checks are run");
 
+/** What the vocabulary will not run, and what is written down either way. */
+export const CHECKS_NOTE: CommandNote = {
+  refuses: `Every seat-proposed check is planned against a built-in read-only vocabulary
+and run without a shell. Anything that does not match is refused, project-code
+commands such as npm and node tests among them.`,
+  records: `Every proposal is recorded, the refused ones beside the ones that ran.`,
+};
+
 export async function checksCommand(rest: readonly string[]): Promise<number> {
   const parsed = parseArgv("magi checks", CHECKS_GRAMMAR, rest);
   if (parsed.kind === "help") {
-    commandUsage(parsed.screen);
+    commandUsage(parsed.screen, CHECKS_NOTE);
     return 0;
   }
   if (parsed.kind === "refused") {

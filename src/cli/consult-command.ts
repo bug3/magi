@@ -42,7 +42,13 @@ import {
   warn,
   type Wait,
 } from "../util/ui.ts";
-import { HelpAsked, consultGrammar, parseReviewArgs, type ReviewArgs } from "./args.ts";
+import {
+  HelpAsked,
+  consultGrammar,
+  consultNote,
+  parseReviewArgs,
+  type ReviewArgs,
+} from "./args.ts";
 import { checkInputs, emptyReviewTarget } from "./consult-inputs.ts";
 import { MAGI_ROOT, ambient } from "./environment.ts";
 import { commandScreen } from "./parse.ts";
@@ -70,7 +76,7 @@ export async function consultCommand(
   } catch (error) {
     // Asking what the command takes is answered, not refused.
     if (error instanceof HelpAsked) {
-      commandUsage(error.screen);
+      commandUsage(error.screen, consultNote(mode));
       return 0;
     }
     problem(String((error as Error).message));
