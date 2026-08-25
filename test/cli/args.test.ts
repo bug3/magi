@@ -2,7 +2,15 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
-import { COMMAND_USAGE, COMMANDS, main, parseExcerpt, parseReviewArgs } from "../../src/cli.ts";
+import {
+  COMMAND_USAGE,
+  COMMANDS,
+  SUBCOMMANDS,
+  main,
+  parseExcerpt,
+  parseReviewArgs,
+} from "../../src/cli.ts";
+import { flagsOf } from "../../src/cli/parse.ts";
 import { capture } from "../support/capture.ts";
 
 /**
@@ -168,6 +176,17 @@ test("a token the catalog does not name is an invocation error", async () => {
   }
 });
 
+test("a command that is nearly one is named, not merely rejected", async () => {
+  // The catalogue is parsed rather than compared, so the refusal can say what
+  // was probably meant. Drawn only where a person is looking: down a pipe this
+  // screen is the block alone, which is a byte contract older than the parser.
+  const { result, err } = await capture(() => main(["revieww"]), { tty: true });
+
+  assert.equal(result, 2);
+  assert.match(err, /unknown command 'revieww'/u);
+  assert.match(err, /Did you mean review/u);
+});
+
 test("the flag that says not to ask is a flag, and only that", () => {
   // It skips a question that already falls through to yes. Nothing it can be
   // passed to falls through to no, so there is nothing here for it to unlock.
@@ -179,16 +198,40 @@ test("the flag that says not to ask is a flag, and only that", () => {
   assert.throws(() => parseReviewArgs(["--brief", "b.md", "--yes-really"]), /unknown option/u);
 });
 
-test("every flag the usage block offers is a flag the parser takes", () => {
-  // The drift this tool holds three harness CLIs to, asserted on itself: a
-  // flag printed and not accepted is a documented invocation that exits 2.
-  const printed = [...COMMAND_USAGE.matchAll(/--[a-z-]+/gu)].map((match) => match[0]);
-  const consult = new Set(printed.filter((flag) => flag !== "--help" && flag !== "--version"));
-  for (const flag of ["--yes", "--dry-run", "--waive-headroom", "--waive-backfill"]) {
-    assert.ok(consult.has(flag), `${flag} is offered by the usage block`);
-    assert.doesNotThrow(
-      () => parseReviewArgs(["--brief", "b.md", flag]),
-      `${flag} is offered and must be taken`,
+test("what each command prints and what it accepts are one list", () => {
+  // The drift this tool holds three harness CLIs to, asserted on itself and no
+  // longer by reading: the flags come from the command objects the CLI
+  // dispatches through, so a flag added to a grammar and not to the block, or
+  // printed and never declared, fails here on the day it is written.
+  for (const [name, { grammar }] of Object.entries(SUBCOMMANDS)) {
+    const printed = new Set([...entryOf(name).matchAll(/--[a-z-]+/gu)].map((match) => match[0]));
+    const accepted = new Set(flagsOf(grammar));
+
+    assert.deepEqual(
+      [...accepted].filter((flag) => !printed.has(flag)),
+      [],
+      `magi ${name} accepts a flag the usage block never prints`,
+    );
+    assert.deepEqual(
+      [...printed].filter((flag) => !accepted.has(flag)),
+      [],
+      `magi ${name} prints a flag it does not accept`,
     );
   }
 });
+
+test("a flag only the other mode takes is refused by its own name", () => {
+  // Declared on plan and hidden there, so the refusal names the flag rather
+  // than calling it unknown, and the usage block is never asked to print it.
+  assert.deepEqual(flagsOf(SUBCOMMANDS["plan"]!.grammar).filter((flag) => flag === "--base"), []);
+  assert.throws(() => parseReviewArgs(["--brief", "b.md", "--base", "main"], "plan"), /review/u);
+});
+
+/** One command's entry in the usage block, its continuation lines included. */
+function entryOf(name: string): string {
+  const lines = COMMAND_USAGE.split("\n");
+  const at = lines.findIndex((line) => line.startsWith(`  magi ${name}`));
+  assert.notEqual(at, -1, `magi ${name} has an entry in the usage block`);
+  const next = lines.slice(at + 1).findIndex((line) => line.startsWith("  magi "));
+  return lines.slice(at, next === -1 ? undefined : at + 1 + next).join("\n");
+}

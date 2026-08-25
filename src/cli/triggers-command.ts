@@ -8,14 +8,14 @@
 
 import { evaluateTriggers, triggerChanges } from "../consult.ts";
 import { close, detail, open, problem, step, warn } from "../util/ui.ts";
-import { parseArgv } from "./parse.ts";
+import { parseArgv, type Grammar } from "./parse.ts";
+
+/** Every flag triggers takes, as the catalogue the usage block is held to. */
+export const TRIGGERS_GRAMMAR: Grammar = (command) =>
+  command.option("--base <ref>", "the ref the diff is taken from");
 
 export async function triggersCommand(rest: readonly string[]): Promise<number> {
-  const parsed = parseArgv<{ readonly base?: string }>(
-    "magi triggers",
-    (command) => command.option("--base <ref>", "the ref the diff is taken from"),
-    rest,
-  );
+  const parsed = parseArgv<{ readonly base?: string }>("magi triggers", TRIGGERS_GRAMMAR, rest);
   if (!parsed.ok) {
     problem(parsed.reason);
     return 2;

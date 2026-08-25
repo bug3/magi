@@ -14,17 +14,22 @@
  * value, and the command decides how it is drawn and what the process reports.
  */
 
-import { Command, CommanderError, InvalidArgumentError } from "commander";
+import { Command, CommanderError, InvalidArgumentError, Option } from "commander";
 
-/** Raised by a value parser to refuse one flag's argument by name. */
-export { InvalidArgumentError };
+/**
+ * The two pieces of commander a grammar composes with: an error a value parser
+ * raises to refuse one flag by name, and the option a flag is declared as when
+ * `.option()` cannot say enough. Re-exported rather than imported at each call
+ * site, so this module stays the only door commander comes through.
+ */
+export { InvalidArgumentError, Option };
 
 /** What a command adds to the empty grammar: its flags, and nothing else. */
 export type Grammar = (command: Command) => Command;
 
-/** A parse that either produced options or a reason, never both. */
+/** A parse that either produced an invocation or a reason, never both. */
 export type Parsed<T> =
-  | { readonly ok: true; readonly opts: T }
+  | { readonly ok: true; readonly opts: T; readonly args: readonly string[] }
   | { readonly ok: false; readonly reason: string };
 
 /**
@@ -59,7 +64,27 @@ export function parseArgv<T>(
     if (error instanceof CommanderError) return { ok: false, reason: refusal(said, error) };
     throw error;
   }
-  return { ok: true, opts: command.opts() as T };
+  return { ok: true, opts: command.opts() as T, args: command.args };
+}
+
+/**
+ * Every long flag a grammar declares, without parsing anything.
+ *
+ * This is what makes the usage block checkable rather than merely proofread:
+ * `test/cli/args.test.ts` reads the flags a command accepts from the command
+ * itself and holds the printed block to them, in both directions. The rule it
+ * enforces is the one MAGI applies to three harness CLIs: a flag that works
+ * and is not printed, or is printed and does not work, is the same defect.
+ */
+export function flagsOf(grammar: Grammar): readonly string[] {
+  return grammar(new Command("probe"))
+    .options
+    // A hidden flag is one taken only so it can be refused by its own name
+    // rather than as an unknown token. It does not work, so printing it would
+    // be the drift in the other direction.
+    .filter((option) => !option.hidden)
+    .map((option) => option.long)
+    .filter((long): long is string => long !== null && long !== undefined);
 }
 
 /**

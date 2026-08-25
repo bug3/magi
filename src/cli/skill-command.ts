@@ -15,7 +15,7 @@ import {
 } from "../skill.ts";
 import { approve, choose, close, detail, info, open, problem, step } from "../util/ui.ts";
 import { SKILL_SOURCE, ambient } from "./environment.ts";
-import { InvalidArgumentError, parseArgv } from "./parse.ts";
+import { InvalidArgumentError, parseArgv, type Grammar } from "./parse.ts";
 
 /** The council's own harnesses, in slot order. */
 const HARNESSES: readonly Harness[] = SLOTS.map((definition) => definition.harness);
@@ -32,13 +32,21 @@ function collectHarness(value: string, previous: readonly Harness[]): readonly H
   return [...previous, value];
 }
 
+/** Every flag skill takes, as the catalogue the usage block is held to. */
+export const SKILL_GRAMMAR: Grammar = (command) =>
+  command
+    .option(
+      "--harness <id>",
+      `which harness, repeat for more (${HARNESSES.join(", ")})`,
+      collectHarness,
+      [],
+    )
+    .option("--install", "link the skill where the harness finds it", false);
+
 export async function skillCommand(rest: readonly string[]): Promise<number> {
   const parsed = parseArgv<{ readonly harness: readonly Harness[]; readonly install: boolean }>(
     "magi skill",
-    (command) =>
-      command
-        .option("--harness <id>", `which harness, repeat for more (${HARNESSES.join(", ")})`, collectHarness, [])
-        .option("--install", "link the skill where the harness finds it", false),
+    SKILL_GRAMMAR,
     rest,
   );
   if (!parsed.ok) {

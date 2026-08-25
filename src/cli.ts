@@ -9,12 +9,14 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { checksCommand } from "./cli/checks-command.ts";
+import { consultGrammar } from "./cli/args.ts";
+import { CHECKS_GRAMMAR, checksCommand } from "./cli/checks-command.ts";
 import { consultCommand } from "./cli/consult-command.ts";
-import { doctorCommand } from "./cli/doctor-command.ts";
+import { DOCTOR_GRAMMAR, doctorCommand } from "./cli/doctor-command.ts";
 import { MAGI_ROOT } from "./cli/environment.ts";
-import { skillCommand } from "./cli/skill-command.ts";
-import { triggersCommand } from "./cli/triggers-command.ts";
+import { parseArgv, type Grammar } from "./cli/parse.ts";
+import { SKILL_GRAMMAR, skillCommand } from "./cli/skill-command.ts";
+import { TRIGGERS_GRAMMAR, triggersCommand } from "./cli/triggers-command.ts";
 import {
   refuseUsage,
   usage,
@@ -117,19 +119,36 @@ const SCREEN: UsageScreen = { commands: COMMAND_USAGE, guide: GUIDE };
 /** What a subcommand does with the argv after its own name. */
 type Subcommand = (rest: readonly string[]) => number | Promise<number>;
 
+/** One command: what it does, and what it accepts. */
+interface CommandEntry {
+  readonly run: Subcommand;
+  readonly grammar: Grammar;
+}
+
 /**
  * The subcommands, as the table `main` dispatches from. A table rather than a
  * chain of comparisons because the usage text is checked against it: a
  * dispatch chain maintained beside a separate list reproduces the same drift
  * this catalogue exists to catch, one level up.
+ *
+ * Each entry carries its grammar beside its behaviour, so the flags a command
+ * accepts can be read without running it. `test/cli/args.test.ts` holds the
+ * printed block to exactly those flags, in both directions, which is a check
+ * no reading of the usage text against a regexp could make.
  */
-const SUBCOMMANDS: Readonly<Record<string, Subcommand>> = {
-  doctor: (rest) => doctorCommand(rest),
-  skill: (rest) => skillCommand(rest),
-  plan: (rest) => consultCommand("plan", rest, SCREEN),
-  review: (rest) => consultCommand("review", rest, SCREEN),
-  checks: (rest) => checksCommand(rest, SCREEN),
-  triggers: (rest) => triggersCommand(rest),
+export const SUBCOMMANDS: Readonly<Record<string, CommandEntry>> = {
+  doctor: { run: (rest) => doctorCommand(rest), grammar: DOCTOR_GRAMMAR },
+  skill: { run: (rest) => skillCommand(rest), grammar: SKILL_GRAMMAR },
+  plan: {
+    run: (rest) => consultCommand("plan", rest, SCREEN),
+    grammar: consultGrammar("plan"),
+  },
+  review: {
+    run: (rest) => consultCommand("review", rest, SCREEN),
+    grammar: consultGrammar("review"),
+  },
+  checks: { run: (rest) => checksCommand(rest, SCREEN), grammar: CHECKS_GRAMMAR },
+  triggers: { run: (rest) => triggersCommand(rest), grammar: TRIGGERS_GRAMMAR },
 };
 
 /**
@@ -154,6 +173,27 @@ function declaredVersion(): string {
   return typeof declared === "string" ? declared : "unknown";
 }
 
+/**
+ * Why a token is not a command, in the words a parser would use.
+ *
+ * The catalogue above is handed to the same grammar every command is parsed
+ * with, for the one token, so a near miss is named rather than merely
+ * rejected: `magi revieww` says which command it was probably meant to be, and
+ * `magi --live` is told it typed a flag where a command goes. Nothing is
+ * dispatched from it, because the table already answered that question.
+ */
+function notACommand(token: string): string {
+  const parsed = parseArgv(
+    "magi",
+    (root) => {
+      for (const name of Object.keys(SUBCOMMANDS)) root.command(name);
+      return root;
+    },
+    [token],
+  );
+  return parsed.ok ? `unknown command: ${token}` : parsed.reason;
+}
+
 export async function main(argv: readonly string[]): Promise<number> {
   const [command, ...rest] = argv;
   if (command !== undefined && HELP.includes(command)) {
@@ -165,10 +205,10 @@ export async function main(argv: readonly string[]): Promise<number> {
     return 0;
   }
   const subcommand = command === undefined ? undefined : SUBCOMMANDS[command];
-  if (subcommand !== undefined) return subcommand(rest);
+  if (subcommand !== undefined) return subcommand.run(rest);
   // The reason is drawn on a terminal only: what a pipe receives here is the
   // block alone, and that is a contract the end-to-end suite pins.
-  refuseUsage(SCREEN, command === undefined ? "magi needs a command" : `unknown command: ${command}`);
+  refuseUsage(SCREEN, command === undefined ? "magi needs a command" : notACommand(command));
   return 2;
 }
 

@@ -33,21 +33,29 @@ import { skillStatus } from "../skill.ts";
 import { sha256Text } from "../util/fs.ts";
 import { approve, close, info, open, problem, report, waiting } from "../util/ui.ts";
 import { MAGI_ROOT, SKILL_SOURCE, ambient } from "./environment.ts";
+import { parseArgv, type Grammar } from "./parse.ts";
 
-/** Every flag doctor takes, as the set the refusal is derived from. */
-const FLAGS: ReadonlySet<string> = new Set(["--live", "--calibrate", "--yes"]);
+/** Every flag doctor takes, as the catalogue the usage block is held to. */
+export const DOCTOR_GRAMMAR: Grammar = (command) =>
+  command
+    .option("--live", "spend quota: one minimal call per harness", false)
+    .option("--calibrate", "the owner-approved canary calibration", false)
+    .option("--yes", "do not ask before spending", false);
 
 /** What the shell reports for a command a person stopped rather than answered. */
 const CANCELLED = 130;
 
 export async function doctorCommand(rest: readonly string[]): Promise<number> {
-  const unknown = rest.find((flag) => !FLAGS.has(flag));
-  if (unknown !== undefined) {
-    problem(`unknown doctor flag: ${unknown}`);
+  const parsed = parseArgv<{
+    readonly live: boolean;
+    readonly calibrate: boolean;
+    readonly yes: boolean;
+  }>("magi doctor", DOCTOR_GRAMMAR, rest);
+  if (!parsed.ok) {
+    problem(parsed.reason);
     return 2;
   }
-  let live = rest.includes("--live");
-  let calibrate = rest.includes("--calibrate");
+  let { live, calibrate } = parsed.opts;
   const repoDir = process.cwd();
   const { home, path } = ambient();
   const schemaPath = join(MAGI_ROOT, "schemas", "opinion.v1.schema.json");
@@ -90,7 +98,7 @@ export async function doctorCommand(rest: readonly string[]): Promise<number> {
     ].filter((what) => what !== undefined);
     const go = await approve(`this spends quota: ${spends.join(", and ")}. go ahead?`, {
       otherwise: true,
-      skip: rest.includes("--yes"),
+      skip: parsed.opts.yes,
     });
     if (go.cancelled) return CANCELLED;
     if (!go.value) {

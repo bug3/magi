@@ -22,19 +22,27 @@ import {
   type UsageScreen,
 } from "../util/ui.ts";
 import { ambient } from "./environment.ts";
+import { parseArgv, type Grammar } from "./parse.ts";
+
+/** Checks takes no flag: one consult id, and nothing beside it. */
+export const CHECKS_GRAMMAR: Grammar = (command) =>
+  command.argument("[consult-id]", "the consult whose proposed checks are run");
 
 export async function checksCommand(
   rest: readonly string[],
   screen: UsageScreen,
 ): Promise<number> {
-  const rawId = rest[0];
+  const parsed = parseArgv("magi checks", CHECKS_GRAMMAR, rest);
+  if (!parsed.ok) {
+    problem(parsed.reason);
+    return 2;
+  }
+  const rawId = parsed.args[0];
+  // Told what to do but not to what: the whole screen, because somebody who
+  // types the command without its one argument is asking what it takes.
   if (rawId === undefined) {
     problem("checks needs a consult id");
     refuseUsage(screen);
-    return 2;
-  }
-  if (rest.length !== 1) {
-    problem(`unknown checks argument: ${rest[1]}`);
     return 2;
   }
   const { path } = ambient();

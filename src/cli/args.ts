@@ -10,7 +10,7 @@
 
 import type { ExcerptRequest } from "../evidence/pack.ts";
 import type { ConsultMode } from "../core/consult.ts";
-import { parseArgv } from "./parse.ts";
+import { InvalidArgumentError, Option, parseArgv, type Grammar } from "./parse.ts";
 
 export interface ReviewArgs {
   readonly slug: string;
@@ -67,26 +67,44 @@ interface ConsultOptions {
   readonly yes: boolean;
 }
 
+/**
+ * A flag the other mode takes, on the mode that does not.
+ *
+ * Declared rather than left out, so `magi plan --base main` is refused by the
+ * flag's own name and not as an unknown token, and hidden, so the usage block
+ * is never asked to print a flag that cannot work here.
+ */
+function reviewOnly(flags: string): Option {
+  return new Option(flags).hideHelp().argParser(() => {
+    throw new InvalidArgumentError("valid only for review");
+  });
+}
+
+/** What plan and review accept, which differs only in the patch pins. */
+export function consultGrammar(mode: ConsultMode): Grammar {
+  return (command) => {
+    const shared = command
+      .requiredOption("--brief <file>", "the brief the council answers")
+      .option("--slug <slug>", "what the consult is filed under", mode)
+      .option("--excerpt <path[:start-end]>", "a passage to comment on", collect, [])
+      .option("--test-output <file>", "the test run the council is shown")
+      .option("--waive-headroom", "convene past a refusing headroom check", false)
+      .option("--waive-backfill", "convene over overdue dispositions", false)
+      .option("--dry-run", "curate and gate both ways, convene nothing", false)
+      .option("--yes", "do not ask before spending", false);
+    return mode === "review"
+      ? shared
+          .option("--base <ref>", "derive the review patch from git")
+          .option("--patch <file>", "the diff under review")
+      : shared.addOption(reviewOnly("--base <ref>")).addOption(reviewOnly("--patch <file>"));
+  };
+}
+
 export function parseReviewArgs(
   argv: readonly string[],
   mode: ConsultMode = "review",
 ): ReviewArgs {
-  const parsed = parseArgv<ConsultOptions>(
-    `magi ${mode}`,
-    (command) =>
-      command
-        .requiredOption("--brief <file>", "the brief the council answers")
-        .option("--slug <slug>", "what the consult is filed under", mode)
-        .option("--excerpt <path[:start-end]>", "a passage to comment on", collect, [])
-        .option("--patch <file>", "the diff under review")
-        .option("--base <ref>", "derive the review patch from git")
-        .option("--test-output <file>", "the test run the council is shown")
-        .option("--waive-headroom", "convene past a refusing headroom check", false)
-        .option("--waive-backfill", "convene over overdue dispositions", false)
-        .option("--dry-run", "curate and gate both ways, convene nothing", false)
-        .option("--yes", "do not ask before spending", false),
-    argv,
-  );
+  const parsed = parseArgv<ConsultOptions>(`magi ${mode}`, consultGrammar(mode), argv);
   if (!parsed.ok) throw new Error(parsed.reason);
 
   const {
@@ -103,10 +121,6 @@ export function parseReviewArgs(
   } = parsed.opts;
   const excerpts = excerpt.map(parseExcerpt);
 
-  if (mode === "plan" && base !== undefined) throw new Error("--base is valid only for review");
-  if (mode === "plan" && patchFile !== undefined) {
-    throw new Error("--patch is valid only for review");
-  }
   return {
     slug,
     briefFile,
