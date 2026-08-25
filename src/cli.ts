@@ -112,7 +112,7 @@ export const COMMAND_USAGE: string = rootScreen(
  * is the line that sends a reader to it: the screen a piped orchestrator reads
  * first must still say that the cost is written down somewhere.
  */
-const SCREEN: UsageScreen = {
+export const SCREEN: UsageScreen = {
   commands: COMMAND_USAGE,
   pointer:
     "magi <command> --help adds what that command spends, refuses, records, and leaves to you.",

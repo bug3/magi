@@ -77,8 +77,10 @@ test("commander is reached through the one module that contains it", () => {
   // process's own exit, and no screen or flag test here would see it. The rule
   // held by habit, which is the shape every other rule in this folder was
   // written down after.
+  // Any spelling, not only the static one: `await import("commander")` and a
+  // subpath both build a command this module never contained.
   const importers = sourceFiles().filter((file) =>
-    /from\s*["']commander["']/u.test(readFileSync(join(SRC, file), "utf8")),
+    /["']commander(?:\/[^"']*)?["']/u.test(readFileSync(join(SRC, file), "utf8")),
   );
 
   assert.deepEqual(

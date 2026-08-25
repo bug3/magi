@@ -26,6 +26,9 @@ const OBLIGED: ReadonlyArray<{
   { flag: "--yes", category: "spends" },
   { flag: "--waive-headroom", category: "refuses" },
   { flag: "--waive-backfill", category: "refuses" },
+  { flag: "--install", category: "records" },
+  { flag: "--calibrate", category: "records" },
+  { flag: "--dry-run", category: "decides" },
 ];
 
 /**
@@ -71,6 +74,20 @@ test("what a command costs is said in the note and nowhere else", () => {
       noteText(note).length > 40,
       `magi ${name} has a note worth drawing, or it should have none`,
     );
+  }
+});
+
+test("a flag a note names is a flag that command takes", () => {
+  // The defect this whole arrangement was moved to fix, one level up: the note
+  // sits beside the grammar now, but its prose names flags, and a rename would
+  // leave those names behind exactly as it left the old paragraphs behind.
+  for (const [name, { grammar, note }] of Object.entries(SUBCOMMANDS)) {
+    const declared = new Set(flagsOf(grammar));
+    const named = new Set([...noteText(note).matchAll(/--[a-z][a-z-]*/gu)].map((hit) => hit[0]));
+
+    for (const flag of named) {
+      assert.ok(declared.has(flag), `magi ${name} says ${flag} in its note and does not take it`);
+    }
   }
 });
 

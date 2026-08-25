@@ -5,13 +5,14 @@ import { test } from "node:test";
 import {
   COMMAND_USAGE,
   COMMANDS,
+  SCREEN,
   SUBCOMMANDS,
   main,
   parseExcerpt,
   parseReviewArgs,
 } from "../../src/cli.ts";
 import { flagsOf, parseArgv } from "../../src/cli/parse.ts";
-import { noteText } from "../../src/util/ui.ts";
+import { noteText, usageText } from "../../src/util/ui.ts";
 import { capture } from "../support/capture.ts";
 
 /**
@@ -223,6 +224,20 @@ test("every command answers --help itself, and answering is not an error", async
     assert.match(out, new RegExp(`^Usage: magi ${name}`, "mu"), `magi ${name} --help is its own`);
     assert.equal(err, "", `magi ${name} --help is a result, not a refusal`);
   }
+});
+
+test("the line that says where the prose went reaches a pipe too", async () => {
+  // The prose left the root screen and this line is what replaced it, so the
+  // screen an orchestrating assistant reads first still says the cost is
+  // written down somewhere. Asserted against the real screen: the fixture in
+  // test/util/ui-screens.test.ts has a pointer of its own, and a pointer that
+  // exists only there would leave this one free to become the empty string.
+  const { out, err } = await runMain(["help"]);
+
+  assert.match(SCREEN.pointer, /--help/u, "the line names the screen it sends a reader to");
+  assert.equal(out, `${usageText(SCREEN)}\n`);
+  assert.ok(out.endsWith(`${SCREEN.pointer}\n`), "and it is the last thing a pipe reads");
+  assert.equal(err, "");
 });
 
 test("what a command costs reaches the screen a pipe reads", async () => {
