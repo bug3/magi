@@ -134,7 +134,9 @@ export function rootScreen(name: string, commands: Readonly<Record<string, Gramm
  * flags a command declares are the flags its own screen shows.
  */
 export function flagsOf(grammar: Grammar): readonly string[] {
-  return grammar(new Command("probe"))
+  // Built through the same factory as every other command here, so this
+  // module holds no commander object that could speak or exit.
+  return grammar(contained("probe", []))
     .options
     // A hidden flag is one taken only so it can be refused by its own name
     // rather than as an unknown token. It does not work, so printing it would

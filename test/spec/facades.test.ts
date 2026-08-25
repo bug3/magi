@@ -69,3 +69,21 @@ test("the guard sees the shapes it claims to, including a nested one", () => {
     assert.ok(folders.has(shape), `${shape}/ sits beside ${shape}.ts and counts as a facade`);
   }
 });
+
+test("commander is reached through the one module that contains it", () => {
+  // AGENTS.md "Runtime dependencies": commander is denied a stream and an exit
+  // of its own, and the denial lives in one factory. A second import would
+  // build a command that writes its own refusal to stderr and calls the
+  // process's own exit, and no screen or flag test here would see it. The rule
+  // held by habit, which is the shape every other rule in this folder was
+  // written down after.
+  const importers = sourceFiles().filter((file) =>
+    /from\s*["']commander["']/u.test(readFileSync(join(SRC, file), "utf8")),
+  );
+
+  assert.deepEqual(
+    importers,
+    ["cli/parse.ts"],
+    "reach commander through src/cli/parse.ts, which contains it",
+  );
+});
