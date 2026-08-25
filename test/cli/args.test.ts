@@ -155,6 +155,10 @@ test("version is a successful command that reports the shipped manifest", async 
 
 test("the README command reference stays identical to CLI usage", () => {
   const readme = readFileSync("README.md", "utf8");
+  // The generated screen is LF, so the file it is compared against has to be:
+  // a checkout that converted line endings would fail this for a reason that
+  // has nothing to do with the command line. `.gitattributes` pins it.
+  assert.ok(!readme.includes("\r"), "README.md carries no carriage return");
   assert.ok(readme.includes(`\`\`\`\n${COMMAND_USAGE}\n\`\`\``));
 });
 

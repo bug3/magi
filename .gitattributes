@@ -1,0 +1,6 @@
+# The usage screens are generated, and README.md carries one of them verbatim:
+# `test/cli/args.test.ts` compares the two byte for byte. A checkout that
+# converted these files to CRLF would fail that compare for a reason that has
+# nothing to do with the command line, so the working tree is LF wherever git
+# is what decides.
+* text=auto eol=lf
