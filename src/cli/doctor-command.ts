@@ -31,13 +31,23 @@ import {
 } from "../doctor.ts";
 import { skillStatus } from "../skill.ts";
 import { sha256Text } from "../util/fs.ts";
-import { approve, close, info, open, problem, report, waiting } from "../util/ui.ts";
+import {
+  approve,
+  close,
+  commandUsage,
+  info,
+  open,
+  problem,
+  report,
+  waiting,
+} from "../util/ui.ts";
 import { MAGI_ROOT, SKILL_SOURCE, ambient } from "./environment.ts";
 import { parseArgv, type Grammar } from "./parse.ts";
 
 /** Every flag doctor takes, as the catalogue the usage block is held to. */
 export const DOCTOR_GRAMMAR: Grammar = (command) =>
   command
+    .description("check the installation, the seats and the ledger")
     .option("--live", "spend quota: one minimal call per harness", false)
     .option("--calibrate", "the owner-approved canary calibration", false)
     .option("--yes", "do not ask before spending", false);
@@ -51,7 +61,11 @@ export async function doctorCommand(rest: readonly string[]): Promise<number> {
     readonly calibrate: boolean;
     readonly yes: boolean;
   }>("magi doctor", DOCTOR_GRAMMAR, rest);
-  if (!parsed.ok) {
+  if (parsed.kind === "help") {
+    commandUsage(parsed.screen);
+    return 0;
+  }
+  if (parsed.kind === "refused") {
     problem(parsed.reason);
     return 2;
   }

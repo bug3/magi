@@ -42,8 +42,9 @@ test("both spellings of help and of version reach the same answer", async () => 
     assert.equal(long.code, 0);
     assert.equal(short.code, 0);
     assert.equal(long.out, short.out);
-    assert.match(long.out, /magi doctor/u);
-    assert.match(long.out, /magi review/u);
+    assert.match(long.out, /^Usage: magi/mu);
+    assert.match(long.out, /^ +doctor\b/mu);
+    assert.match(long.out, /^ +review\b/mu);
     assert.equal(long.err, "");
 
     const shortVersion = await magi(["-v"], space);
@@ -61,7 +62,7 @@ test("an unknown command exits 2 with usage on stderr and stdout untouched", asy
   try {
     const run = await magi(["frobnicate"], space);
     assert.equal(run.code, 2);
-    assert.match(run.err, /magi doctor/u);
+    assert.match(run.err, /^ +doctor\b/mu);
     assert.equal(run.out, "");
   } finally {
     space.remove();
@@ -73,7 +74,7 @@ test("no command at all is an invocation error, not a default", async () => {
   try {
     const run = await magi([], space);
     assert.equal(run.code, 2);
-    assert.match(run.err, /usage:/u);
+    assert.match(run.err, /^Usage: magi/mu);
     assert.equal(run.out, "");
   } finally {
     space.remove();

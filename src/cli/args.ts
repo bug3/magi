@@ -12,6 +12,20 @@ import type { ExcerptRequest } from "../evidence/pack.ts";
 import type { ConsultMode } from "../core/consult.ts";
 import { InvalidArgumentError, Option, parseArgv, type Grammar } from "./parse.ts";
 
+/**
+ * `--help` on a consult: not a bad invocation, and not one either. Thrown so
+ * the one caller that turns a parse into an exit code can tell the two apart,
+ * because everything between here and it is typed to a `ReviewArgs`.
+ */
+export class HelpAsked extends Error {
+  readonly screen: string;
+
+  constructor(screen: string) {
+    super("help asked");
+    this.screen = screen;
+  }
+}
+
 export interface ReviewArgs {
   readonly slug: string;
   readonly briefFile: string;
@@ -84,6 +98,11 @@ function reviewOnly(flags: string): Option {
 export function consultGrammar(mode: ConsultMode): Grammar {
   return (command) => {
     const shared = command
+      .description(
+        mode === "review"
+          ? "convene the council on a plan or a diff"
+          : "convene the council for approaches before a plan exists",
+      )
       .requiredOption("--brief <file>", "the brief the council answers")
       .option("--slug <slug>", "what the consult is filed under", mode)
       .option("--excerpt <path[:start-end]>", "a passage to comment on", collect, [])
@@ -105,7 +124,8 @@ export function parseReviewArgs(
   mode: ConsultMode = "review",
 ): ReviewArgs {
   const parsed = parseArgv<ConsultOptions>(`magi ${mode}`, consultGrammar(mode), argv);
-  if (!parsed.ok) throw new Error(parsed.reason);
+  if (parsed.kind === "help") throw new HelpAsked(parsed.screen);
+  if (parsed.kind === "refused") throw new Error(parsed.reason);
 
   const {
     brief: briefFile,

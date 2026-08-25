@@ -7,16 +7,22 @@
  */
 
 import { evaluateTriggers, triggerChanges } from "../consult.ts";
-import { close, detail, open, problem, step, warn } from "../util/ui.ts";
+import { close, commandUsage, detail, open, problem, step, warn } from "../util/ui.ts";
 import { parseArgv, type Grammar } from "./parse.ts";
 
 /** Every flag triggers takes, as the catalogue the usage block is held to. */
 export const TRIGGERS_GRAMMAR: Grammar = (command) =>
-  command.option("--base <ref>", "the ref the diff is taken from");
+  command
+    .description("say which deterministic triggers propose a consult")
+    .option("--base <ref>", "the ref the diff is taken from");
 
 export async function triggersCommand(rest: readonly string[]): Promise<number> {
   const parsed = parseArgv<{ readonly base?: string }>("magi triggers", TRIGGERS_GRAMMAR, rest);
-  if (!parsed.ok) {
+  if (parsed.kind === "help") {
+    commandUsage(parsed.screen);
+    return 0;
+  }
+  if (parsed.kind === "refused") {
     problem(parsed.reason);
     return 2;
   }

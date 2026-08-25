@@ -60,6 +60,7 @@ export { announce, waiting, type Wait } from "./ui/progress.ts";
 export { report } from "./ui/report.ts";
 export { transcript, type Transcript } from "./ui/transcript.ts";
 export {
+  commandUsage,
   refuseUsage,
   usage,
   usageText,

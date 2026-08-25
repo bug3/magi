@@ -174,26 +174,31 @@ the ledger.
 
 ## Command reference
 
-`magi --help` is the canonical reference:
+`magi --help` lists the commands, and `magi <command> --help` prints what
+each one takes. Both screens are generated from the flags the commands are
+parsed with, so neither can drift from what the CLI accepts:
 
 ```
-usage:
-  magi doctor [--live] [--calibrate] [--yes]
-  magi skill  [--harness <claude|codex|grok>]... [--install]
-  magi plan   --brief <file> [--slug <slug>] [--excerpt <path[:start-end]>]...
-              [--test-output <file>] [--waive-headroom] [--waive-backfill]
-              [--dry-run] [--yes]
-  magi review --brief <file> [--slug <slug>] [--base <ref>] [--patch <file>]
-              [--excerpt <path[:start-end]>]... [--test-output <file>]
-              [--waive-headroom] [--waive-backfill] [--dry-run] [--yes]
-  magi checks <consult-id>
-  magi triggers [--base <ref>]
-  magi help | --help
-  magi --version | -v
+Usage: magi [options] [command]
+
+Options:
+  -v, --version        print the version and nothing around it
+  --help               print what this command takes
+
+Commands:
+  doctor [options]     check the installation, the seats and the ledger
+  skill [options]      report where each harness finds the orchestrator skill,
+                       or link it
+  plan [options]       convene the council for approaches before a plan exists
+  review [options]     convene the council on a plan or a diff
+  checks [consult-id]  run the checks the seats proposed for one consult
+  triggers [options]   say which deterministic triggers propose a consult
+  help                 print this screen
 ```
 
+`magi review --help` and `magi plan --help` print the consult flags in full.
 `--slug` is optional and defaults to the mode name. `--base` and `--patch`
-are review-only. `--excerpt` is additive commentary: it can add context, but
+are review-only, and a plan invocation is refused by name for either. `--excerpt` is additive commentary: it can add context, but
 it cannot remove the rule-derived floor or narrow the patch-derived scope.
 
 ### On a terminal, and down a pipe

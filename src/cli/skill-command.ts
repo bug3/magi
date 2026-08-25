@@ -13,7 +13,17 @@ import {
   skillStatus,
   type SkillReport,
 } from "../skill.ts";
-import { approve, choose, close, detail, info, open, problem, step } from "../util/ui.ts";
+import {
+  approve,
+  choose,
+  close,
+  commandUsage,
+  detail,
+  info,
+  open,
+  problem,
+  step,
+} from "../util/ui.ts";
 import { SKILL_SOURCE, ambient } from "./environment.ts";
 import { InvalidArgumentError, parseArgv, type Grammar } from "./parse.ts";
 
@@ -35,6 +45,7 @@ function collectHarness(value: string, previous: readonly Harness[]): readonly H
 /** Every flag skill takes, as the catalogue the usage block is held to. */
 export const SKILL_GRAMMAR: Grammar = (command) =>
   command
+    .description("report where each harness finds the orchestrator skill, or link it")
     .option(
       "--harness <id>",
       `which harness, repeat for more (${HARNESSES.join(", ")})`,
@@ -49,7 +60,11 @@ export async function skillCommand(rest: readonly string[]): Promise<number> {
     SKILL_GRAMMAR,
     rest,
   );
-  if (!parsed.ok) {
+  if (parsed.kind === "help") {
+    commandUsage(parsed.screen);
+    return 0;
+  }
+  if (parsed.kind === "refused") {
     problem(parsed.reason);
     return 2;
   }

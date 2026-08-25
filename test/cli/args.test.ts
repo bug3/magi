@@ -10,7 +10,7 @@ import {
   parseExcerpt,
   parseReviewArgs,
 } from "../../src/cli.ts";
-import { flagsOf } from "../../src/cli/parse.ts";
+import { flagsOf, parseArgv } from "../../src/cli/parse.ts";
 import { capture } from "../support/capture.ts";
 
 /**
@@ -126,7 +126,7 @@ test("an unknown command prints usage and exits 2", async () => {
 });
 
 test("help is an explicit successful command", async () => {
-  assert.match(COMMAND_USAGE, /magi plan/);
+  assert.match(COMMAND_USAGE, /^ +plan\b/mu);
   assert.equal(await quietMain(["--help"]), 0);
 });
 
@@ -162,7 +162,9 @@ test("the usage text names every command the CLI accepts", () => {
   // The drift rule this tool applies to three harness CLIs, applied to its own
   // surface: a command that works and is not printed is the same defect.
   const missing = COMMANDS.filter(
-    (command) => !new RegExp(String.raw`(?:^|[\s|])${command}(?:$|[\s|[])`, "mu").test(COMMAND_USAGE),
+    // A comma ends a token too: the generated screen prints the two spellings
+    // of a flag together, as `-v, --version`.
+    (command) => !new RegExp(String.raw`(?:^|[\s|])${command}(?:$|[\s|[,])`, "mu").test(COMMAND_USAGE),
   );
   assert.deepEqual(missing, [], "every accepted token belongs in the usage block");
 });
@@ -198,40 +200,43 @@ test("the flag that says not to ask is a flag, and only that", () => {
   assert.throws(() => parseReviewArgs(["--brief", "b.md", "--yes-really"]), /unknown option/u);
 });
 
-test("what each command prints and what it accepts are one list", () => {
-  // The drift this tool holds three harness CLIs to, asserted on itself and no
-  // longer by reading: the flags come from the command objects the CLI
-  // dispatches through, so a flag added to a grammar and not to the block, or
-  // printed and never declared, fails here on the day it is written.
-  for (const [name, { grammar }] of Object.entries(SUBCOMMANDS)) {
-    const printed = new Set([...entryOf(name).matchAll(/--[a-z-]+/gu)].map((match) => match[0]));
-    const accepted = new Set(flagsOf(grammar));
+/** What `magi <command> --help` prints, as the parser generates it. */
+function screenOf(name: string): string {
+  const asked = parseArgv(`magi ${name}`, SUBCOMMANDS[name]!.grammar, ["--help"]);
+  assert.equal(asked.kind, "help", `magi ${name} --help is answered, not refused`);
+  return asked.kind === "help" ? asked.screen : "";
+}
 
-    assert.deepEqual(
-      [...accepted].filter((flag) => !printed.has(flag)),
-      [],
-      `magi ${name} accepts a flag the usage block never prints`,
-    );
-    assert.deepEqual(
-      [...printed].filter((flag) => !accepted.has(flag)),
-      [],
-      `magi ${name} prints a flag it does not accept`,
-    );
+test("every command answers --help itself, and answering is not an error", async () => {
+  // The screen is generated, so what a guard is still needed for is the
+  // wiring: a command that forgets to settle the question refuses it instead,
+  // and a documented invocation exits 2.
+  for (const name of Object.keys(SUBCOMMANDS)) {
+    const { code, out, err } = await runMain([name, "--help"]);
+
+    assert.equal(code, 0, `magi ${name} --help exits 0`);
+    assert.match(out, new RegExp(`^Usage: magi ${name}`, "mu"), `magi ${name} --help is its own`);
+    assert.equal(err, "", `magi ${name} --help is a result, not a refusal`);
+  }
+});
+
+test("each command's own screen prints every flag it accepts", () => {
+  // The block is generated from these grammars now, so the drift that needed
+  // watching is gone and what a guard can still ask is the other half: the
+  // screen a person is sent to has to carry the flags in full.
+  for (const [name, { grammar }] of Object.entries(SUBCOMMANDS)) {
+    const screen = screenOf(name);
+    for (const flag of flagsOf(grammar)) {
+      assert.match(screen, new RegExp(`\\s${flag}[\\s<]`, "u"), `magi ${name} --help prints ${flag}`);
+    }
   }
 });
 
 test("a flag only the other mode takes is refused by its own name", () => {
   // Declared on plan and hidden there, so the refusal names the flag rather
-  // than calling it unknown, and the usage block is never asked to print it.
-  assert.deepEqual(flagsOf(SUBCOMMANDS["plan"]!.grammar).filter((flag) => flag === "--base"), []);
+  // than calling it unknown, and no screen is asked to print a flag that
+  // cannot work where it is printed.
+  assert.match(screenOf("review"), /--base <ref>/u);
+  assert.doesNotMatch(screenOf("plan"), /--base/u);
   assert.throws(() => parseReviewArgs(["--brief", "b.md", "--base", "main"], "plan"), /review/u);
 });
-
-/** One command's entry in the usage block, its continuation lines included. */
-function entryOf(name: string): string {
-  const lines = COMMAND_USAGE.split("\n");
-  const at = lines.findIndex((line) => line.startsWith(`  magi ${name}`));
-  assert.notEqual(at, -1, `magi ${name} has an entry in the usage block`);
-  const next = lines.slice(at + 1).findIndex((line) => line.startsWith("  magi "));
-  return lines.slice(at, next === -1 ? undefined : at + 1 + next).join("\n");
-}

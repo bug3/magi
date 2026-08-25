@@ -30,6 +30,7 @@ import {
   announce,
   approve,
   close,
+  commandUsage,
   detail,
   info,
   open,
@@ -42,7 +43,7 @@ import {
   type UsageScreen,
   type Wait,
 } from "../util/ui.ts";
-import { parseReviewArgs, type ReviewArgs } from "./args.ts";
+import { HelpAsked, parseReviewArgs, type ReviewArgs } from "./args.ts";
 import { checkInputs, emptyReviewTarget } from "./consult-inputs.ts";
 import { MAGI_ROOT, ambient } from "./environment.ts";
 
@@ -68,6 +69,11 @@ export async function consultCommand(
   try {
     args = parseReviewArgs(rest, mode);
   } catch (error) {
+    // Asking what the command takes is answered, not refused.
+    if (error instanceof HelpAsked) {
+      commandUsage(error.screen);
+      return 0;
+    }
     problem(String((error as Error).message));
     refuseUsage(screen);
     return 2;

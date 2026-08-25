@@ -17,8 +17,11 @@ mechanism here implements.
 - Runtime dependencies: `@clack/prompts`, for the command-line rendering in
   `src/util/ui.ts` and the folder behind it: the frames, the progress, the
   folded subprocess output and the questions; and `commander`, for the
-  argument grammar, reached only through `src/cli/parse.ts`, which forbids it
-  a stream and an exit of its own. Dev dependencies: `typescript`,
+  argument grammar and the usage screens generated from it, reached only
+  through `src/cli/parse.ts`, which forbids it a stream and an exit of its
+  own. No command's flags are written out anywhere: `magi help` and
+  `magi <command> --help` are generated from the grammars the commands are
+  parsed with, and README.md carries the generated block verbatim. Dev dependencies: `typescript`,
   `@types/node` and `publish-preflight`. Every dependency is pinned exact.
 - `npm run check` = `tsc --noEmit` + every `test/**/*.test.ts` file. Green at
   every commit.

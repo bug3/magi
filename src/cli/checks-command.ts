@@ -13,6 +13,7 @@ import { slot } from "../core/slots.ts";
 import { sanitizeLine } from "../util/text.ts";
 import {
   close,
+  commandUsage,
   detail,
   open,
   problem,
@@ -26,14 +27,20 @@ import { parseArgv, type Grammar } from "./parse.ts";
 
 /** Checks takes no flag: one consult id, and nothing beside it. */
 export const CHECKS_GRAMMAR: Grammar = (command) =>
-  command.argument("[consult-id]", "the consult whose proposed checks are run");
+  command
+    .description("run the checks the seats proposed for one consult")
+    .argument("[consult-id]", "the consult whose proposed checks are run");
 
 export async function checksCommand(
   rest: readonly string[],
   screen: UsageScreen,
 ): Promise<number> {
   const parsed = parseArgv("magi checks", CHECKS_GRAMMAR, rest);
-  if (!parsed.ok) {
+  if (parsed.kind === "help") {
+    commandUsage(parsed.screen);
+    return 0;
+  }
+  if (parsed.kind === "refused") {
     problem(parsed.reason);
     return 2;
   }

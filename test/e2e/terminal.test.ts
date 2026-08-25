@@ -46,7 +46,8 @@ test("a terminal is drawn to, and the same command down a pipe is not", async (t
     const piped = await magi(["help"], space);
 
     assert.equal(drawn.code, 0, "the drawn screen still exits 0");
-    assert.ok(drawn.screen.includes("magi doctor"), "and still says what the commands are");
+    assert.ok(drawn.screen.includes("Commands:"), "and still says what the commands are");
+    assert.ok(drawn.screen.includes("doctor"), "naming each one");
     // The claim is the split itself: one command, one machine, a rendering
     // each. Which symbols were drawn is not asserted, because those follow the
     // terminal's unicode support and the renderer's version.
@@ -70,7 +71,7 @@ test("a refused invocation is drawn too, and still exits 2", async (t) => {
     // Named on a terminal, where a person is reading it. Down a pipe this path
     // is the block alone, which `test/e2e/surface.test.ts` pins.
     assert.ok(drawn.screen.includes("frobnicate"), "a person is told what broke");
-    assert.ok(drawn.screen.includes("magi doctor"), "and gets the block with it");
+    assert.ok(drawn.screen.includes("Commands:"), "and gets the block with it");
   } finally {
     space.remove();
   }
@@ -90,7 +91,7 @@ test("a terminal that reports no width is written to as if it were a pipe", asyn
     }
 
     assert.equal(drawn.code, 0, "an unsized terminal does not crash the help screen");
-    assert.ok(drawn.screen.includes("magi doctor"), "it gets the block instead");
+    assert.ok(drawn.screen.includes("Commands:"), "it gets the block instead");
     assert.ok(!drawn.screen.includes(ESCAPE), "flat, exactly as a pipe would get it");
   } finally {
     space.remove();

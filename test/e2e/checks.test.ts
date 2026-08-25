@@ -102,7 +102,7 @@ test("no id at all prints why, and the usage block, on stderr", async () => {
 
     assert.equal(run.code, 2);
     assert.match(run.err, /checks needs a consult id/u);
-    assert.match(run.err, /usage:/u);
+    assert.match(run.err, /^Usage: magi/mu);
     assert.equal(run.out, "", "the usage block is not a result");
   } finally {
     space.remove();

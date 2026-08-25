@@ -14,7 +14,7 @@ import { CHECKS_GRAMMAR, checksCommand } from "./cli/checks-command.ts";
 import { consultCommand } from "./cli/consult-command.ts";
 import { DOCTOR_GRAMMAR, doctorCommand } from "./cli/doctor-command.ts";
 import { MAGI_ROOT } from "./cli/environment.ts";
-import { parseArgv, type Grammar } from "./cli/parse.ts";
+import { parseArgv, rootScreen, type Grammar } from "./cli/parse.ts";
 import { SKILL_GRAMMAR, skillCommand } from "./cli/skill-command.ts";
 import { TRIGGERS_GRAMMAR, triggersCommand } from "./cli/triggers-command.ts";
 import {
@@ -28,20 +28,6 @@ import {
 /** The two spellings of each of the two commands that are not subcommands. */
 const HELP: readonly string[] = ["help", "--help"];
 const VERSION: readonly string[] = ["--version", "-v"];
-
-export const COMMAND_USAGE = `usage:
-  magi doctor [--live] [--calibrate] [--yes]
-  magi skill  [--harness <claude|codex|grok>]... [--install]
-  magi plan   --brief <file> [--slug <slug>] [--excerpt <path[:start-end]>]...
-              [--test-output <file>] [--waive-headroom] [--waive-backfill]
-              [--dry-run] [--yes]
-  magi review --brief <file> [--slug <slug>] [--base <ref>] [--patch <file>]
-              [--excerpt <path[:start-end]>]... [--test-output <file>]
-              [--waive-headroom] [--waive-backfill] [--dry-run] [--yes]
-  magi checks <consult-id>
-  magi triggers [--base <ref>]
-  magi help | --help
-  magi --version | -v`;
 
 /**
  * What each command does, and what its flags cost, one entry per command.
@@ -113,9 +99,6 @@ suppress these.`,
   },
 ];
 
-/** The whole screen: the invocation table, and the prose under it. */
-const SCREEN: UsageScreen = { commands: COMMAND_USAGE, guide: GUIDE };
-
 /** What a subcommand does with the argv after its own name. */
 type Subcommand = (rest: readonly string[]) => number | Promise<number>;
 
@@ -150,6 +133,26 @@ export const SUBCOMMANDS: Readonly<Record<string, CommandEntry>> = {
   checks: { run: (rest) => checksCommand(rest, SCREEN), grammar: CHECKS_GRAMMAR },
   triggers: { run: (rest) => triggersCommand(rest), grammar: TRIGGERS_GRAMMAR },
 };
+
+/**
+ * The invocation table, generated from the catalogue above rather than typed
+ * out beside it.
+ *
+ * It was a string here for as long as this file existed, and a string is what
+ * a person has to remember to edit: `help` and `-v` both worked and neither
+ * was printed, with README.md asserted identical to that same incomplete
+ * block, so the drift was locked in by a test rather than caught by one. A
+ * guard caught the flags after that, and this removes the thing it was
+ * guarding: what the screen says is what the commands accept, because it is
+ * made of them. `test/cli/args.test.ts` holds README.md to these bytes.
+ */
+export const COMMAND_USAGE: string = rootScreen(
+  "magi",
+  Object.fromEntries(Object.entries(SUBCOMMANDS).map(([name, { grammar }]) => [name, grammar])),
+);
+
+/** The whole screen: the generated table, and the prose under it. */
+const SCREEN: UsageScreen = { commands: COMMAND_USAGE, guide: GUIDE };
 
 /**
  * Every token `main` accepts as its first argument, derived from what it
@@ -191,7 +194,7 @@ function notACommand(token: string): string {
     },
     [token],
   );
-  return parsed.ok ? `unknown command: ${token}` : parsed.reason;
+  return parsed.kind === "refused" ? parsed.reason : `unknown command: ${token}`;
 }
 
 export async function main(argv: readonly string[]): Promise<number> {
