@@ -15,6 +15,7 @@ import {
 } from "../skill.ts";
 import { approve, choose, close, detail, info, open, problem, step } from "../util/ui.ts";
 import { SKILL_SOURCE, ambient } from "./environment.ts";
+import { InvalidArgumentError, parseArgv } from "./parse.ts";
 
 /** The council's own harnesses, in slot order. */
 const HARNESSES: readonly Harness[] = SLOTS.map((definition) => definition.harness);
@@ -25,28 +26,26 @@ const DEFAULT_INSTALL: Harness = "claude";
 /** What the shell reports for a command a person stopped rather than answered. */
 const CANCELLED = 130;
 
+/** One `--harness` value, checked by name and kept in the order it was given. */
+function collectHarness(value: string, previous: readonly Harness[]): readonly Harness[] {
+  if (!isHarness(value)) throw new InvalidArgumentError(`needs one of: ${HARNESSES.join(", ")}`);
+  return [...previous, value];
+}
+
 export async function skillCommand(rest: readonly string[]): Promise<number> {
-  let install = false;
-  const chosen: Harness[] = [];
-  for (let at = 0; at < rest.length; at += 1) {
-    const arg = rest[at];
-    if (arg === "--install") {
-      install = true;
-      continue;
-    }
-    if (arg === "--harness") {
-      const value = rest[at + 1];
-      if (value === undefined || !isHarness(value)) {
-        problem(`--harness needs one of: ${HARNESSES.join(", ")}`);
-        return 2;
-      }
-      chosen.push(value);
-      at += 1;
-      continue;
-    }
-    problem(`unknown skill argument: ${arg}`);
+  const parsed = parseArgv<{ readonly harness: readonly Harness[]; readonly install: boolean }>(
+    "magi skill",
+    (command) =>
+      command
+        .option("--harness <id>", `which harness, repeat for more (${HARNESSES.join(", ")})`, collectHarness, [])
+        .option("--install", "link the skill where the harness finds it", false),
+    rest,
+  );
+  if (!parsed.ok) {
+    problem(parsed.reason);
     return 2;
   }
+  const { harness: chosen, install } = parsed.opts;
 
   const { home } = ambient();
   const source = SKILL_SOURCE;

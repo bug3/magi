@@ -8,14 +8,19 @@
 
 import { evaluateTriggers, triggerChanges } from "../consult.ts";
 import { close, detail, open, problem, step, warn } from "../util/ui.ts";
+import { parseArgv } from "./parse.ts";
 
 export async function triggersCommand(rest: readonly string[]): Promise<number> {
-  // The whole argument grammar, in one condition: nothing, or --base and a ref.
-  if (rest.length !== 0 && (rest.length !== 2 || rest[0] !== "--base")) {
-    problem(`usage: magi triggers [--base <ref>]; got: ${rest.join(" ")}`);
+  const parsed = parseArgv<{ readonly base?: string }>(
+    "magi triggers",
+    (command) => command.option("--base <ref>", "the ref the diff is taken from"),
+    rest,
+  );
+  if (!parsed.ok) {
+    problem(parsed.reason);
     return 2;
   }
-  const base = rest[1];
+  const { base } = parsed.opts;
 
   const repoDir = process.cwd();
   let changed;

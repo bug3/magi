@@ -2,10 +2,15 @@
  * Argument parsing for `magi review` and `magi plan`: typed, tested, and
  * separate from command execution. A bad invocation is refused by name
  * before anything touches the repo or spends quota.
+ *
+ * The grammar comes from `./parse.ts`; what is decided here is what the flags
+ * mean together, which is the half no parser can know: which of them belong
+ * to review alone, and that a consult without a brief is not a consult.
  */
 
 import type { ExcerptRequest } from "../evidence/pack.ts";
 import type { ConsultMode } from "../core/consult.ts";
+import { parseArgv } from "./parse.ts";
 
 export interface ReviewArgs {
   readonly slug: string;
@@ -43,65 +48,61 @@ export function parseExcerpt(spec: string): ExcerptRequest {
   };
 }
 
+/** One flag's value, appended to the ones already given for it. */
+function collect(value: string, previous: readonly string[]): readonly string[] {
+  return [...previous, value];
+}
+
+/** The flags as commander hands them back, before they mean anything. */
+interface ConsultOptions {
+  readonly brief: string;
+  readonly slug: string;
+  readonly excerpt: readonly string[];
+  readonly patch?: string;
+  readonly base?: string;
+  readonly testOutput?: string;
+  readonly waiveHeadroom: boolean;
+  readonly waiveBackfill: boolean;
+  readonly dryRun: boolean;
+  readonly yes: boolean;
+}
+
 export function parseReviewArgs(
   argv: readonly string[],
   mode: ConsultMode = "review",
 ): ReviewArgs {
-  let slug: string = mode;
-  let briefFile: string | undefined;
-  let patchFile: string | undefined;
-  let base: string | undefined;
-  let testOutputFile: string | undefined;
-  let waiveHeadroom = false;
-  let waiveBackfill = false;
-  let dryRun = false;
-  let yes = false;
-  const excerpts: ExcerptRequest[] = [];
+  const parsed = parseArgv<ConsultOptions>(
+    `magi ${mode}`,
+    (command) =>
+      command
+        .requiredOption("--brief <file>", "the brief the council answers")
+        .option("--slug <slug>", "what the consult is filed under", mode)
+        .option("--excerpt <path[:start-end]>", "a passage to comment on", collect, [])
+        .option("--patch <file>", "the diff under review")
+        .option("--base <ref>", "derive the review patch from git")
+        .option("--test-output <file>", "the test run the council is shown")
+        .option("--waive-headroom", "convene past a refusing headroom check", false)
+        .option("--waive-backfill", "convene over overdue dispositions", false)
+        .option("--dry-run", "curate and gate both ways, convene nothing", false)
+        .option("--yes", "do not ask before spending", false),
+    argv,
+  );
+  if (!parsed.ok) throw new Error(parsed.reason);
 
-  for (let at = 0; at < argv.length; at += 1) {
-    const flag = argv[at] as string;
-    const value = (): string => {
-      const next = argv[at + 1];
-      if (next === undefined) throw new Error(`${flag} needs a value`);
-      at += 1;
-      return next;
-    };
-    switch (flag) {
-      case "--slug":
-        slug = value();
-        break;
-      case "--brief":
-        briefFile = value();
-        break;
-      case "--excerpt":
-        excerpts.push(parseExcerpt(value()));
-        break;
-      case "--patch":
-        patchFile = value();
-        break;
-      case "--base":
-        base = value();
-        break;
-      case "--test-output":
-        testOutputFile = value();
-        break;
-      case "--waive-headroom":
-        waiveHeadroom = true;
-        break;
-      case "--waive-backfill":
-        waiveBackfill = true;
-        break;
-      case "--dry-run":
-        dryRun = true;
-        break;
-      case "--yes":
-        yes = true;
-        break;
-      default:
-        throw new Error(`unknown flag: ${flag}`);
-    }
-  }
-  if (briefFile === undefined) throw new Error("--brief is required");
+  const {
+    brief: briefFile,
+    slug,
+    excerpt,
+    patch: patchFile,
+    base,
+    testOutput: testOutputFile,
+    waiveHeadroom,
+    waiveBackfill,
+    dryRun,
+    yes,
+  } = parsed.opts;
+  const excerpts = excerpt.map(parseExcerpt);
+
   if (mode === "plan" && base !== undefined) throw new Error("--base is valid only for review");
   if (mode === "plan" && patchFile !== undefined) {
     throw new Error("--patch is valid only for review");

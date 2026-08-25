@@ -101,6 +101,30 @@ test("every subcommand refuses an argument it does not understand, on stderr", a
   }
 });
 
+test("a flag joined to its value with = is the same invocation", async () => {
+  // Typed at a real session and refused: `magi skill --harness=codex --install`
+  // exited 2 because each command compared whole tokens, so the form every
+  // GNU-style CLI takes was an unknown argument in three separate parsers.
+  const space = workspace();
+  try {
+    await initRepo(space.repo);
+
+    const skill = await magi(["skill", "--harness=codex"], space);
+    assert.equal(skill.code, 0);
+    // Matched as a report row and not as a substring: every row here carries a
+    // path under a temporary HOME, and a machine whose temporary directory is
+    // named after a harness would otherwise decide this test.
+    assert.match(skill.out, /^[^\w\n]*codex\b/mu);
+    assert.doesNotMatch(skill.out, /^[^\w\n]*claude\b/mu, "the value bound to the flag");
+
+    const triggers = await magi(["triggers", "--base=HEAD"], space);
+    assert.equal(triggers.code, 0);
+    assert.match(triggers.out, /HEAD to worktree/u);
+  } finally {
+    space.remove();
+  }
+});
+
 test("nothing a command prints carries a cursor escape, having no terminal", async () => {
   // MAGI's output is read by an orchestrating assistant through a pipe, and
   // its own check transcript is carried into evidence packs. A redrawn line

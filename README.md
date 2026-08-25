@@ -78,7 +78,8 @@ editing your `.gitignore` for you.
   subscriptions. A seat is passed `HOME` and `PATH` and nothing else: no API
   keys, no copied credentials.
 - `.magi/` ignored by the target repository, normally through `.gitignore`.
-- One runtime dependency, `@clack/prompts`, which draws the command line.
+- Two runtime dependencies: `@clack/prompts`, which draws the command line,
+  and `commander`, which parses the arguments behind `src/cli/parse.ts`.
 
 ## Install
 
@@ -331,9 +332,9 @@ and proceeds only on your explicit decision.
 
 ## Development
 
-Node is pinned through mise. `npm install` pulls the one runtime dependency,
-`@clack/prompts`, plus the dev ones (`typescript`, `@types/node`,
-`publish-preflight`); every version is pinned exact:
+Node is pinned through mise. `npm install` pulls the two runtime dependencies,
+`@clack/prompts` and `commander`, plus the dev ones (`typescript`,
+`@types/node`, `publish-preflight`); every version is pinned exact:
 
 ```
 mise install

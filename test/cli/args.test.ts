@@ -62,7 +62,7 @@ test("review args collect repeatable flags in order", () => {
 test("the hand-pick channel is gone: --convention is refused by name", () => {
   assert.throws(
     () => parseReviewArgs(["--brief", "b", "--convention", "CLAUDE.md"]),
-    /unknown flag: --convention/,
+    /unknown option '--convention'/,
   );
 });
 
@@ -92,15 +92,25 @@ test("plan refuses review-only patch pins", () => {
 });
 
 test("a missing brief is refused before anything runs", () => {
-  assert.throws(() => parseReviewArgs(["--slug", "x"]), /--brief is required/);
+  assert.throws(() => parseReviewArgs(["--slug", "x"]), /required option '--brief <file>' not specified/);
+});
+
+test("a flag joined to its value with = is the same flag", () => {
+  // The form every GNU-style CLI takes and this one refused: `--brief=b.md`
+  // was read as one unknown token, so a documented invocation exited 2.
+  const args = parseReviewArgs(["--brief=brief.md", "--slug=fs-review", "--excerpt=a.ts:1-5"]);
+
+  assert.equal(args.briefFile, "brief.md");
+  assert.equal(args.slug, "fs-review");
+  assert.deepEqual(args.excerpts, [{ path: "a.ts", startLine: 1, endLine: 5 }]);
 });
 
 test("an unknown flag is refused by name", () => {
-  assert.throws(() => parseReviewArgs(["--brief", "b", "--bogus"]), /unknown flag: --bogus/);
+  assert.throws(() => parseReviewArgs(["--brief", "b", "--bogus"]), /unknown option '--bogus'/);
 });
 
 test("a flag at the end without its value is refused", () => {
-  assert.throws(() => parseReviewArgs(["--brief"]), /--brief needs a value/);
+  assert.throws(() => parseReviewArgs(["--brief"]), /option '--brief <file>' argument missing/);
 });
 
 test("an unknown command prints usage and exits 2", async () => {
@@ -166,7 +176,7 @@ test("the flag that says not to ask is a flag, and only that", () => {
 
   assert.equal(asked.yes, false);
   assert.equal(told.yes, true);
-  assert.throws(() => parseReviewArgs(["--brief", "b.md", "--yes-really"]), /unknown flag/u);
+  assert.throws(() => parseReviewArgs(["--brief", "b.md", "--yes-really"]), /unknown option/u);
 });
 
 test("every flag the usage block offers is a flag the parser takes", () => {

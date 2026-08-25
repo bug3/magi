@@ -14,10 +14,12 @@ mechanism here implements.
   `tsconfig.build.json` and the tarball ships that instead of the sources;
   `prepack` runs it, and `bin/magi.js` prefers the build when it is there.
 - Node is pinned by `.mise.toml`.
-- Runtime dependency: `@clack/prompts`, for the command-line rendering in
+- Runtime dependencies: `@clack/prompts`, for the command-line rendering in
   `src/util/ui.ts` and the folder behind it: the frames, the progress, the
-  folded subprocess output and the questions. Dev dependencies: `typescript`, `@types/node` and
-  `publish-preflight`. Every dependency is pinned exact.
+  folded subprocess output and the questions; and `commander`, for the
+  argument grammar, reached only through `src/cli/parse.ts`, which forbids it
+  a stream and an exit of its own. Dev dependencies: `typescript`,
+  `@types/node` and `publish-preflight`. Every dependency is pinned exact.
 - `npm run check` = `tsc --noEmit` + every `test/**/*.test.ts` file. Green at
   every commit.
 - `npm run preflight` packs the package and installs it the way a consumer
