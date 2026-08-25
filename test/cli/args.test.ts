@@ -232,6 +232,19 @@ test("help takes the command whose screen was asked for", async () => {
   assert.match(named.out, /--base <ref>/u);
 });
 
+test("a screen takes its one argument and no more", async () => {
+  // `magi --version extra` and `magi help review extra` answered as though the
+  // extra word were not there. Under the exit codes this file's module states,
+  // a token the command cannot use makes the invocation itself wrong.
+  assert.equal(await quietMain(["--version", "extra"]), 2);
+  assert.equal(await quietMain(["-v", "extra"]), 2);
+  assert.equal(await quietMain(["help", "review", "extra"]), 2);
+  assert.equal(await quietMain(["--help", "doctor", "extra"]), 2);
+
+  assert.equal(await quietMain(["--version"]), 0, "the right invocation is still right");
+  assert.equal(await quietMain(["help", "review"]), 0, "and so is the one with an argument");
+});
+
 test("help asked for something that is not a command is still a mistake", async () => {
   const piped = await runMain(["help", "revieww"]);
   assert.equal(piped.code, 2);

@@ -201,22 +201,40 @@ function notACommand(token: string): string {
 export async function main(argv: readonly string[]): Promise<number> {
   const [command, ...rest] = argv;
   if (command !== undefined && HELP.includes(command)) {
-    // `magi help review` is `magi review --help` asked the other way round,
-    // and a word here that names nothing is as wrong as it is anywhere else.
-    const named = rest[0];
+    // `magi help review` is `magi review --help` asked the other way round.
+    // Parsed rather than indexed, so a second word is refused here for the
+    // same reason it is refused anywhere else: `magi help review extra`
+    // answered as though the extra word were not there.
+    const asked = parseArgv<never>(
+      "magi help",
+      (root) => root.helpOption(false).argument("[command]", "the command to print the screen of"),
+      rest,
+    );
+    if (asked.kind !== "invocation") {
+      refuseUsage(SCREEN, asked.kind === "refused" ? asked.reason : undefined);
+      return 2;
+    }
+    const named = asked.args[0];
     if (named === undefined) {
       usage(SCREEN);
       return 0;
     }
-    const asked = SUBCOMMANDS[named];
-    if (asked === undefined) {
+    const wanted = SUBCOMMANDS[named];
+    if (wanted === undefined) {
       refuseUsage(SCREEN, notACommand(named));
       return 2;
     }
-    commandUsage(commandScreen(`magi ${named}`, asked.grammar));
+    commandUsage(commandScreen(`magi ${named}`, wanted.grammar));
     return 0;
   }
   if (command !== undefined && VERSION.includes(command)) {
+    // The number is parsed by whatever asked for it, so a word this command
+    // cannot use is refused rather than printed past.
+    const asked = parseArgv<never>("magi --version", (root) => root.helpOption(false), rest);
+    if (asked.kind !== "invocation") {
+      refuseUsage(SCREEN, asked.kind === "refused" ? asked.reason : undefined);
+      return 2;
+    }
     version(declaredVersion());
     return 0;
   }
