@@ -13,6 +13,7 @@ const INPUTS = {
   schemaJson: '{"type":"object"}',
   repoDir: "/tmp/repo",
   home: "/work/home",
+  user: "seat",
   path: "/usr/bin",
   skills: [],
   ledgerPath: "/nonexistent/ledger.jsonl",

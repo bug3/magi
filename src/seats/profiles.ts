@@ -5,8 +5,8 @@
  * Each slot is a pure function of its inputs, so the same inputs always render
  * the same argv and the run manifest can record the launch verbatim. Nothing is
  * read from the ambient process here: the child environment is built from
- * scratch, and HOME is passed in explicitly because each CLI reads its
- * subscription auth from it.
+ * scratch, and the two auth-bearing values, HOME and USER, are passed in
+ * explicitly because each CLI reads its subscription from them.
  */
 
 import type { ProfileSelection, SeatProfile } from "../core/profile.ts";
@@ -30,6 +30,14 @@ export interface SeatInputs {
   readonly home: string;
   /** PATH used to resolve the harness binary. */
   readonly path: string;
+  /**
+   * The POSIX user name, which is part of the same subscription auth: claude
+   * keeps its OAuth in the macOS keychain and resolves the item by account
+   * name, so a seat without it reports itself logged out and answers nothing.
+   * A name is not a credential; nothing else of the caller's environment
+   * crosses over.
+   */
+  readonly user: string;
 }
 
 /**
@@ -164,12 +172,13 @@ function casperProfile(inputs: SeatInputs): SeatProfile {
 }
 
 /**
- * Exactly HOME and PATH. HOME because each CLI reads its already-logged-in
- * subscription from it; PATH because the command name is resolved through it.
- * Anything else a seat needs is an explicit, per-profile addition.
+ * Exactly HOME, PATH and USER. HOME and USER because a CLI reads its
+ * already-logged-in subscription through both, a file under HOME or a keychain
+ * item keyed by account name; PATH because the command name is resolved
+ * through it. Anything else a seat needs is an explicit, per-profile addition.
  */
 function baseEnv(inputs: SeatInputs): Record<string, string> {
-  return { HOME: inputs.home, PATH: inputs.path };
+  return { HOME: inputs.home, PATH: inputs.path, USER: inputs.user };
 }
 
 /** A cli-default selection renders no flag at all, so the CLI default stands. */

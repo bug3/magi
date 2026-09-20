@@ -82,6 +82,8 @@ export interface CalibrationReport {
 
 export interface CalibrateInputs {
   readonly home: string;
+  /** The POSIX user name a seat authenticates with; see `SeatInputs`. */
+  readonly user: string;
   readonly repoDir: string;
   /** Brief, contract and per-seat stdout records land here. */
   readonly workDir: string;
@@ -249,6 +251,7 @@ function roundProfiles(
     repoDir: inputs.repoDir,
     home: inputs.home,
     path: inputs.path,
+    user: inputs.user,
   };
   const profiles = SLOTS.map((definition) => seatProfile(definition.id, seatInputs));
   return round === "isolated" ? profiles : profiles.map(unisolatedProfile);

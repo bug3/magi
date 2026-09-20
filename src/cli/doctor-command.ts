@@ -84,7 +84,7 @@ export async function doctorCommand(rest: readonly string[]): Promise<number> {
   }
   let { live, calibrate } = parsed.opts;
   const repoDir = process.cwd();
-  const { home, path } = ambient();
+  const { home, path, user } = ambient();
   const schemaPath = join(MAGI_ROOT, "schemas", "opinion.v1.schema.json");
   const ledgerFile = join(repoDir, ".magi", "ledger.jsonl");
 
@@ -101,6 +101,7 @@ export async function doctorCommand(rest: readonly string[]): Promise<number> {
     repoDir,
     home,
     path,
+    user,
     ledgerPath: ledgerFile,
   });
   report(formatStaticReport(staticReport));
@@ -142,7 +143,7 @@ export async function doctorCommand(rest: readonly string[]): Promise<number> {
     const workDir = join(repoDir, ".magi", "doctor");
     mkdirSync(workDir, { recursive: true });
     const results = await waiting("live smoke: one minimal call per harness, this spends quota", () =>
-      liveSmoke({ repoDir, home, path, workDir }),
+      liveSmoke({ repoDir, home, path, user, workDir }),
     );
     report(formatSmokeResults(results));
     healthy =
@@ -158,6 +159,7 @@ export async function doctorCommand(rest: readonly string[]): Promise<number> {
         calibrateCanaries({
           home,
           path,
+          user,
           repoDir,
           workDir,
           ledgerPath: ledgerFile,
