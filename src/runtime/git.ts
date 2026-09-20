@@ -22,6 +22,12 @@ import { type ExecResult, exec } from "./exec.ts";
  * one alone is a single point of failure for a security property.
  */
 const FIXED_CONFIG: readonly string[] = [
+  // Refuse the identity git would otherwise invent from the passwd entry and
+  // the hostname. Emptying the config files is not enough: with no user.email
+  // anywhere, git guesses one and signs as the account running it, which on a
+  // developer machine is exactly the ambient identity this file exists to keep
+  // out. A caller that needs to author passes user.name and user.email.
+  "user.useConfigOnly=true",
   "core.hooksPath=/dev/null",
   "core.fsmonitor=false",
   "core.symlinks=true",
