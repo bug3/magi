@@ -20,6 +20,11 @@ import type { HeadroomSnapshot } from "./headroom.ts";
 export interface LedgerSeat {
   readonly slot: string;
   readonly valid: boolean;
+  /**
+   * The seat produced an answer of its own. Rows written before a seat that
+   * never spoke was told apart from one with nothing to say omit it.
+   */
+  readonly answered?: boolean;
   readonly reasons: readonly string[];
   readonly durationMs: number;
   readonly retried: boolean;
