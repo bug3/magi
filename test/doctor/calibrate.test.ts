@@ -48,13 +48,15 @@ function world(): World {
   return { home, repoDir, workDir, ledgerPath: join(root, "ledger.jsonl") };
 }
 
+/** A seat that answered, and the bytes it answered with. */
+function said(slot: string, stream: string): { slot: string; stream: string; answered: boolean } {
+  return { slot, stream, answered: true };
+}
+
 function stubRound(byRound: Readonly<Record<string, string>>) {
   return (round: "isolated" | "unisolated") =>
     Promise.resolve(
-      ["melchior-1", "balthasar-2", "casper-3"].map((slot) => ({
-        slot,
-        stdout: byRound[round] ?? "",
-      })),
+      ["melchior-1", "balthasar-2", "casper-3"].map((slot) => said(slot, byRound[round] ?? "")),
     );
 }
 
@@ -185,10 +187,9 @@ test("a concurrently edited layer is refused, not clobbered; the sidecar survive
       // A concurrent edit lands while the probe rounds are running.
       if (round === "unisolated") writeFileSync(claudeLayer, "# concurrent owner edit\n");
       return Promise.resolve(
-        ["melchior-1", "balthasar-2", "casper-3"].map((slot) => ({
-          slot,
-          stdout: round === "unisolated" ? `{"echo":"${NONCE}"}` : '{"echo":"NONE"}',
-        })),
+        ["melchior-1", "balthasar-2", "casper-3"].map((slot) =>
+          said(slot, round === "unisolated" ? `{"echo":"${NONCE}"}` : '{"echo":"NONE"}'),
+        ),
       );
     }),
   );
@@ -291,9 +292,9 @@ test("a seat that greps the layer out of its own repository is not a leak", asyn
   const injected = `{"type":"item.completed","item":{"type":"agent_message","text":"${NONCE}"}}`;
   const runRound = (round: "isolated" | "unisolated") =>
     Promise.resolve([
-      { slot: "melchior-1", stdout: round === "unisolated" ? injected : "" },
-      { slot: "balthasar-2", stdout: round === "unisolated" ? injected : fetched },
-      { slot: "casper-3", stdout: injected },
+      said("melchior-1", round === "unisolated" ? injected : ""),
+      said("balthasar-2", round === "unisolated" ? injected : fetched),
+      said("casper-3", injected),
     ]);
 
   const report = await calibrateCanaries(inputsFor(w, runRound));
@@ -316,9 +317,9 @@ test("a real leak behind an unrelated retrieval still fails the isolated round",
   ].join("\n");
   const runRound = (round: "isolated" | "unisolated") =>
     Promise.resolve([
-      { slot: "melchior-1", stdout: round === "unisolated" ? NONCE : "" },
-      { slot: "balthasar-2", stdout: leaked },
-      { slot: "casper-3", stdout: NONCE },
+      said("melchior-1", round === "unisolated" ? NONCE : ""),
+      said("balthasar-2", leaked),
+      said("casper-3", NONCE),
     ]);
 
   const report = await calibrateCanaries(inputsFor(w, runRound));
