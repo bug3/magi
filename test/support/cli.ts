@@ -104,10 +104,13 @@ export async function magi(
     cwd: workspace.repo,
     // Exactly what the tool asks the process for, and nothing else. A wider
     // environment would let a variable on the machine running the suite
-    // change what the assertions see. NO_COLOR is deliberately not among
-    // them: setting it would make "nothing escapes into a pipe" true by test
-    // setup, when the claim under test is that the code holds it on its own.
-    env: { HOME: workspace.home, PATH: workspace.bin },
+    // change what the assertions see. USER is named for the same reason it
+    // is named nowhere else: absent, the tool falls back to the passwd entry
+    // and the suite machine's real account name crosses into the workspace.
+    // NO_COLOR is deliberately not among them: setting it would make
+    // "nothing escapes into a pipe" true by test setup, when the claim under
+    // test is that the code holds it on its own.
+    env: { HOME: workspace.home, PATH: workspace.bin, USER: "nobody" },
     stdio: ["ignore", "pipe", "pipe"],
     timeout: RUN_TIMEOUT_MS,
   });
@@ -172,7 +175,7 @@ export async function onTerminal(
 
   const child = spawn(script, ["-qec", command, "/dev/null"], {
     cwd: space.repo,
-    env: { HOME: space.home, PATH: space.bin, TERM: "xterm-256color" },
+    env: { HOME: space.home, PATH: space.bin, USER: "nobody", TERM: "xterm-256color" },
     stdio: ["ignore", "pipe", "pipe"],
     timeout: RUN_TIMEOUT_MS,
   });
@@ -267,6 +270,7 @@ export function installStubHarnesses(bin: string): void {
       repoDir: ".",
       home: "/nonexistent",
       path: bin,
+      user: "nobody",
     });
     const target = join(bin, profile.command);
     copyFileSync(STUB_HARNESS, target);

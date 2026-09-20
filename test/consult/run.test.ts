@@ -98,6 +98,7 @@ function inputsFor(world: { repoDir: string; magiDir: string }, profiles: readon
     templatePath: resolve("prompts/review.md"),
     schemaPath: resolve("schemas/opinion.v1.schema.json"),
     home: "/work/home",
+    user: "seat",
     path: "/usr/bin",
     staggerMs: 0,
     profiles,

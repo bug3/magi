@@ -75,8 +75,11 @@ editing your `.gitignore` for you.
   package ships compiled JavaScript instead, because Node refuses to strip
   types under `node_modules`.
 - The three CLIs installed and already logged in with their own
-  subscriptions. A seat is passed `HOME` and `PATH` and nothing else: no API
-  keys, no copied credentials.
+  subscriptions. A seat is passed `HOME`, `PATH` and `USER` and nothing else:
+  no API keys, no copied credentials. `USER` is the POSIX user name rather
+  than a secret, and it is there because a CLI can key its stored credential
+  by account name: claude resolves its macOS keychain item that way, and a
+  seat launched without it reports itself logged out.
 - `.magi/` ignored by the target repository, normally through `.gitignore`.
 - Two runtime dependencies: `@clack/prompts`, which draws the command line,
   and `commander`, which parses the arguments behind `src/cli/parse.ts`.

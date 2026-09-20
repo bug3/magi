@@ -11,6 +11,7 @@ const INPUTS: SeatInputs = {
   schemaJson: '{"type":"object"}',
   repoDir: "/work/target-repo",
   home: "/work/home",
+  user: "seat",
   path: "/usr/local/bin:/usr/bin",
 };
 
@@ -111,17 +112,22 @@ test("Bash, WebFetch and WebSearch are only ever named to deny them", () => {
 });
 
 // Nothing is inherited implicitly: the child env is the declared set exactly.
-test("every profile env is exactly HOME and PATH plus its declared additions", () => {
+// Both halves matter. USER is here because claude resolves its macOS keychain
+// credential by account name and answers "Not logged in" without it, and the
+// key set is asserted whole so the scrubbing stays honest while a name is
+// being added to it.
+test("every profile env is exactly HOME, PATH and USER plus its declared additions", () => {
   const expected: Record<string, readonly string[]> = {
-    "melchior-1": ["HOME", "PATH"],
-    "balthasar-2": ["HOME", "PATH"],
-    "casper-3": ["HOME", "PATH", "GROK_MEMORY"],
+    "melchior-1": ["HOME", "PATH", "USER"],
+    "balthasar-2": ["HOME", "PATH", "USER"],
+    "casper-3": ["HOME", "PATH", "USER", "GROK_MEMORY"],
   };
   for (const { id } of SLOTS) {
     const { env } = seatProfile(id, INPUTS);
     assert.deepEqual(Object.keys(env).sort(), [...(expected[id] ?? [])].sort());
     assert.equal(env["HOME"], INPUTS.home);
     assert.equal(env["PATH"], INPUTS.path);
+    assert.equal(env["USER"], INPUTS.user);
   }
 });
 

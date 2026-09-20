@@ -85,7 +85,7 @@ export async function consultCommand(
     );
     return 2;
   }
-  const { home, path } = ambient();
+  const { home, path, user } = ambient();
   const repoDir = process.cwd();
   const magiDir = join(repoDir, ".magi");
 
@@ -214,6 +214,7 @@ export async function consultCommand(
       schemaPath,
       home,
       path,
+      user,
       headroom: { ...headroom, ...(args.waiveHeadroom ? { waived: true } : {}) },
       // Exclusions and fence residue surface before any seat is spawned, and
       // the announcement comes last so what the fan-out is about is the line

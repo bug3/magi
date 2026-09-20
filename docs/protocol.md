@@ -136,6 +136,11 @@ headless seat calls; your daily sessions keep every customization.
 
 MAGI supplies no API-key environment variables and expects existing
 subscription sessions. It does not independently prove a CLI's billing mode.
+A seat's whole environment is `HOME`, `PATH` and `USER`, plus whatever its own
+profile declares. `USER` is there because a subscription session can be keyed
+by account name rather than kept in a file: claude resolves its macOS keychain
+credential that way, and a seat launched without it reports itself logged out
+on every call. It is the POSIX user name, not a credential.
 
 ## The validity gate
 

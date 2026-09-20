@@ -57,6 +57,7 @@ export interface ConsultRunInputs {
   /** Passed through to the seat env; nothing is inherited implicitly. */
   readonly home: string;
   readonly path: string;
+  readonly user: string;
   readonly staggerMs?: number;
   /** The preflight headroom snapshot, recorded verbatim in the ledger row. */
   readonly headroom?: LedgerRow["headroom"];
@@ -154,6 +155,7 @@ export async function runConsult(inputs: ConsultRunInputs): Promise<ConsultRunRe
         repoDir: inputs.repoDir,
         home: inputs.home,
         path: inputs.path,
+        user: inputs.user,
       }),
     );
 

@@ -24,6 +24,7 @@ const SEAT_INPUTS: SeatInputs = {
   schemaJson: "{}",
   repoDir: "/work/repo",
   home: "/work/home",
+  user: "seat",
   path: "/usr/bin",
 };
 
@@ -60,6 +61,7 @@ function stubRound(byRound: Readonly<Record<string, string>>) {
 function inputsFor(w: World, runRound: ReturnType<typeof stubRound>) {
   return {
     home: w.home,
+    user: "seat",
     repoDir: w.repoDir,
     workDir: w.workDir,
     path: "/usr/bin",
