@@ -84,6 +84,12 @@ export interface LedgerCalibration {
     readonly harness: string;
     readonly direction: string;
     readonly expectation: string;
+    /**
+     * The seat answered at all. False makes the row inconclusive: it measured
+     * nothing, in either direction. Rows written before a silent seat was
+     * told apart from an isolated one omit it.
+     */
+    readonly answered?: boolean;
     readonly nonceSeen: boolean;
     /**
      * The token was in the stream, but only because the seat fetched it.

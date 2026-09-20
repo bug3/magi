@@ -394,6 +394,20 @@ whose stream is one event per line and therefore ordered; claude and grok
 emit a single document and keep their layers outside the working directory,
 where a repository grep cannot reach them.
 
+A third false positive had the canary answering for a seat that never spoke.
+A row was decided from the seat's text alone, and what an isolated direction
+asserts is an absence, so a seat that could not answer produced no nonce and
+scored the same `ok` a properly isolated seat did. That is how a claude seat
+launched without `USER` calibrated clean while reporting itself logged out on
+every call. A row now carries whether the seat answered at all: a seat that
+did not is inconclusive in both directions rather than ok, and the calibration
+fails and names the seat, because "isolated ok, unisolated failed" points at
+isolation when the fault is authentication. The same holds wherever a seat
+reached no conclusion of its own, a turn ceiling or a harness error as much as
+a login: the round measured nothing, and nothing is what it records. The two-round protocol is what
+surfaced it, and it stays as it is: with only the isolated round, a dead seat
+would have calibrated clean forever.
+
 Calibration is crash-safe. A recovery sidecar holding every original image is
 written before the first layer changes. A layer restores only while its
 content still equals the expected nonce-bearing image; a concurrent edit is

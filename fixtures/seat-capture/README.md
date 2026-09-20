@@ -46,3 +46,14 @@ with an empty output, which is why a line matching a marker is not on its own
 evidence of anything.
 
 Read by `test/doctor/calibrate.test.ts`.
+
+### melchior-not-logged-in.json
+
+What a claude seat writes when it is launched without `USER`: a well-formed
+result document, `subtype` still `success`, carrying `is_error` and the text
+`Not logged in`. The claim: a seat that never reached the model is not a seat
+with nothing to say, and nothing in the bytes says so except that flag. This
+is the capture behind both halves of the fix, the missing variable and the
+calibration row that read a silent seat as an isolated one.
+
+Read by `test/seats/answer.test.ts`.

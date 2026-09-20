@@ -9,6 +9,7 @@ import { SKILL_STATE_LABEL, skillRepairable, type SkillReport } from "../skill.t
 import { sanitizeLine } from "../util/text.ts";
 import type { CalibrationReport } from "./calibrate.ts";
 import type { CalibrationHealthReport } from "./calibration-health.ts";
+import { measured } from "./calibration-verdict.ts";
 import { COMPLETENESS_PARAMS, type ConsultCompleteness } from "./completeness.ts";
 import type { SmokeResult } from "./live-smoke.ts";
 import type { SkewReport } from "./skew.ts";
@@ -159,6 +160,16 @@ export function formatCompleteness(
 export function formatCalibration(report: CalibrationReport): string {
   const lines = [`canary calibration (nonce ${report.nonce})`];
   for (const result of report.results) {
+    // A seat that did not answer is named first and by name: the fault is the
+    // seat, and reading it as an isolation result once cost six calls and
+    // pointed at the wrong mechanism.
+    if (!measured(result)) {
+      lines.push(
+        `  ${result.harness} ${result.direction}: INCONCLUSIVE, the seat did not answer; ` +
+          `expected ${result.expectation} and nothing was measured`,
+      );
+      continue;
+    }
     const seen = result.nonceSeen
       ? "nonce seen"
       : result.nonceFetched
@@ -180,7 +191,8 @@ export function formatCalibration(report: CalibrationReport): string {
     "",
     report.pass
       ? "calibration passed: the canaries were watched failing and recovering"
-      : "CALIBRATION FAILED: an inert canary, an isolation leak or a refused restore, see above",
+      : "CALIBRATION FAILED: a seat that did not answer, an inert canary, an " +
+        "isolation leak or a refused restore, see above",
     "",
   );
   return lines.join("\n");
