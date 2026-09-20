@@ -26,6 +26,7 @@ import {
   liveSmoke,
   readCalibrationRows,
   skewFromLedger,
+  smokeHealthy,
   staticChecks,
   valueFromLedger,
 } from "../doctor.ts";
@@ -146,8 +147,7 @@ export async function doctorCommand(rest: readonly string[]): Promise<number> {
       liveSmoke({ repoDir, home, path, user, workDir }),
     );
     report(formatSmokeResults(results));
-    healthy =
-      healthy && results.every((result) => result.parsed && result.canaryHits.length === 0);
+    healthy = healthy && smokeHealthy(results);
   }
 
   if (calibrate) {

@@ -42,7 +42,7 @@ export {
   formatStaticReport,
   formatTelemetry,
 } from "./doctor/format.ts";
-export { liveSmoke, type SmokeResult } from "./doctor/live-smoke.ts";
+export { liveSmoke, smokeHealthy, type SmokeResult } from "./doctor/live-smoke.ts";
 export {
   SKEW_PARAMS,
   skewFromLedger,

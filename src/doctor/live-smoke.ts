@@ -8,6 +8,7 @@
 import { join } from "node:path";
 
 import { SEAT_PARSERS } from "../adapters/parsers.ts";
+import { seatAnswered } from "../seats/answer.ts";
 import { slot, SLOTS, type SlotId } from "../core/slots.ts";
 import { canaryEvidence, loadCanaries } from "../seats/canaries.ts";
 import { seatProfile, type SeatInputs } from "../seats/profiles.ts";
@@ -32,11 +33,31 @@ const SMOKE_TIMEOUT_MS = 180_000;
 export interface SmokeResult {
   readonly slot: SlotId;
   readonly outcome: string;
+  /**
+   * The seat answered at all. Kept apart from `parsed` because the two come
+   * apart exactly where it matters: a logged-out claude writes the result
+   * document its launch profile promised and says inside it that it never
+   * reached the model, so a health check reading only the parse calls a seat
+   * that cannot run a healthy one.
+   */
+  readonly answered: boolean;
   readonly parsed: boolean;
   readonly parseReason: string | undefined;
   readonly canaryHits: readonly string[];
   readonly durationMs: number;
   readonly stdout: string;
+}
+
+/**
+ * What makes a live smoke healthy, in one place rather than inline in the
+ * command: every seat answered, wrote what its profile promised, and tripped
+ * no canary. `answered` is not implied by `parsed`, which is the whole reason
+ * this is written down.
+ */
+export function smokeHealthy(results: readonly SmokeResult[]): boolean {
+  return results.every(
+    (result) => result.answered && result.parsed && result.canaryHits.length === 0,
+  );
 }
 
 /** workDir must exist; the brief and contract land there for the record. */
@@ -74,6 +95,7 @@ export async function liveSmoke(
     const text = `${run.result.stdout}\n${run.result.stderr}`;
     return {
       slot: run.slot,
+      answered: seatAnswered(slot(run.slot).harness, run.result),
       outcome:
         run.result.outcome.kind === "exit"
           ? `exit ${run.result.outcome.code}`
