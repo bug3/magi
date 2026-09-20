@@ -27,7 +27,7 @@
  * the tool genuinely shells out to are linked into it by name.
  */
 
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import {
   accessSync,
   chmodSync,
@@ -161,7 +161,10 @@ export async function onTerminal(
 ): Promise<{ readonly code: number; readonly screen: string } | undefined> {
   const script = optional("script");
   const stty = optional("stty");
-  if (script === undefined || stty === undefined) return undefined;
+  // Absolute, all three: the PATH this runs with is the sealed workspace one,
+  // which holds the stub harnesses and nothing a terminal needs.
+  const shell = optional("sh");
+  if (script === undefined || stty === undefined || shell === undefined) return undefined;
   // Quoting is deliberately not solved: everything run here is one bare
   // subcommand, and a test that needed a quoted argument would be reaching for
   // a shell it should not have.
@@ -173,7 +176,7 @@ export async function onTerminal(
     [process.execPath, LAUNCHER, ...argv].join(" "),
   ].join("; ");
 
-  const child = spawn(script, ["-qec", command, "/dev/null"], {
+  const child = spawn(script, scriptArgv(script, shell, command), {
     cwd: space.repo,
     env: { HOME: space.home, PATH: space.bin, USER: "nobody", TERM: "xterm-256color" },
     stdio: ["ignore", "pipe", "pipe"],
@@ -193,6 +196,30 @@ export async function onTerminal(
     });
   });
   return { code, screen };
+}
+
+/**
+ * `script(1)` is two incompatible programs with one name, and this suite runs
+ * on both. util-linux takes the command through `-c`; the BSD one macOS ships
+ * rejects that flag outright and takes the command as trailing arguments
+ * after the typescript file. Either can be first on PATH, so the flavor is
+ * probed once rather than read off the platform.
+ *
+ * Getting this wrong is not a skip. `script` exists on both, so the helper
+ * ran it, the usage error came back as exit 1, and four cases failed against
+ * a pseudo-terminal that had never opened.
+ */
+function scriptArgv(script: string, shell: string, command: string): readonly string[] {
+  return utilLinuxScript(script)
+    ? ["-qec", command, "/dev/null"]
+    : ["-q", "/dev/null", shell, "-c", command];
+}
+
+let utilLinux: boolean | undefined;
+
+function utilLinuxScript(script: string): boolean {
+  utilLinux ??= spawnSync(script, ["-qec", "true", "/dev/null"], { stdio: "ignore" }).status === 0;
+  return utilLinux;
 }
 
 /** The first executable of that name, or nothing where there is none. */
