@@ -18,11 +18,13 @@
  * versions and the restored layers' hashes, so doctor can tell a stale
  * calibration from a current one.
  *
- * Nothing MAGI writes under `workDir` carries the live nonce while a probe
- * round is running. That directory sits inside the repository every seat is
- * pointed at, so a token left there is one a seat can read for itself and be
- * recorded as having been handed: the sidecar keeps the original images and a
- * digest, and the per-round captures land only once the rounds are over.
+ * Nothing MAGI writes under `workDir` carries a calibration token while a
+ * probe round is running, this run's or an earlier one's. That directory sits
+ * inside the repository every seat is pointed at, and the brief asks a seat
+ * for any token carrying the prefix rather than for this run's, so the
+ * sidecar keeps original images and digests, the captures land only once the
+ * rounds are over, and a previous calibration's leavings are cleared before
+ * this one stages anything.
  */
 
 import { mkdirSync, rmSync } from "node:fs";
@@ -31,7 +33,10 @@ import { dirname, join } from "node:path";
 import { appendLedgerCalibration } from "../consult.ts";
 import {
   CALIBRATION_LAYERS,
+  NONCE_MARKER,
+  NONCE_PREFIX,
   RECOVERY_FILE,
+  clearScratch,
   recoveryImage,
   restoreLayer,
   stageLayer,
@@ -52,6 +57,9 @@ import { sha256Text, writeFileDurable } from "../util/fs.ts";
 
 export {
   CALIBRATION_LAYERS,
+  CALIBRATION_TOKEN,
+  NONCE_MARKER,
+  NONCE_PREFIX,
   RECOVERY_FILE,
   type CalibrationLayer,
 } from "./calibration-layers.ts";
@@ -60,14 +68,6 @@ export {
   type CalibrationRound,
   type RoundOutput,
 } from "./calibration-verdict.ts";
-
-/** The marker every written nonce line starts with; doctor scans layers for it. */
-export const NONCE_MARKER = "MAGI calibration nonce:";
-/** Every nonce carries this fixed prefix. The brief names ONLY the prefix and
- * never the token: the first live calibration produced a brief-echo false
- * positive when codex matched the nonce inside the brief itself, so an echo
- * of the full token now proves layer visibility and nothing else. */
-export const NONCE_PREFIX = "magi-canary-";
 
 export interface CalibrationReport {
   readonly nonce: string;
@@ -110,6 +110,8 @@ export async function calibrateCanaries(inputs: CalibrateInputs): Promise<Calibr
     `${NONCE_MARKER} ${inputs.nonce} ` +
     "(temporary; written and removed by magi doctor --calibrate)";
 
+  clearScratch(inputs.workDir);
+
   // Stage first, then persist the recovery sidecar, then mutate: a crash at
   // any later point leaves every original image on disk.
   const staged = CALIBRATION_LAYERS.map((layer) =>
@@ -125,6 +127,7 @@ export async function calibrateCanaries(inputs: CalibrateInputs): Promise<Calibr
   const runRound = inputs.runRound ?? realRound;
   const restoreFailures: { path: string }[] = [];
   const records: Record<string, string> = {};
+  let roundFailed = false;
   let outputs: Readonly<Record<CalibrationRound, ReadonlyMap<Harness, RoundOutput>>>;
   try {
     const isolated = await runRound("isolated", roundProfiles(inputs, "isolated"));
@@ -132,6 +135,9 @@ export async function calibrateCanaries(inputs: CalibrateInputs): Promise<Calibr
     const unisolated = await runRound("unisolated", roundProfiles(inputs, "unisolated"));
     recordRound(records, "unisolated", unisolated);
     outputs = { isolated: byHarness(isolated), unisolated: byHarness(unisolated) };
+  } catch (error) {
+    roundFailed = true;
+    throw error;
   } finally {
     for (const layer of staged) {
       if (!restoreLayer(layer)) restoreFailures.push({ path: layer.path });
@@ -139,7 +145,13 @@ export async function calibrateCanaries(inputs: CalibrateInputs): Promise<Calibr
     // The sidecar outlives any refused restore: it is the hand-recovery copy.
     if (restoreFailures.length === 0) rmSync(recoveryPath, { force: true });
     for (const [name, stream] of Object.entries(records)) {
-      writeFileDurable(join(inputs.workDir, name), stream);
+      try {
+        writeFileDurable(join(inputs.workDir, name), stream);
+      } catch (error) {
+        // A capture is evidence, never the measurement: it may not replace a
+        // round failure already on its way out. Nothing pending, it travels.
+        if (!roundFailed) throw error;
+      }
     }
   }
 
@@ -162,7 +174,11 @@ export async function calibrateCanaries(inputs: CalibrateInputs): Promise<Calibr
   }
 
   appendLedgerCalibration(inputs.ledgerPath, {
-    calibration: inputs.nonce,
+    // The digest, not the token: the ledger lives at `<repoDir>/.magi` and a
+    // row naming its nonce in the clear is residue a later calibration's
+    // seats can read. It is the same identifier the sidecar carries, so the
+    // two still match; rows written before this keep their raw nonce.
+    calibration: sha256Text(inputs.nonce),
     recordedAt: now().toISOString(),
     results,
     cliVersions,
@@ -252,15 +268,10 @@ const realRound: NonNullable<CalibrateInputs["runRound"]> = async (_round, profi
 
 /**
  * A round's raw capture, held in memory until both rounds are over and every
- * layer is restored.
- *
- * These records necessarily carry whatever token a seat echoed, and
- * `workDir` sits inside the repository the next round's seats are pointed
- * at. Writing them between rounds left MAGI's own copy of the live nonce
- * where a seat could read it for itself and be recorded as having been
- * handed it, which is the one thing this whole mechanism measures. Nothing
- * reads them back, so deferring costs only a crashed run's captures, and the
- * sidecar rather than these is what a crash has to leave behind.
+ * layer is restored. These records carry whatever token a seat echoed, so
+ * writing one between rounds put MAGI's own copy of it where the next
+ * round's seats could read it. Nothing reads them back, so deferring costs
+ * only a crashed run's captures, and the sidecar is what a crash must leave.
  *
  * The whole stream is kept, stdout and stderr together, because that is the
  * evidence the row was judged on.

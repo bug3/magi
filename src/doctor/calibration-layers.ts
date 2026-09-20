@@ -6,7 +6,7 @@
  * clobbering them.
  */
 
-import { existsSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 import type { Harness } from "../core/slots.ts";
@@ -14,6 +14,24 @@ import { sha256Text, writeFileDurable } from "../util/fs.ts";
 
 /** The sidecar under workDir holding original images until restore succeeds. */
 export const RECOVERY_FILE = "calibration-recovery.json";
+
+/** The marker every written nonce line starts with; doctor scans layers for it. */
+export const NONCE_MARKER = "MAGI calibration nonce:";
+/** Every nonce carries this fixed prefix. The brief names ONLY the prefix and
+ * never the token: the first live calibration produced a brief-echo false
+ * positive when codex matched the nonce inside the brief itself, so an echo
+ * of the full token now proves layer visibility and nothing else. */
+export const NONCE_PREFIX = "magi-canary-";
+
+/**
+ * Any calibration token, this run's or an older one's.
+ *
+ * The brief asks a seat to echo a token carrying the prefix, not the token
+ * this run is measuring, so residue from an earlier calibration is as
+ * readable to a seat as the live one. A suffix character is required, which
+ * is what keeps the brief's own bare prefix from matching.
+ */
+export const CALIBRATION_TOKEN = new RegExp(`${NONCE_PREFIX}[A-Za-z0-9][A-Za-z0-9-]*`);
 
 export interface CalibrationLayer {
   readonly harness: Harness;
@@ -74,14 +92,45 @@ export function stageLayer(harness: Harness, path: string, line: string): Applie
 export function recoveryImage(layers: readonly AppliedLayer[], nonce: string): string {
   const image = {
     nonceSha256: sha256Text(nonce),
-    layers: layers.map(({ harness, path, kind, original }) => ({
+    layers: layers.map(({ harness, path, kind, original, mutated }) => ({
       harness,
       path,
       kind,
+      // The digest of the image restore expects to find. A surviving sidecar
+      // means the layer no longer equals it, and without this a person is
+      // handed `original` with no way to tell MAGI's nonce line from the
+      // owner edit the refusal existed to protect, so the obvious action
+      // clobbers it. The digest says which it is without carrying the token.
+      mutatedSha256: sha256Text(mutated),
       ...(original === undefined ? {} : { original }),
     })),
   };
   return `${JSON.stringify(image, null, 2)}\n`;
+}
+
+/**
+ * Clears a previous calibration's leavings out of `workDir` before this one
+ * stages anything, and reports what it removed.
+ *
+ * `workDir` sits inside the repository every seat is pointed at, and a
+ * capture from an earlier run carries that run's token. The brief asks a
+ * seat to echo any token with the calibration prefix, so a seat that finds a
+ * stale one answers with it, the round records this run's nonce as not seen,
+ * and the calibration fails naming isolation when the fault is residue MAGI
+ * left behind. Only files carrying a token go; everything else in the
+ * directory, the live smoke's records among them, is left alone.
+ */
+export function clearScratch(workDir: string): readonly string[] {
+  if (!existsSync(workDir)) return [];
+  const cleared: string[] = [];
+  for (const name of readdirSync(workDir)) {
+    const path = join(workDir, name);
+    if (!statSync(path).isFile()) continue;
+    if (!CALIBRATION_TOKEN.test(readFileSync(path, "utf8"))) continue;
+    rmSync(path, { force: true });
+    cleared.push(path);
+  }
+  return cleared;
 }
 
 /** Restores only over the expected nonce-bearing image; anything else is a

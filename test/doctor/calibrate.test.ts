@@ -15,6 +15,7 @@ import { nonceWasFetched } from "../../src/doctor/calibration-evidence.ts";
 import { formatCalibration } from "../../src/doctor/format.ts";
 import { foldLedger } from "../../src/consult/ledger.ts";
 import { seatProfile, type SeatInputs } from "../../src/seats/profiles.ts";
+import { sha256Text } from "../../src/util/fs.ts";
 
 const NONCE = "magi-canary-test-1";
 
@@ -156,7 +157,11 @@ test("both directions land in the ledger and the fold ignores the row", async ()
   const lines = readFileSync(w.ledgerPath, "utf8").trim().split("\n");
   assert.equal(lines.length, 1);
   const row = JSON.parse(lines[0] as string);
-  assert.equal(row.calibration, NONCE);
+  // The digest, never the token: the ledger sits inside the repository the
+  // next calibration's seats are pointed at, and they are asked for any
+  // token carrying the prefix, not for that run's.
+  assert.equal(row.calibration, sha256Text(NONCE));
+  assert.ok(!JSON.stringify(row).includes(NONCE), "no part of the row names the nonce");
   assert.equal(row.results.length, 6);
   assert.deepEqual(foldLedger(lines), [], "a calibration row is not a consult");
 });
