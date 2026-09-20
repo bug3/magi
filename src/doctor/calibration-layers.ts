@@ -10,7 +10,7 @@ import { existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
 import type { Harness } from "../core/slots.ts";
-import { writeFileDurable } from "../util/fs.ts";
+import { sha256Text, writeFileDurable } from "../util/fs.ts";
 
 /** The sidecar under workDir holding original images until restore succeeds. */
 export const RECOVERY_FILE = "calibration-recovery.json";
@@ -57,6 +57,31 @@ export function stageLayer(harness: Harness, path: string, line: string): Applie
     return { harness, path, kind: "appended", original, mutated: `${original}\n${line}\n` };
   }
   return { harness, path, kind: "created", mutated: `${line}\n` };
+}
+
+/**
+ * What the sidecar puts on disk. It has one reader, a person restoring a
+ * layer by hand after a refused restore, and that reader needs the original
+ * image and nothing else.
+ *
+ * The mutated image is deliberately left out, and with it the nonce: the
+ * sidecar lives under `workDir`, which sits inside the repository every seat
+ * is pointed at, so a token written here is a token a seat can read for
+ * itself and be recorded as having been handed. The run is named by the
+ * nonce's digest instead, which identifies it against the ledger row without
+ * putting the token anywhere a seat can reach.
+ */
+export function recoveryImage(layers: readonly AppliedLayer[], nonce: string): string {
+  const image = {
+    nonceSha256: sha256Text(nonce),
+    layers: layers.map(({ harness, path, kind, original }) => ({
+      harness,
+      path,
+      kind,
+      ...(original === undefined ? {} : { original }),
+    })),
+  };
+  return `${JSON.stringify(image, null, 2)}\n`;
 }
 
 /** Restores only over the expected nonce-bearing image; anything else is a

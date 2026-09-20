@@ -17,6 +17,12 @@
  * removed only after every layer restored. The row records the seated CLI
  * versions and the restored layers' hashes, so doctor can tell a stale
  * calibration from a current one.
+ *
+ * Nothing MAGI writes under `workDir` carries the live nonce while a probe
+ * round is running. That directory sits inside the repository every seat is
+ * pointed at, so a token left there is one a seat can read for itself and be
+ * recorded as having been handed: the sidecar keeps the original images and a
+ * digest, and the per-round captures land only once the rounds are over.
  */
 
 import { mkdirSync, rmSync } from "node:fs";
@@ -26,6 +32,7 @@ import { appendLedgerCalibration } from "../consult.ts";
 import {
   CALIBRATION_LAYERS,
   RECOVERY_FILE,
+  recoveryImage,
   restoreLayer,
   stageLayer,
 } from "./calibration-layers.ts";
@@ -109,29 +116,31 @@ export async function calibrateCanaries(inputs: CalibrateInputs): Promise<Calibr
     stageLayer(layer.harness, layer.target(inputs), nonceLine),
   );
   const recoveryPath = join(inputs.workDir, RECOVERY_FILE);
-  writeFileDurable(
-    recoveryPath,
-    `${JSON.stringify({ nonce: inputs.nonce, layers: staged }, null, 2)}\n`,
-  );
+  writeFileDurable(recoveryPath, recoveryImage(staged, inputs.nonce));
   for (const layer of staged) {
     mkdirSync(dirname(layer.path), { recursive: true });
     writeFileDurable(layer.path, layer.mutated);
   }
 
-  const runRound = inputs.runRound ?? realRound(inputs);
+  const runRound = inputs.runRound ?? realRound;
   const restoreFailures: { path: string }[] = [];
+  const records: Record<string, string> = {};
   let outputs: Readonly<Record<CalibrationRound, ReadonlyMap<Harness, RoundOutput>>>;
   try {
-    outputs = {
-      isolated: byHarness(await runRound("isolated", roundProfiles(inputs, "isolated"))),
-      unisolated: byHarness(await runRound("unisolated", roundProfiles(inputs, "unisolated"))),
-    };
+    const isolated = await runRound("isolated", roundProfiles(inputs, "isolated"));
+    recordRound(records, "isolated", isolated);
+    const unisolated = await runRound("unisolated", roundProfiles(inputs, "unisolated"));
+    recordRound(records, "unisolated", unisolated);
+    outputs = { isolated: byHarness(isolated), unisolated: byHarness(unisolated) };
   } finally {
     for (const layer of staged) {
       if (!restoreLayer(layer)) restoreFailures.push({ path: layer.path });
     }
     // The sidecar outlives any refused restore: it is the hand-recovery copy.
     if (restoreFailures.length === 0) rmSync(recoveryPath, { force: true });
+    for (const [name, stream] of Object.entries(records)) {
+      writeFileDurable(join(inputs.workDir, name), stream);
+    }
   }
 
   const results = judgeDirections(outputs, inputs.nonce);
@@ -228,25 +237,42 @@ function roundProfiles(
   return round === "isolated" ? profiles : profiles.map(unisolatedProfile);
 }
 
-function realRound(inputs: CalibrateInputs): NonNullable<CalibrateInputs["runRound"]> {
-  return async (round, profiles) => {
-    const runs = await runSeats({
-      seats: profiles.map((profile) => ({ profile, brief: briefText() })),
-      staggerMs: 1_000,
-    });
-    for (const run of runs) {
-      writeFileDurable(
-        join(inputs.workDir, `${run.slot}.calibration-${round}.stdout.txt`),
-        run.result.stdout,
-      );
-    }
-    return runs.map((run) => ({
-      slot: run.slot,
-      stream: `${run.result.stdout}${run.result.stderr}`,
-      // Judged on stdout alone, which is where the document a parser reads is.
-      answered: seatAnswered(slot(run.slot).harness, run.result),
-    }));
-  };
+const realRound: NonNullable<CalibrateInputs["runRound"]> = async (_round, profiles) => {
+  const runs = await runSeats({
+    seats: profiles.map((profile) => ({ profile, brief: briefText() })),
+    staggerMs: 1_000,
+  });
+  return runs.map((run) => ({
+    slot: run.slot,
+    stream: `${run.result.stdout}${run.result.stderr}`,
+    // Judged on stdout alone, which is where the document a parser reads is.
+    answered: seatAnswered(slot(run.slot).harness, run.result),
+  }));
+};
+
+/**
+ * A round's raw capture, held in memory until both rounds are over and every
+ * layer is restored.
+ *
+ * These records necessarily carry whatever token a seat echoed, and
+ * `workDir` sits inside the repository the next round's seats are pointed
+ * at. Writing them between rounds left MAGI's own copy of the live nonce
+ * where a seat could read it for itself and be recorded as having been
+ * handed it, which is the one thing this whole mechanism measures. Nothing
+ * reads them back, so deferring costs only a crashed run's captures, and the
+ * sidecar rather than these is what a crash has to leave behind.
+ *
+ * The whole stream is kept, stdout and stderr together, because that is the
+ * evidence the row was judged on.
+ */
+function recordRound(
+  records: Record<string, string>,
+  round: CalibrationRound,
+  runs: readonly (RoundOutput & { readonly slot: string })[],
+): void {
+  for (const run of runs) {
+    records[`${run.slot}.calibration-${round}.txt`] = run.stream;
+  }
 }
 
 function byHarness(
