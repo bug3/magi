@@ -14,6 +14,7 @@ function result(overrides: Partial<SmokeResult> = {}): SmokeResult {
     slot: "melchior-1",
     outcome: "exit 0",
     answered: true,
+    unanswered: undefined,
     parsed: true,
     parseReason: undefined,
     canaryHits: [],
@@ -33,6 +34,19 @@ test("a seat that parsed but did not answer is not healthy", () => {
   const smoke = [result({ outcome: "exit 1", answered: false, parsed: true })];
   assert.equal(smokeHealthy(smoke), false);
   assert.match(formatSmokeResults(smoke), /SEAT DID NOT ANSWER/u);
+});
+
+// The line the operator reads instead of going to the raw record, where the
+// cause sits at the far end of a 1100-character usage blob.
+test("the line carries the cause, in the seat's own words", () => {
+  const smoke = [
+    result({
+      outcome: "exit 1",
+      answered: false,
+      unanswered: 'the seat reported its own failure: Not logged in, please run /login',
+    }),
+  ];
+  assert.match(formatSmokeResults(smoke), /SEAT DID NOT ANSWER: .*Not logged in/u);
 });
 
 test("the seat that did answer still reads as it did before", () => {

@@ -8,7 +8,7 @@
 import { join } from "node:path";
 
 import { SEAT_PARSERS } from "../adapters/parsers.ts";
-import { seatAnswered } from "../seats/answer.ts";
+import { seatAnswered, unansweredReason } from "../seats/answer.ts";
 import { slot, SLOTS, type SlotId } from "../core/slots.ts";
 import { canaryEvidence, loadCanaries } from "../seats/canaries.ts";
 import { seatProfile, type SeatInputs } from "../seats/profiles.ts";
@@ -41,6 +41,8 @@ export interface SmokeResult {
    * that cannot run a healthy one.
    */
   readonly answered: boolean;
+  /** Why it did not answer, in the seat's own words; absent when it did. */
+  readonly unanswered: string | undefined;
   readonly parsed: boolean;
   readonly parseReason: string | undefined;
   readonly canaryHits: readonly string[];
@@ -93,9 +95,12 @@ export async function liveSmoke(
     writeFileDurable(join(inputs.workDir, `${run.slot}.stderr.txt`), run.result.stderr);
     const parse = SEAT_PARSERS[slot(run.slot).harness](run.result.stdout);
     const text = `${run.result.stdout}\n${run.result.stderr}`;
+    const harness = slot(run.slot).harness;
+    const answered = seatAnswered(harness, run.result);
     return {
       slot: run.slot,
-      answered: seatAnswered(slot(run.slot).harness, run.result),
+      answered,
+      unanswered: answered ? undefined : unansweredReason(harness, run.result),
       outcome:
         run.result.outcome.kind === "exit"
           ? `exit ${run.result.outcome.code}`

@@ -223,7 +223,7 @@ export function formatSmokeResults(results: readonly SmokeResult[]): string {
     // A seat can write the document its profile promised and report inside it
     // that it never ran. The parse line alone would read that as health.
     if (!result.answered) {
-      lines.push("  SEAT DID NOT ANSWER: it reported its own failure, or produced no result");
+      lines.push(`  SEAT DID NOT ANSWER: ${result.unanswered ?? "no reason recorded"}`);
     }
     if (result.canaryHits.length > 0) {
       lines.push(`  CANARY HIT: ${result.canaryHits.join(", ")}`);
