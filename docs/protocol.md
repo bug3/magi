@@ -431,6 +431,16 @@ refused rather than clobbered, and the sidecar outlives a refused restore as
 the hand-recovery copy. The row records the seated CLI versions and the
 restored layers' hashes.
 
+A fourth false positive was waiting in that sidecar. Calibration's work
+directory sits inside the repository every seat is pointed at, and two of the
+three seats keep read tools, so anything MAGI leaves there carrying the live
+token is a second source for the bytes the canary is measuring. The sidecar
+embedded the nonce for the whole calibration and each round's capture was
+written before the next round ran. Nothing MAGI writes beside a calibration
+carries the token now: the sidecar holds the original images and the nonce's
+digest, and the captures land only once both rounds are over. Only the layer
+targets hold the token, which is what is under test.
+
 Every doctor run then checks residue and clock, and every unproved state
 fails: a leftover sidecar, a nonce still in a live layer, a seated version
 that no passing calibration proved, and a ledger with no calibration at all.
