@@ -8,20 +8,12 @@
  * so a failing seat degrades without anyone arguing about its merit.
  */
 
-import { parseClaudeOutput } from "../adapters/claude.ts";
-import { parseCodexOutput } from "../adapters/codex.ts";
-import { parseGrokOutput } from "../adapters/grok.ts";
+import { SEAT_PARSERS } from "../adapters/parsers.ts";
 import type { ParseResult } from "../adapters/types.ts";
-import { slot, type Harness, type SlotId } from "../core/slots.ts";
+import { slot, type SlotId } from "../core/slots.ts";
 import type { CompiledSchema } from "../schema/validator.ts";
 import { formatIssues } from "../schema/validator.ts";
 import { citedIds, normalizeOpinion, type Opinion } from "./opinion.ts";
-
-const PARSERS: Readonly<Record<Harness, (stdout: string) => ParseResult>> = {
-  claude: parseClaudeOutput,
-  codex: parseCodexOutput,
-  grok: parseGrokOutput,
-};
 
 export interface SeatVerdict {
   readonly slot: SlotId;
@@ -38,7 +30,7 @@ export function gateSeatOutput(
   contract: CompiledSchema,
   packCitations: ReadonlySet<string>,
 ): SeatVerdict {
-  const parse = PARSERS[slot(slotId).harness](stdout);
+  const parse = SEAT_PARSERS[slot(slotId).harness](stdout);
   if (!parse.ok) {
     return { slot: slotId, parse, valid: false, reasons: [`parse: ${parse.reason}`] };
   }

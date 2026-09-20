@@ -7,21 +7,12 @@
 
 import { join } from "node:path";
 
-import { parseClaudeOutput } from "../adapters/claude.ts";
-import { parseCodexOutput } from "../adapters/codex.ts";
-import { parseGrokOutput } from "../adapters/grok.ts";
-import type { ParseResult } from "../adapters/types.ts";
-import { slot, SLOTS, type Harness, type SlotId } from "../core/slots.ts";
+import { SEAT_PARSERS } from "../adapters/parsers.ts";
+import { slot, SLOTS, type SlotId } from "../core/slots.ts";
 import { canaryEvidence, loadCanaries } from "../seats/canaries.ts";
 import { seatProfile, type SeatInputs } from "../seats/profiles.ts";
 import { runSeats } from "../seats/runner.ts";
 import { writeFileDurable } from "../util/fs.ts";
-
-const PARSERS: Readonly<Record<Harness, (stdout: string) => ParseResult>> = {
-  claude: parseClaudeOutput,
-  codex: parseCodexOutput,
-  grok: parseGrokOutput,
-};
 
 const SMOKE_BRIEF =
   'This is a mechanical health check of the launch profile, not a task. Reply with exactly one JSON object {"pong": true} and nothing else: no prose, no fences.';
@@ -79,7 +70,7 @@ export async function liveSmoke(
     // without spending another call.
     writeFileDurable(join(inputs.workDir, `${run.slot}.stdout.txt`), run.result.stdout);
     writeFileDurable(join(inputs.workDir, `${run.slot}.stderr.txt`), run.result.stderr);
-    const parse = PARSERS[slot(run.slot).harness](run.result.stdout);
+    const parse = SEAT_PARSERS[slot(run.slot).harness](run.result.stdout);
     const text = `${run.result.stdout}\n${run.result.stderr}`;
     return {
       slot: run.slot,
