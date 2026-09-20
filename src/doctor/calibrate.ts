@@ -23,16 +23,22 @@ import { mkdirSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 import { appendLedgerCalibration } from "../consult.ts";
-import { UNPROVEN_BY_CONSTRUCTION, nonceWasFetched } from "./calibration-evidence.ts";
 import {
   CALIBRATION_LAYERS,
   RECOVERY_FILE,
   restoreLayer,
   stageLayer,
 } from "./calibration-layers.ts";
+import {
+  judgeDirections,
+  type CalibrationDirection,
+  type CalibrationRound,
+  type RoundOutput,
+} from "./calibration-verdict.ts";
 import type { SeatProfile } from "../core/profile.ts";
-import { SLOTS, type Harness } from "../core/slots.ts";
+import { slot, SLOTS, type Harness } from "../core/slots.ts";
 import { tryCapture } from "../runtime/exec.ts";
+import { seatAnswered } from "../seats/answer.ts";
 import { seatProfile, type SeatInputs } from "../seats/profiles.ts";
 import { runSeats } from "../seats/runner.ts";
 import { sha256Text, writeFileDurable } from "../util/fs.ts";
@@ -42,6 +48,11 @@ export {
   RECOVERY_FILE,
   type CalibrationLayer,
 } from "./calibration-layers.ts";
+export {
+  type CalibrationDirection,
+  type CalibrationRound,
+  type RoundOutput,
+} from "./calibration-verdict.ts";
 
 /** The marker every written nonce line starts with; doctor scans layers for it. */
 export const NONCE_MARKER = "MAGI calibration nonce:";
@@ -50,27 +61,6 @@ export const NONCE_MARKER = "MAGI calibration nonce:";
  * positive when codex matched the nonce inside the brief itself, so an echo
  * of the full token now proves layer visibility and nothing else. */
 export const NONCE_PREFIX = "magi-canary-";
-
-export type CalibrationRound = "isolated" | "unisolated";
-
-export interface CalibrationDirection {
-  readonly harness: Harness;
-  readonly direction: CalibrationRound;
-  readonly expectation: "absent" | "present" | "informational";
-  /** The layer reached the seat on its own: the only thing that counts. */
-  readonly nonceSeen: boolean;
-  /**
-   * The token is in the stream, but only after the seat fetched it. Recorded
-   * because it says the seat can read the layer, and judged as nothing else.
-   */
-  readonly nonceFetched: boolean;
-  /**
-   * This harness's evidence cannot separate a token it was handed from one it
-   * fetched, so the direction is recorded and not read as proof of either.
-   */
-  readonly unproven: boolean;
-  readonly pass: boolean;
-}
 
 export interface CalibrationReport {
   readonly nonce: string;
@@ -96,7 +86,7 @@ export interface CalibrateInputs {
   readonly runRound?: (
     round: CalibrationRound,
     profiles: readonly SeatProfile[],
-  ) => Promise<readonly { readonly slot: string; readonly stdout: string }[]>;
+  ) => Promise<readonly (RoundOutput & { readonly slot: string })[]>;
   /** Injectable for stub tests; defaults to `<command> --version`. */
   readonly captureVersion?: (command: string) => Promise<string | undefined>;
 }
@@ -130,7 +120,7 @@ export async function calibrateCanaries(inputs: CalibrateInputs): Promise<Calibr
 
   const runRound = inputs.runRound ?? realRound(inputs);
   const restoreFailures: { path: string }[] = [];
-  let outputs: Readonly<Record<CalibrationRound, ReadonlyMap<Harness, string>>>;
+  let outputs: Readonly<Record<CalibrationRound, ReadonlyMap<Harness, RoundOutput>>>;
   try {
     outputs = {
       isolated: byHarness(await runRound("isolated", roundProfiles(inputs, "isolated"))),
@@ -144,26 +134,7 @@ export async function calibrateCanaries(inputs: CalibrateInputs): Promise<Calibr
     if (restoreFailures.length === 0) rmSync(recoveryPath, { force: true });
   }
 
-  const results: CalibrationDirection[] = [];
-  for (const direction of ["isolated", "unisolated"] as const) {
-    for (const layer of CALIBRATION_LAYERS) {
-      const stdout = outputs[direction].get(layer.harness) ?? "";
-      const nonceFetched = nonceWasFetched(layer.harness, stdout, inputs.nonce);
-      const nonceSeen = !nonceFetched && stdout.includes(inputs.nonce);
-      const expectation = direction === "unisolated" ? "present" : layer.isolated;
-      const pass =
-        expectation === "present" ? nonceSeen : expectation === "absent" ? !nonceSeen : true;
-      results.push({
-        harness: layer.harness,
-        direction,
-        expectation,
-        nonceSeen,
-        nonceFetched,
-        unproven: UNPROVEN_BY_CONSTRUCTION.has(layer.harness),
-        pass,
-      });
-    }
-  }
+  const results = judgeDirections(outputs, inputs.nonce);
   const report = {
     nonce: inputs.nonce,
     results,
@@ -269,22 +240,23 @@ function realRound(inputs: CalibrateInputs): NonNullable<CalibrateInputs["runRou
         run.result.stdout,
       );
     }
-    // Both streams, as the live smoke already scans them: a harness that
-    // prints the nonce on stderr leaks exactly as much as one that does not.
     return runs.map((run) => ({
       slot: run.slot,
-      stdout: `${run.result.stdout}${run.result.stderr}`,
+      stream: `${run.result.stdout}${run.result.stderr}`,
+      // Judged on stdout alone, which is where the document a parser reads is.
+      answered: seatAnswered(slot(run.slot).harness, run.result),
     }));
   };
 }
 
 function byHarness(
-  outputs: readonly { readonly slot: string; readonly stdout: string }[],
-): ReadonlyMap<Harness, string> {
-  const map = new Map<Harness, string>();
+  outputs: readonly (RoundOutput & { readonly slot: string })[],
+): ReadonlyMap<Harness, RoundOutput> {
+  const map = new Map<Harness, RoundOutput>();
   for (const output of outputs) {
     const harness = SLOTS.find((definition) => definition.id === output.slot)?.harness;
-    if (harness !== undefined) map.set(harness, output.stdout);
+    if (harness === undefined) continue;
+    map.set(harness, { stream: output.stream, answered: output.answered });
   }
   return map;
 }
