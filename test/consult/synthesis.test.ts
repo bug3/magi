@@ -7,6 +7,7 @@ import { renderSynthesisScaffold } from "../../src/consult/synthesis.ts";
 const valid: SeatVerdict = {
   slot: "balthasar-2",
   parse: { ok: true, message: "{}" },
+  answered: true,
   valid: true,
   reasons: [],
   opinion: {
@@ -31,6 +32,7 @@ const valid: SeatVerdict = {
 const invalid: SeatVerdict = {
   slot: "casper-3",
   parse: { ok: false, reason: "not-json" },
+  answered: false,
   valid: false,
   reasons: ["parse: not-json"],
 };

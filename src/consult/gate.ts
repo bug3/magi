@@ -11,6 +11,7 @@
 import { SEAT_PARSERS } from "../adapters/parsers.ts";
 import type { ParseResult } from "../adapters/types.ts";
 import { slot, type SlotId } from "../core/slots.ts";
+import { seatAnswered, unansweredReason, type SeatOutput } from "../seats/answer.ts";
 import type { CompiledSchema } from "../schema/validator.ts";
 import { formatIssues } from "../schema/validator.ts";
 import { citedIds, normalizeOpinion, type Opinion } from "./opinion.ts";
@@ -19,20 +20,42 @@ export interface SeatVerdict {
   readonly slot: SlotId;
   /** Kept even when invalid: a degraded seat's usage still goes to the ledger. */
   readonly parse: ParseResult;
+  /**
+   * The seat produced an answer of its own. An opinion from a seat that did
+   * not is never valid, so it never counts toward the consult's family total:
+   * a well-formed document a harness wrote while telling you it never ran is
+   * not a second opinion, and counting it is how one becomes a quorum.
+   */
+  readonly answered: boolean;
   readonly valid: boolean;
   readonly reasons: readonly string[];
   readonly opinion?: Opinion;
 }
 
+/**
+ * The whole run, not just its bytes: a seat's validity rests on the process
+ * that produced them as much as on what they say.
+ */
 export function gateSeatOutput(
   slotId: SlotId,
-  stdout: string,
+  output: SeatOutput,
   contract: CompiledSchema,
   packCitations: ReadonlySet<string>,
 ): SeatVerdict {
-  const parse = SEAT_PARSERS[slot(slotId).harness](stdout);
+  const harness = slot(slotId).harness;
+  const parse = SEAT_PARSERS[harness](output.stdout);
+  const answered = seatAnswered(harness, output);
   if (!parse.ok) {
-    return { slot: slotId, parse, valid: false, reasons: [`parse: ${parse.reason}`] };
+    return { slot: slotId, parse, answered, valid: false, reasons: [`parse: ${parse.reason}`] };
+  }
+  if (!answered) {
+    return {
+      slot: slotId,
+      parse,
+      answered,
+      valid: false,
+      reasons: [`the seat did not answer: ${unansweredReason(harness, output)}`],
+    };
   }
 
   let document: unknown;
@@ -42,6 +65,7 @@ export function gateSeatOutput(
     return {
       slot: slotId,
       parse,
+      answered,
       valid: false,
       reasons: ["opinion: the final message is not one JSON document"],
     };
@@ -52,6 +76,7 @@ export function gateSeatOutput(
     return {
       slot: slotId,
       parse,
+      answered,
       valid: false,
       reasons: [`schema: ${formatIssues(result.issues)}`],
     };
@@ -63,10 +88,11 @@ export function gateSeatOutput(
     return {
       slot: slotId,
       parse,
+      answered,
       valid: false,
       reasons: [`citations: ${missing.join(", ")} do not resolve in the evidence pack`],
     };
   }
 
-  return { slot: slotId, parse, valid: true, reasons: [], opinion };
+  return { slot: slotId, parse, answered, valid: true, reasons: [], opinion };
 }
