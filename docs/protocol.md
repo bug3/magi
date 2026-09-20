@@ -433,13 +433,26 @@ restored layers' hashes.
 
 A fourth false positive was waiting in that sidecar. Calibration's work
 directory sits inside the repository every seat is pointed at, and two of the
-three seats keep read tools, so anything MAGI leaves there carrying the live
-token is a second source for the bytes the canary is measuring. The sidecar
-embedded the nonce for the whole calibration and each round's capture was
-written before the next round ran. Nothing MAGI writes beside a calibration
-carries the token now: the sidecar holds the original images and the nonce's
-digest, and the captures land only once both rounds are over. Only the layer
-targets hold the token, which is what is under test.
+three seats keep read tools, so anything MAGI leaves there carrying a token is
+a second source for the bytes the canary is measuring. The sidecar embedded
+the nonce for the whole calibration, each round's capture was written before
+the next round ran, and nothing removed an earlier calibration's captures at
+all. What the seat is asked for is what makes the last one bite: the brief
+names the prefix, never this run's token, so a stale one reads exactly like
+the live one. A seat that echoes a stale token has the round record this run's
+nonce as not seen, and the calibration fails naming isolation when the fault
+is residue MAGI left behind.
+
+Nothing MAGI writes beside a calibration carries a token now. The sidecar
+holds the original images and two digests, the nonce's and the one restore
+expects the layer to still match, so hand recovery can tell MAGI's line from
+an owner edit without a token on disk. The captures land only once both rounds
+are over, and an earlier calibration's leavings are cleared out of the work
+directory before this one stages anything. The ledger row names its
+calibration by the nonce's digest rather than the nonce, the ledger living
+inside that same repository; rows written before that keep their raw nonce and
+are read the same way, so the residue they carry is historical and visible.
+Only the layer targets hold a token, which is what is under test.
 
 Every doctor run then checks residue and clock, and every unproved state
 fails: a leftover sidecar, a nonce still in a live layer, a seated version
