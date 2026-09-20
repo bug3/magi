@@ -179,7 +179,7 @@ export async function runConsult(inputs: ConsultRunInputs): Promise<ConsultRunRe
   const contract = compileSchema(JSON.parse(schemaJson));
   const packCitations = new Set<string>(pack.index.map((entry) => entry.id));
   const verdicts = runs.map((run) =>
-    gateSeatOutput(run.slot, run.result.stdout, contract, packCitations),
+    gateSeatOutput(run.slot, run.result, contract, packCitations),
   );
   const status = consultStatus(verdicts.filter((v) => v.valid).map((v) => v.slot));
   // Persisted so later steps (seat-proposed checks, synthesis tooling) read
@@ -221,6 +221,7 @@ export async function runConsult(inputs: ConsultRunInputs): Promise<ConsultRunRe
       return {
         slot: run.slot,
         valid: verdict.valid,
+        answered: verdict.answered,
         reasons: verdict.reasons,
         durationMs: run.durationMs,
         retried: run.retried,

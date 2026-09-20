@@ -148,6 +148,22 @@ Mechanical, never a matter of opinion: schema-valid, citations resolve,
 length bounds respected. Output that fails degrades that seat alone.
 "Garbage" is defined by the gate, so no one has to argue about it.
 
+The gate reads the run, not only its bytes. A seat that did not answer is
+never valid, whatever its text says: a harness can exit cleanly, write the
+document its launch profile promised, and report inside it that it never
+reached the model, and a final message that still validates would otherwise
+be counted as one of three opinions. That is how a council reaches a quorum
+it never had, and it is the same defect the canary row and the live smoke
+each carried: a seat judged from its text alone. One rule answers it in all
+three places, and a seat that reported its own failure, timed out, was cut at
+the output ceiling or said nothing at all is degraded with the seat's own
+words as the reason.
+
+A ceiling is not silence. A turn or token limit ends a seat that did reach a
+conclusion and did write it down, so it stays a valid answer; only a harness
+whose vocabulary cannot tell a ceiling from a failure loses that distinction,
+and grok's does, which is recorded rather than guessed at.
+
 Valid opinions are normalized onto one structured schema before the
 synthesizer reads them.
 
