@@ -39,7 +39,10 @@ function world(): World {
   const root = mkdtempSync(join(tmpdir(), "magi-calibrate-"));
   const home = join(root, "home");
   const repoDir = join(root, "repo");
-  const workDir = join(root, "work");
+  // The same workDir the doctor command passes. It used to sit beside the
+  // repository here and inside it in production, so the shape that let MAGI's
+  // own scratch hand a seat the nonce was one the tests could not express.
+  const workDir = join(repoDir, ".magi", "doctor");
   mkdirSync(join(home, ".claude"), { recursive: true });
   mkdirSync(join(home, ".grok", "rules"), { recursive: true });
   mkdirSync(repoDir, { recursive: true });
