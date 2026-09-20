@@ -220,6 +220,11 @@ export function formatSmokeResults(results: readonly SmokeResult[]): string {
         ? "  output parsed as the launch profile promised"
         : `  OUTPUT DID NOT PARSE: ${result.parseReason ?? "unknown"}`,
     );
+    // A seat can write the document its profile promised and report inside it
+    // that it never ran. The parse line alone would read that as health.
+    if (!result.answered) {
+      lines.push("  SEAT DID NOT ANSWER: it reported its own failure, or produced no result");
+    }
     if (result.canaryHits.length > 0) {
       lines.push(`  CANARY HIT: ${result.canaryHits.join(", ")}`);
     }
