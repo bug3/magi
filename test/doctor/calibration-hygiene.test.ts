@@ -14,6 +14,7 @@ import { test } from "node:test";
 
 import {
   CALIBRATION_LAYERS,
+  CALIBRATION_TOKEN,
   NONCE_PREFIX,
   RECOVERY_FILE,
   calibrateCanaries,
@@ -24,12 +25,17 @@ import { sha256Text } from "../../src/util/fs.ts";
 // ambient layer. MAGI's own scratch directory sits inside the repository
 // every seat is pointed at, and two of the three seats keep read tools, so a
 // token MAGI leaves there is a second source for the same bytes and the claim
-// stops being true. Both leaks were real: the recovery sidecar embedded the
-// live nonce for the whole calibration, and each round's capture was written
-// before the next round ran.
+// stops being true. Three leaks were real: the recovery sidecar embedded the
+// live nonce, each round's capture was written before the next round ran, and
+// nothing removed the previous calibration's captures at all.
+//
+// The token searched for here is any token carrying the prefix, not this
+// run's, because that is what the brief asks a seat for. A stale token cannot
+// produce a false pass, since the row tests for this run's nonce; it produces
+// the opposite, a round that fails naming isolation when the fault is residue.
 //
 // These tests exist because the old world put workDir beside the repository
-// while production put it inside, so the shape could not be expressed at all.
+// while production puts it inside, so the shape could not be expressed at all.
 
 const NONCE = `${NONCE_PREFIX}hygiene-1`;
 
@@ -44,26 +50,29 @@ function world(): World {
   const root = mkdtempSync(join(tmpdir(), "magi-hygiene-"));
   const home = join(root, "home");
   const repoDir = join(root, "repo");
-  // Exactly what src/cli/doctor-command.ts passes.
+  // Exactly what src/cli/doctor-command.ts passes, both of them.
   const workDir = join(repoDir, ".magi", "doctor");
+  const ledgerPath = join(repoDir, ".magi", "ledger.jsonl");
   mkdirSync(join(home, ".claude"), { recursive: true });
   mkdirSync(join(home, ".grok", "rules"), { recursive: true });
   mkdirSync(workDir, { recursive: true });
   writeFileSync(join(home, ".claude", "CLAUDE.md"), "# original global\n");
-  return { home, repoDir, workDir, ledgerPath: join(root, "ledger.jsonl") };
+  return { home, repoDir, workDir, ledgerPath };
 }
 
 /**
- * Every seat answers with the live token. This is the case the scratch has to
- * survive: a round whose capture carries the nonce is what turns a per-round
- * record into a second source for the next round's seats, so a stub that
- * echoes NONE would leave the deferral untested and did.
+ * Every seat answers with the token. This is the case the scratch has to
+ * survive: a round whose capture carries a token is what turns a per-round
+ * record into a second source for a later round's seats, so a stub that
+ * echoed NONE would leave the deferral untested, and did.
  */
-const ECHOING = ["melchior-1", "balthasar-2", "casper-3"].map((slot) => ({
-  slot,
-  stream: `{"echo":"${NONCE}"}`,
-  answered: true,
-}));
+function echoing(token: string) {
+  return ["melchior-1", "balthasar-2", "casper-3"].map((slot) => ({
+    slot,
+    stream: `{"echo":"${token}"}`,
+    answered: true,
+  }));
+}
 
 function inputsFor(w: World) {
   return {
@@ -82,20 +91,20 @@ function inputsFor(w: World) {
 
 /**
  * What a seat reading its own working root would find, minus the calibration
- * layers themselves. Codex's layer IS `<repoDir>/AGENTS.md`, so the token is
- * in the tree by design for exactly that file, and a seat reading it is the
+ * layers themselves. Codex's layer IS `<repoDir>/AGENTS.md`, so a token is in
+ * the tree by design for that one file, and a seat reading it is the
  * documented `fetched` case which is judged as nothing. Everything else under
- * the repository is MAGI's own leavings and has no business carrying a token.
+ * the repository is MAGI's own leavings and has no business carrying one.
  */
-function magiScratchCarryingTheToken(w: World): readonly string[] {
+function magiScratchCarryingAToken(w: World): readonly string[] {
   const layers = new Set(CALIBRATION_LAYERS.map((layer) => layer.target(w)));
   return readdirSync(w.repoDir, { recursive: true, encoding: "utf8" })
     .map((name) => join(w.repoDir, name))
     .filter((path) => !layers.has(path) && statSync(path).isFile())
-    .filter((path) => readFileSync(path, "utf8").includes(NONCE));
+    .filter((path) => CALIBRATION_TOKEN.test(readFileSync(path, "utf8")));
 }
 
-test("no MAGI scratch file carries the live nonce while a probe round runs", async () => {
+test("no MAGI scratch file carries a calibration token while a probe round runs", async () => {
   const w = world();
   // Read the tree at the moment a seat would: once per round, before it
   // answers. A read-only sandbox is not a blind one.
@@ -103,25 +112,72 @@ test("no MAGI scratch file carries the live nonce while a probe round runs", asy
   await calibrateCanaries({
     ...inputsFor(w),
     runRound: () => {
-      found.push([...magiScratchCarryingTheToken(w)]);
-      return Promise.resolve(ECHOING);
+      found.push([...magiScratchCarryingAToken(w)]);
+      return Promise.resolve(echoing(NONCE));
     },
   });
   assert.deepEqual(
     found,
     [[], []],
-    "MAGI left the live nonce under the repository while a seat was running",
+    "MAGI left a calibration token under the repository while a seat was running",
+  );
+});
+
+test("a previous calibration's token is gone before the next one's rounds", async () => {
+  const w = world();
+  const first = `${NONCE_PREFIX}run-one`;
+  await calibrateCanaries({
+    ...inputsFor(w),
+    nonce: first,
+    runRound: () => Promise.resolve(echoing(first)),
+  });
+  assert.ok(
+    magiScratchCarryingAToken(w).length > 0,
+    "the first run must leave its captures behind, or this proves nothing",
+  );
+
+  const found: string[][] = [];
+  await calibrateCanaries({
+    ...inputsFor(w),
+    nonce: `${NONCE_PREFIX}run-two`,
+    runRound: () => {
+      found.push([...magiScratchCarryingAToken(w)]);
+      return Promise.resolve(echoing(`${NONCE_PREFIX}run-two`));
+    },
+  });
+  assert.deepEqual(
+    found,
+    [[], []],
+    "a seat asked for any token with the prefix could have echoed the previous run's",
   );
 });
 
 test("each round's capture is deferred, not dropped", async () => {
   const w = world();
-  await calibrateCanaries({ ...inputsFor(w), runRound: () => Promise.resolve(ECHOING) });
+  await calibrateCanaries({ ...inputsFor(w), runRound: () => Promise.resolve(echoing(NONCE)) });
   for (const round of ["isolated", "unisolated"]) {
     const record = join(w.workDir, `melchior-1.calibration-${round}.txt`);
     assert.ok(existsSync(record), `the ${round} capture is the evidence: ${record}`);
     assert.equal(readFileSync(record, "utf8"), `{"echo":"${NONCE}"}`);
   }
+});
+
+test("a capture that cannot be written does not replace the round's own failure", async () => {
+  const w = world();
+  await assert.rejects(
+    calibrateCanaries({
+      ...inputsFor(w),
+      runRound: (round) => {
+        if (round === "isolated") return Promise.resolve(echoing(NONCE));
+        // A directory where the isolated round's capture must go: the write
+        // fails while the round's own failure is already on its way out.
+        mkdirSync(join(w.workDir, "melchior-1.calibration-isolated.txt"));
+        return Promise.reject(new Error("the seat exploded"));
+      },
+    }),
+    /the seat exploded/,
+    "the filesystem error replaced the reason the calibration ended",
+  );
 });
 
 test("a sidecar that outlives a refused restore still restores by hand", async () => {
@@ -131,12 +187,17 @@ test("a sidecar that outlives a refused restore still restores by hand", async (
     ...inputsFor(w),
     runRound: (round) => {
       if (round === "unisolated") writeFileSync(claudeLayer, "# concurrent owner edit\n");
-      return Promise.resolve(ECHOING);
+      return Promise.resolve(echoing(NONCE));
     },
   });
   assert.equal(report.restoreFailures.length, 1, "the concurrent edit is refused, not clobbered");
   const sidecar = readFileSync(join(w.workDir, RECOVERY_FILE), "utf8");
   assert.ok(sidecar.includes("# original global"), "the original image is what hand recovery needs");
-  assert.ok(!sidecar.includes(NONCE), "the hand-recovery copy must not carry the live token");
+  assert.ok(!CALIBRATION_TOKEN.test(sidecar), "the hand-recovery copy carries no token at all");
   assert.ok(sidecar.includes(sha256Text(NONCE)), "the digest names the run without the token");
+  assert.ok(
+    sidecar.includes(sha256Text(`# original global\n\nMAGI calibration nonce: ${NONCE} ` +
+      "(temporary; written and removed by magi doctor --calibrate)\n")),
+    "the mutated image's digest says whether the layer still holds MAGI's line",
+  );
 });

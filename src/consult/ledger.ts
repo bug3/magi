@@ -82,7 +82,14 @@ export interface LedgerBackfill {
 
 /** A canary-calibration record: both directions, per harness. */
 export interface LedgerCalibration {
-  /** The nonce; doubles as the row-kind marker, like `consult` and `backfill`. */
+  /**
+   * The nonce's SHA-256; doubles as the row-kind marker, like `consult` and
+   * `backfill`. The digest rather than the token because the ledger sits
+   * inside the repository a calibration's seats are pointed at, and a row
+   * naming its nonce in the clear is residue the next calibration hands
+   * them. No reader compares the value. Rows written before this carry the
+   * raw nonce and are read the same way.
+   */
   readonly calibration: string;
   readonly recordedAt: string;
   readonly results: readonly {
