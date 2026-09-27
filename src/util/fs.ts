@@ -50,6 +50,12 @@ export interface DurableWriteResult {
 }
 
 /**
+ * What every temp file {@link writeFileDurable} creates is named with. A kill
+ * between its open and its rename leaves one behind, beside the destination.
+ */
+export const DURABLE_TEMP_PREFIX = ".tmp-";
+
+/**
  * Writes `contents` to `path` durably and atomically. The temp file is created
  * in the destination directory so the rename never crosses a filesystem.
  */
@@ -63,7 +69,8 @@ export function writeFileDurable(
   const data = typeof contents === "string" ? Buffer.from(contents, "utf8") : Buffer.from(contents);
   const temp = join(
     dir,
-    `.tmp-${process.pid}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+    `${DURABLE_TEMP_PREFIX}${process.pid}-${Date.now().toString(36)}-` +
+      Math.random().toString(36).slice(2, 8),
   );
 
   const fd = openSync(temp, "wx", mode);
