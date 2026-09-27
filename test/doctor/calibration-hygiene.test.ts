@@ -40,19 +40,29 @@ import { sha256Text } from "../../src/util/fs.ts";
 
 const NONCE = `${NONCE_PREFIX}hygiene-1`;
 
+const ECHOED = `${NONCE_PREFIX}production-round`;
+const ECHO = JSON.stringify({ echo: ECHOED });
+
+/** What each harness prints when it answers with the token, in its own format. */
+const ANSWERS: Readonly<Record<string, string>> = {
+  "melchior-1": JSON.stringify({ type: "result", subtype: "success", is_error: false, result: ECHO }),
+  "balthasar-2": [
+    JSON.stringify({ type: "item.completed", item: { type: "agent_message", text: ECHO } }),
+    JSON.stringify({ type: "turn.completed" }),
+  ].join("\n"),
+  "casper-3": JSON.stringify({ text: ECHO, stopReason: "end_turn" }),
+};
+
 test("the production round returns token-bearing output without recording it in scratch", async () => {
   const w = world();
-  const echoed = `${NONCE_PREFIX}production-round`;
-  const claudeResult = '{"type":"result","subtype":"success","is_error":false,' +
-    `"result":"${echoed}"}`;
   const profiles = roundProfiles(inputsFor(w), "isolated");
   const before = scratchImages(w);
 
   // Exercise realRound and runSeats for every seat, replacing only the
   // harness executable. All three go through because codex's and grok's
   // arguments carry paths under workDir, which is the handle a capture write
-  // would reach for. Claude's payload is a real result envelope, so an eager
-  // write cannot hide behind an inconclusive answer either.
+  // would reach for. Each seat answers in its harness's real format, so an
+  // eager write cannot hide behind an inconclusive answer either.
   const runs = await realRound(
     "isolated",
     profiles.map((profile) => ({
@@ -61,25 +71,31 @@ test("the production round returns token-bearing output without recording it in 
       args: [
         resolve("fixtures/seats/stub-seat.mjs"),
         "--payload",
-        profile.slot === "melchior-1" ? claudeResult : `{"echo":"${echoed}"}`,
+        ANSWERS[profile.slot] ?? assert.fail(`no answer for ${profile.slot}`),
         ...profile.args,
       ],
     })),
   );
 
-  assert.deepEqual(runs.map((run) => run.slot), ["melchior-1", "balthasar-2", "casper-3"]);
-  assert.ok(runs.every((run) => run.stream.includes(echoed)), "every seat returned the token");
-  assert.equal(runs[0]?.answered, true);
+  assert.deepEqual(runs, Object.entries(ANSWERS).map(([slot, answer]) => ({
+    slot,
+    stream: `${answer}\n`,
+    answered: true,
+  })));
   assert.deepEqual(scratchImages(w), before, "realRound reports output; the caller records it");
   assert.deepEqual(magiScratchCarryingAToken(w), []);
 });
 
-function scratchImages(w: World): readonly { path: string; text: string }[] {
+/** Identity as well as bytes, so a rewrite with the same content still shows. */
+function scratchImages(w: World): readonly object[] {
   return readdirSync(w.workDir, { recursive: true, encoding: "utf8" })
     .map((name) => join(w.workDir, name))
     .filter((path) => statSync(path).isFile())
     .sort()
-    .map((path) => ({ path, text: readFileSync(path, "utf8") }));
+    .map((path) => {
+      const { ino, mtimeMs } = statSync(path);
+      return { path, ino, mtimeMs, text: readFileSync(path, "utf8") };
+    });
 }
 
 interface World {
