@@ -6,7 +6,7 @@
  * clobbering them.
  */
 
-import { existsSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 import type { Harness } from "../core/slots.ts";
@@ -93,29 +93,67 @@ export interface DirtyStartFacts {
     readonly currentSha256: string;
     readonly hasNonceMarker: boolean;
   }[];
-  /** Durable-write temp files beside a layer that carry a nonce line. */
-  readonly strandedWrites: readonly string[];
+  /** Durable-write temp files beside a layer that carry, or may carry, a nonce line. */
+  readonly strandedWrites: readonly StrandedWrite[];
 }
+
+/** A temp file beside a layer, by what reading it could establish. */
+export interface StrandedWrite {
+  readonly path: string;
+  /** "unchecked": it could not be read, so it is not known to be clean. */
+  readonly nonce: "carried" | "unchecked";
+}
+
+/**
+ * The largest temp file read in full. A calibration write is one layer image
+ * plus one line; a larger file is reported unchecked rather than read.
+ */
+export const STRANDED_WRITE_MAX_BYTES = 4 * 1024 * 1024;
 
 /**
  * A kill between a durable write's temp open and its rename leaves the
  * nonce-bearing image beside the layer, under a name no layer read looks at.
  * For codex that is the repository root, readable by the seats; for grok it
  * is the rules directory the harness loads whole.
+ *
+ * This runs on every doctor, over directories MAGI does not own, so nothing
+ * found there may crash it. Only regular files are read: a durable write
+ * opens its temp exclusively, so a link or a directory is never one of its
+ * leftovers. An entry that vanished is gone; one that cannot be read is
+ * reported unchecked, because an unread file is not a clean one.
  */
-function strandedWrites(layerPaths: readonly string[]): readonly string[] {
-  const stranded: string[] = [];
+function strandedWrites(layerPaths: readonly string[]): readonly StrandedWrite[] {
+  const found: StrandedWrite[] = [];
   for (const dir of new Set(layerPaths.map((path) => dirname(path)))) {
-    if (!existsSync(dir)) continue;
-    for (const name of readdirSync(dir)) {
+    const names = attempt(() => readdirSync(dir));
+    if (names === "gone") continue;
+    if (names === "unreadable") {
+      found.push({ path: dir, nonce: "unchecked" });
+      continue;
+    }
+    for (const name of names) {
       if (!name.startsWith(DURABLE_TEMP_PREFIX)) continue;
       const path = join(dir, name);
-      if (statSync(path).isFile() && carriesNonceMarker(readFileSync(path, "utf8"))) {
-        stranded.push(path);
-      }
+      const nonce = attempt(() => {
+        const entry = lstatSync(path);
+        if (!entry.isFile()) return false;
+        if (entry.size > STRANDED_WRITE_MAX_BYTES) return "unchecked";
+        return carriesNonceMarker(readFileSync(path, "utf8")) && "carried";
+      });
+      if (nonce === "gone" || nonce === false) continue;
+      found.push({ path, nonce: nonce === "unreadable" ? "unchecked" : nonce });
     }
   }
-  return stranded;
+  return found;
+}
+
+/** A filesystem read, with a vanished path told apart from any other failure. */
+function attempt<T>(read: () => T): T | "gone" | "unreadable" {
+  try {
+    return read();
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "ENOENT" ? "gone" : "unreadable";
+  }
 }
 
 /**
@@ -158,7 +196,7 @@ export function dirtyStart(facts: {
   /** The surviving sidecar's path, or false when none survives. */
   readonly recoveryPending: string | false;
   readonly layers: readonly { readonly path: string; readonly hasNonceMarker: boolean }[];
-  readonly strandedWrites: readonly string[];
+  readonly strandedWrites: readonly StrandedWrite[];
 }): readonly string[] {
   const found: string[] = [];
   if (facts.recoveryPending !== false) {
@@ -172,10 +210,11 @@ export function dirtyStart(facts: {
       found.push(`${layer.path} still carries a calibration nonce; restore it by hand`);
     }
   }
-  for (const path of facts.strandedWrites) {
+  for (const { path, nonce } of facts.strandedWrites) {
     found.push(
-      `${path} is a write an interrupted calibration stranded with a nonce in it; ` +
-        "remove it by hand",
+      nonce === "carried"
+        ? `${path} is a temp file carrying a calibration nonce line; remove it by hand`
+        : `${path} could not be read to rule out a calibration nonce; check it by hand`,
     );
   }
   return found;

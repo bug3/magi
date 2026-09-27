@@ -11,7 +11,7 @@
  */
 
 import type { LedgerCalibration } from "../consult.ts";
-import { dirtyStart } from "./calibration-layers.ts";
+import { dirtyStart, type StrandedWrite } from "./calibration-layers.ts";
 
 /** Calibration rows are not consult rows: the fold skips them, so doctor
  * reads them straight from the raw lines. */
@@ -61,8 +61,8 @@ export function calibrationHealth(inputs: {
   readonly layers: readonly LayerFact[];
   /** The surviving recovery sidecar's path, or false when none survives. */
   readonly recoveryPending: string | false;
-  /** Nonce-bearing durable-write temp files stranded beside a layer. */
-  readonly strandedWrites: readonly string[];
+  /** Durable-write temp files beside a layer that carry, or may carry, a nonce. */
+  readonly strandedWrites: readonly StrandedWrite[];
 }): CalibrationHealthReport {
   const failures: string[] = [];
   const warnings: string[] = [];
