@@ -30,7 +30,6 @@ import {
   valueFromLedger,
 } from "../doctor.ts";
 import { skillStatus } from "../skill.ts";
-import { sha256Text } from "../util/fs.ts";
 import {
   approve,
   close,
@@ -122,7 +121,9 @@ export async function doctorCommand(rest: readonly string[]): Promise<number> {
 
   // A dirty start is refused before the spend is asked for: there is a
   // recovery for a person to finish, and the health report below names each
-  // leftover. calibrateCanaries refuses the same state for any other caller.
+  // leftover. calibrateCanaries refuses the same state for any other caller,
+  // and for a leftover a concurrent run leaves between the two checks; that
+  // one still surfaces as an uncaught error, a window not worth a second path.
   if (calibrate) {
     const dirty = dirtyStart(readDirtyStartFacts({ home, repoDir, workDir }));
     for (const leftover of dirty) problem(`calibration refused: ${leftover}`);
@@ -184,18 +185,13 @@ export async function doctorCommand(rest: readonly string[]): Promise<number> {
   const ledgerLines = existsSync(ledgerFile)
     ? readFileSync(ledgerFile, "utf8").split("\n")
     : [];
-  const leftovers = readDirtyStartFacts({ home, repoDir, workDir });
   const health = calibrationHealth({
     rows: readCalibrationRows(ledgerLines),
     seated: staticReport.seats.map((seat) => ({
       harness: SLOTS.find((definition) => definition.id === seat.slot)?.harness ?? seat.slot,
       ...(seat.cliVersion === undefined ? {} : { version: seat.cliVersion }),
     })),
-    layers: leftovers.layers.map((layer) => {
-      const content = existsSync(layer.path) ? readFileSync(layer.path, "utf8") : undefined;
-      return { ...layer, currentSha256: content === undefined ? "absent" : sha256Text(content) };
-    }),
-    recoveryPending: leftovers.recoveryPending,
+    ...readDirtyStartFacts({ home, repoDir, workDir }),
   });
   report(formatCalibrationHealth(health));
   healthy = healthy && health.failures.length === 0;
