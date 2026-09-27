@@ -23,8 +23,8 @@
  * inside the repository every seat is pointed at, and the brief asks a seat
  * for any token carrying the prefix rather than for this run's, so the
  * sidecar keeps original images and digests, the captures land only once the
- * rounds are over, and a previous calibration's leavings are cleared before
- * this one stages anything.
+ * rounds are over, and a previous calibration's leavings are cleared only
+ * after staging has confirmed that no layer carries an old nonce marker.
  */
 
 import { mkdirSync, rmSync } from "node:fs";
@@ -109,13 +109,13 @@ export async function calibrateCanaries(inputs: CalibrateInputs): Promise<Calibr
     `${NONCE_MARKER} ${inputs.nonce} ` +
     "(temporary; written and removed by magi doctor --calibrate)";
 
-  clearScratch(inputs.workDir);
-
   // Stage first, then persist the recovery sidecar, then mutate: a crash at
   // any later point leaves every original image on disk.
   const staged = CALIBRATION_LAYERS.map((layer) =>
     stageLayer(layer.harness, layer.target(inputs), nonceLine),
   );
+  // Refuse dirty layers before cleanup can erase their hand-recovery evidence.
+  clearScratch(inputs.workDir);
   const recoveryPath = join(inputs.workDir, RECOVERY_FILE);
   writeFileDurable(recoveryPath, recoveryImage(staged, inputs.nonce));
   for (const layer of staged) {

@@ -72,6 +72,9 @@ export interface AppliedLayer {
 export function stageLayer(harness: Harness, path: string, line: string): AppliedLayer {
   if (existsSync(path)) {
     const original = readFileSync(path, "utf8");
+    if (original.includes(NONCE_MARKER)) {
+      throw new Error(`${path} still carries a calibration nonce; restore it by hand before calibrating`);
+    }
     return { harness, path, kind: "appended", original, mutated: `${original}\n${line}\n` };
   }
   return { harness, path, kind: "created", mutated: `${line}\n` };
@@ -109,8 +112,8 @@ export function recoveryImage(layers: readonly AppliedLayer[], nonce: string): s
 }
 
 /**
- * Clears a previous calibration's leavings out of `workDir` before this one
- * stages anything, and reports what it removed.
+ * Clears a previous calibration's leavings out of `workDir` after staging
+ * has ruled out a dirty start, and reports what it removed.
  *
  * `workDir` sits inside the repository every seat is pointed at, and a
  * capture from an earlier run carries that run's token. The brief asks a
