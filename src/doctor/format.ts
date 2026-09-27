@@ -44,7 +44,8 @@ export function formatStaticReport(report: StaticReport): string {
       lines.push(
         seat.residueProbe.ok
           ? `  residue: probe runs (${probe})`
-          : `  residue: PROBE FAILED (${probe}): ${seat.residueProbe.reason}`,
+          : // The reason carries the probe's own stderr, which must not steer the terminal.
+            `  residue: PROBE FAILED (${probe}): ${sanitizeLine(seat.residueProbe.reason, 160)}`,
       );
     }
   }

@@ -12,7 +12,7 @@ import type { SeatProfile } from "../core/profile.ts";
 import { stateIgnoreStatus, type StateIgnoreStatus } from "../consult.ts";
 import { tryCapture } from "../runtime/exec.ts";
 import { seatProfile, type SeatInputs } from "../seats/profiles.ts";
-import { probeSucceeded, runResidueProbe } from "../seats/residue.ts";
+import { probeFailure, probeSucceeded, runResidueProbe } from "../seats/residue.ts";
 import { skillProblem, type SkillReport } from "../skill.ts";
 import { undocumentedFlags } from "./drift.ts";
 import { healthFromLedger, type SeatHealth } from "./health.ts";
@@ -110,9 +110,5 @@ async function checkResidueProbe(
 ): Promise<ResidueCheck | undefined> {
   const result = await runResidueProbe(profile, repoDir);
   if (result === undefined) return undefined;
-  if (probeSucceeded(result)) return { ok: true };
-  const outcome =
-    result.outcome.kind === "exit" ? `exit ${result.outcome.code}` : result.outcome.kind;
-  const said = result.stderr.trim().split("\n")[0]?.slice(0, 160) ?? "";
-  return { ok: false, reason: said === "" ? outcome : `${outcome}: ${said}` };
+  return probeSucceeded(result) ? { ok: true } : { ok: false, reason: probeFailure(result) };
 }

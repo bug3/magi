@@ -5,7 +5,11 @@ import { join } from "node:path";
 import { test } from "node:test";
 
 import { formatStaticReport } from "../../src/doctor/format.ts";
-import { staticChecks, type StaticProbes } from "../../src/doctor/static-checks.ts";
+import {
+  staticChecks,
+  type ResidueCheck,
+  type StaticProbes,
+} from "../../src/doctor/static-checks.ts";
 
 const INPUTS = {
   briefPath: "/tmp/brief.md",
@@ -70,16 +74,13 @@ test("a CLI that answers nothing is unhealthy, not silently skipped", async () =
 // A probe that stopped running is found at a consult only as a failure record
 // nobody reads, and the snapshot a canary warning is read against is missing.
 test("a residue probe that fails is named, and the report is unhealthy", async () => {
+  const outcomes: Readonly<Record<string, ResidueCheck>> = {
+    "balthasar-2": { ok: true },
+    "casper-3": { ok: false, reason: "exit 2: unknown command" },
+  };
   const probes: StaticProbes = {
     ...allDocumented(),
-    residue: (profile) =>
-      Promise.resolve(
-        profile.residueProbe === undefined
-          ? undefined
-          : profile.slot === "casper-3"
-            ? { ok: false, reason: "exit 2: unknown command" }
-            : { ok: true },
-      ),
+    residue: (profile) => Promise.resolve(outcomes[profile.slot]),
   };
   const report = await staticChecks(INPUTS, probes);
   assert.equal(report.healthy, false);
@@ -89,6 +90,21 @@ test("a residue probe that fails is named, and the report is unhealthy", async (
     formatStaticReport(report),
     /residue: PROBE FAILED \(grok inspect --json\): exit 2: unknown command/u,
   );
+});
+
+test("a probe's own words cannot rewrite the report line they are printed on", async () => {
+  const probes: StaticProbes = {
+    ...allDocumented(),
+    residue: (profile) =>
+      Promise.resolve(
+        profile.residueProbe === undefined
+          ? undefined
+          : { ok: false, reason: "exit 1: x\r  residue: probe runs\u001b[2K" },
+      ),
+  };
+  const text = formatStaticReport(await staticChecks(INPUTS, probes));
+  assert.doesNotMatch(text, /[\r\u001b]/u);
+  assert.match(text, /residue: PROBE FAILED \(grok inspect --json\): exit 1: x/u);
 });
 
 test("a seat without a residue probe reports nothing to probe and stays healthy", async () => {
