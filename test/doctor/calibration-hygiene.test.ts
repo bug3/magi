@@ -42,27 +42,34 @@ const NONCE = `${NONCE_PREFIX}hygiene-1`;
 
 test("the production round returns token-bearing output without recording it in scratch", async () => {
   const w = world();
+  const echoed = `${NONCE_PREFIX}production-round`;
+  const claudeResult = '{"type":"result","subtype":"success","is_error":false,' +
+    `"result":"${echoed}"}`;
   const profiles = roundProfiles(inputsFor(w), "isolated");
-  const claude = profiles.find((profile) => profile.slot === "melchior-1");
-  assert.ok(claude);
-  const payload = '{"type":"result","subtype":"success","is_error":false,' +
-    '"result":"magi-canary-production-round"}';
   const before = scratchImages(w);
 
-  // Exercise realRound and runSeats, replacing only the harness executable.
-  // The existing stub emits a real result envelope carrying a token, so an
-  // eager capture write cannot hide behind an empty or inconclusive answer.
-  const runs = await realRound("isolated", [{
-    ...claude,
-    command: process.execPath,
-    args: [resolve("fixtures/seats/stub-seat.mjs"), "--payload", payload, ...claude.args],
-  }]);
+  // Exercise realRound and runSeats for every seat, replacing only the
+  // harness executable. All three go through because codex's and grok's
+  // arguments carry paths under workDir, which is the handle a capture write
+  // would reach for. Claude's payload is a real result envelope, so an eager
+  // write cannot hide behind an inconclusive answer either.
+  const runs = await realRound(
+    "isolated",
+    profiles.map((profile) => ({
+      ...profile,
+      command: process.execPath,
+      args: [
+        resolve("fixtures/seats/stub-seat.mjs"),
+        "--payload",
+        profile.slot === "melchior-1" ? claudeResult : `{"echo":"${echoed}"}`,
+        ...profile.args,
+      ],
+    })),
+  );
 
-  assert.deepEqual(runs, [{
-    slot: "melchior-1",
-    stream: `${payload}\n`,
-    answered: true,
-  }]);
+  assert.deepEqual(runs.map((run) => run.slot), ["melchior-1", "balthasar-2", "casper-3"]);
+  assert.ok(runs.every((run) => run.stream.includes(echoed)), "every seat returned the token");
+  assert.equal(runs[0]?.answered, true);
   assert.deepEqual(scratchImages(w), before, "realRound reports output; the caller records it");
   assert.deepEqual(magiScratchCarryingAToken(w), []);
 });
