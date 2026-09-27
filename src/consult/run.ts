@@ -22,10 +22,10 @@ import {
 } from "../evidence/curate.ts";
 import { gitFacts } from "../evidence/git-facts.ts";
 import { buildEvidencePack, type EvidencePack } from "../evidence/pack.ts";
-import { exec } from "../runtime/exec.ts";
 import { compileSchema } from "../schema/validator.ts";
 import { canaryEvidence, loadCanaries } from "../seats/canaries.ts";
 import { seatProfile } from "../seats/profiles.ts";
+import { probeSucceeded, runResidueProbe } from "../seats/residue.ts";
 import { runSeats, type SeatRun } from "../seats/runner.ts";
 import { ensureDir, sha256Text, writeFileDurable } from "../util/fs.ts";
 import { gateBrief } from "./brief-gate.ts";
@@ -95,7 +95,6 @@ export interface BriefFenceAccount {
 }
 
 const DEFAULT_STAGGER_MS = 2_000;
-const RESIDUE_PROBE_TIMEOUT_MS = 30_000;
 
 export async function runConsult(inputs: ConsultRunInputs): Promise<ConsultRunResult> {
   const now = inputs.now ?? (() => new Date());
@@ -240,17 +239,11 @@ async function snapshotResidue(
   profile: SeatProfile,
   repoDir: string,
 ): Promise<void> {
-  if (profile.residueProbe === undefined) return;
-  const probe = await exec({
-    argv: profile.residueProbe,
-    cwd: repoDir,
-    env: profile.env,
-    timeoutMs: RESIDUE_PROBE_TIMEOUT_MS,
-  });
-  const ok = probe.outcome.kind === "exit" && probe.outcome.code === 0;
+  const probe = await runResidueProbe(profile, repoDir);
+  if (probe === undefined) return;
   writeFileDurable(
     join(paths.rawDir, `${profile.slot}.inspect.json`),
-    ok
+    probeSucceeded(probe)
       ? probe.stdout
       : `${JSON.stringify({ residueProbeFailed: probe.outcome, stderr: probe.stderr })}\n`,
   );
