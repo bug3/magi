@@ -1,7 +1,8 @@
 /**
  * The quota-free half of doctor: dry-render every launch profile, probe CLI
- * versions, and compare profile flags against the installed help text.
- * Nothing here spawns a model; the probe commands are --version/--help only.
+ * versions, compare profile flags against the installed help text, and run
+ * each declared residue probe. Nothing here spawns a model; the commands are
+ * --version, --help and the probes, which the profile contract keeps local.
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -11,6 +12,7 @@ import type { SeatProfile } from "../core/profile.ts";
 import { stateIgnoreStatus, type StateIgnoreStatus } from "../consult.ts";
 import { tryCapture } from "../runtime/exec.ts";
 import { seatProfile, type SeatInputs } from "../seats/profiles.ts";
+import { probeSucceeded, runResidueProbe } from "../seats/residue.ts";
 import { skillProblem, type SkillReport } from "../skill.ts";
 import { undocumentedFlags } from "./drift.ts";
 import { healthFromLedger, type SeatHealth } from "./health.ts";
@@ -28,7 +30,12 @@ export interface SeatStaticReport {
   readonly cliVersion: string | undefined;
   /** undefined when help itself could not be captured. */
   readonly undocumented: readonly string[] | undefined;
+  /** undefined when the profile declares no residue probe. */
+  readonly residueProbe: ResidueCheck | undefined;
 }
+
+/** Whether a declared residue probe ran, and why not when it did not. */
+export type ResidueCheck = { readonly ok: true } | { readonly ok: false; readonly reason: string };
 
 export interface StaticReport {
   readonly seats: readonly SeatStaticReport[];
@@ -39,9 +46,13 @@ export interface StaticReport {
   readonly healthy: boolean;
 }
 
-/** Injectable for tests; the default really runs `--version` and `--help`. */
+/**
+ * Injectable for tests; the default really runs `--version`, `--help` and
+ * each declared residue probe, which is quota-free by the profile contract.
+ */
 export interface StaticProbes {
   readonly capture: (argv: readonly string[]) => Promise<string | undefined>;
+  readonly residue: (profile: SeatProfile) => Promise<ResidueCheck | undefined>;
 }
 
 export async function staticChecks(
@@ -49,7 +60,10 @@ export async function staticChecks(
     readonly ledgerPath: string;
     readonly skills: readonly SkillReport[];
   },
-  probes: StaticProbes = { capture: (argv) => tryCapture(argv) },
+  probes: StaticProbes = {
+    capture: (argv) => tryCapture(argv),
+    residue: (profile) => checkResidueProbe(profile, inputs.repoDir),
+  },
 ): Promise<StaticReport> {
   const seats: SeatStaticReport[] = [];
   for (const definition of SLOTS) {
@@ -61,6 +75,7 @@ export async function staticChecks(
       profile,
       cliVersion,
       undocumented: helpText === undefined ? undefined : undocumentedFlags(profile.args, helpText),
+      residueProbe: await probes.residue(profile),
     });
   }
 
@@ -71,7 +86,10 @@ export async function staticChecks(
 
   const healthy =
     seats.every(
-      (seat) => seat.cliVersion !== undefined && (seat.undocumented ?? ["missing help"]).length === 0,
+      (seat) =>
+        seat.cliVersion !== undefined &&
+        (seat.undocumented ?? ["missing help"]).length === 0 &&
+        seat.residueProbe?.ok !== false,
     ) &&
     ledgerHealth.every((seat) => !seat.chronic) &&
     stateIgnore !== "not-ignored" &&
@@ -79,4 +97,22 @@ export async function staticChecks(
     !inputs.skills.some(skillProblem);
 
   return { seats, ledgerHealth, stateIgnore, skills: inputs.skills, healthy };
+}
+
+/**
+ * Runs a profile's residue probe the way a consult runs it. A probe that
+ * stopped working is otherwise found only as a failure record in a consult's
+ * `raw/`, and the snapshot a canary warning is read against is missing.
+ */
+async function checkResidueProbe(
+  profile: SeatProfile,
+  repoDir: string,
+): Promise<ResidueCheck | undefined> {
+  const result = await runResidueProbe(profile, repoDir);
+  if (result === undefined) return undefined;
+  if (probeSucceeded(result)) return { ok: true };
+  const outcome =
+    result.outcome.kind === "exit" ? `exit ${result.outcome.code}` : result.outcome.kind;
+  const said = result.stderr.trim().split("\n")[0]?.slice(0, 160) ?? "";
+  return { ok: false, reason: said === "" ? outcome : `${outcome}: ${said}` };
 }

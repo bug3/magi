@@ -39,6 +39,14 @@ export function formatStaticReport(report: StaticReport): string {
       lines.push(`  flags:   UNDOCUMENTED ${seat.undocumented.join(", ")}`);
     }
     lines.push(`  env:     ${Object.keys(seat.profile.env).sort().join(", ")}`);
+    if (seat.residueProbe !== undefined) {
+      const probe = (seat.profile.residueProbe ?? []).join(" ");
+      lines.push(
+        seat.residueProbe.ok
+          ? `  residue: probe runs (${probe})`
+          : `  residue: PROBE FAILED (${probe}): ${seat.residueProbe.reason}`,
+      );
+    }
   }
   lines.push("");
   lines.push(`state:  ${STATE_IGNORE_LINE[report.stateIgnore]}`);
