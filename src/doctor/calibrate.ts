@@ -38,12 +38,11 @@ import {
   NONCE_PREFIX,
   RECOVERY_FILE,
   clearScratch,
-  dirtyStart,
-  readDirtyStartFacts,
   recoveryImage,
   restoreLayer,
   stageLayer,
 } from "./calibration-layers.ts";
+import { dirtyStart, readDirtyStartFacts } from "./calibration-dirty-start.ts";
 import {
   judgeDirections,
   type CalibrationDirection,
@@ -62,10 +61,9 @@ export {
   NONCE_MARKER,
   NONCE_PREFIX,
   RECOVERY_FILE,
-  dirtyStart,
-  readDirtyStartFacts,
   type CalibrationLayer,
 } from "./calibration-layers.ts";
+export { dirtyStart, readDirtyStartFacts } from "./calibration-dirty-start.ts";
 export {
   type CalibrationDirection,
   type CalibrationRound,
