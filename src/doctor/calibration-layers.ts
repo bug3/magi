@@ -72,9 +72,6 @@ export interface AppliedLayer {
 export function stageLayer(harness: Harness, path: string, line: string): AppliedLayer {
   if (existsSync(path)) {
     const original = readFileSync(path, "utf8");
-    if (carriesNonceMarker(original)) {
-      throw new Error(`${path} still carries a calibration nonce; restore it by hand before calibrating`);
-    }
     return { harness, path, kind: "appended", original, mutated: `${original}\n${line}\n` };
   }
   return { harness, path, kind: "created", mutated: `${line}\n` };
@@ -88,16 +85,19 @@ export function carriesNonceMarker(content: string | undefined): boolean {
 /**
  * What an interrupted or refused calibration left for a person to finish: a
  * surviving recovery sidecar, or a layer still carrying a nonce line. Doctor
- * fails on each.
+ * fails on each and calibration refuses to start over any of them, both from
+ * this one list, so the two cannot disagree about what a dirty start is.
  */
 export function dirtyStart(facts: {
-  readonly recoveryPending: boolean;
+  /** The surviving sidecar's path, or false when none survives. */
+  readonly recoveryPending: string | false;
   readonly layers: readonly { readonly path: string; readonly hasNonceMarker: boolean }[];
 }): readonly string[] {
   const found: string[] = [];
-  if (facts.recoveryPending) {
+  if (facts.recoveryPending !== false) {
     found.push(
-      "an interrupted calibration left a recovery sidecar; restore the layers from it by hand",
+      `an interrupted calibration left its recovery sidecar at ${facts.recoveryPending}; ` +
+        "restore the layers from it by hand, then remove it",
     );
   }
   for (const layer of facts.layers) {

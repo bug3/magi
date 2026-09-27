@@ -25,7 +25,7 @@
  * for any token carrying the prefix rather than for this run's, so the
  * sidecar keeps original images and digests, the captures land only once the
  * rounds are over, and a previous calibration's leavings are cleared only
- * after staging has confirmed that no layer carries an old nonce marker.
+ * after the start has been confirmed clean.
  */
 
 import { existsSync, mkdirSync, rmSync } from "node:fs";
@@ -37,7 +37,9 @@ import {
   NONCE_MARKER,
   NONCE_PREFIX,
   RECOVERY_FILE,
+  carriesNonceMarker,
   clearScratch,
+  dirtyStart,
   recoveryImage,
   restoreLayer,
   stageLayer,
@@ -111,24 +113,23 @@ export async function calibrateCanaries(inputs: CalibrateInputs): Promise<Calibr
     `${NONCE_MARKER} ${inputs.nonce} ` +
     "(temporary; written and removed by magi doctor --calibrate)";
 
-  // A surviving sidecar is an earlier run's hand-recovery copy, and doctor
-  // already fails on it. Staging over it would replace those originals with
-  // the current layers and a clean run would then delete it, so it is a dirty
-  // start even when no layer carries a marker.
-  const recoveryPath = join(inputs.workDir, RECOVERY_FILE);
-  if (existsSync(recoveryPath)) {
-    throw new Error(
-      `${recoveryPath} survives an interrupted calibration; ` +
-        "restore the layers from it by hand and remove it before calibrating",
-    );
-  }
-
   // Stage first, then persist the recovery sidecar, then mutate: a crash at
   // any later point leaves every original image on disk.
   const staged = CALIBRATION_LAYERS.map((layer) =>
     stageLayer(layer.harness, layer.target(inputs), nonceLine),
   );
-  // Refuse dirty layers before cleanup can erase their hand-recovery evidence.
+  // Staging only read. A dirty start is refused here, before cleanup can
+  // erase an earlier run's hand-recovery evidence: a surviving sidecar would
+  // be replaced with the current layers and then deleted by a clean run.
+  const recoveryPath = join(inputs.workDir, RECOVERY_FILE);
+  const dirty = dirtyStart({
+    recoveryPending: existsSync(recoveryPath) && recoveryPath,
+    layers: staged.map((layer) => ({
+      path: layer.path,
+      hasNonceMarker: carriesNonceMarker(layer.original),
+    })),
+  });
+  if (dirty.length > 0) throw new Error(`calibration refused: ${dirty.join("; ")}`);
   clearScratch(inputs.workDir);
   writeFileDurable(recoveryPath, recoveryImage(staged, inputs.nonce));
   for (const layer of staged) {

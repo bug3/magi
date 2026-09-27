@@ -175,6 +175,7 @@ export async function doctorCommand(rest: readonly string[]): Promise<number> {
   const ledgerLines = existsSync(ledgerFile)
     ? readFileSync(ledgerFile, "utf8").split("\n")
     : [];
+  const recoveryPath = join(repoDir, ".magi", "doctor", RECOVERY_FILE);
   const health = calibrationHealth({
     rows: readCalibrationRows(ledgerLines),
     seated: staticReport.seats.map((seat) => ({
@@ -191,7 +192,7 @@ export async function doctorCommand(rest: readonly string[]): Promise<number> {
         hasNonceMarker: carriesNonceMarker(content),
       };
     }),
-    recoveryPending: existsSync(join(repoDir, ".magi", "doctor", RECOVERY_FILE)),
+    recoveryPending: existsSync(recoveryPath) && recoveryPath,
   });
   report(formatCalibrationHealth(health));
   healthy = healthy && health.failures.length === 0;

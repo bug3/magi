@@ -8,6 +8,7 @@ import {
   NONCE_MARKER,
   RECOVERY_FILE,
   calibrateCanaries,
+  calibrationHealth,
 } from "../../src/doctor.ts";
 import { workspace } from "../support/cli.ts";
 
@@ -67,6 +68,8 @@ test("a surviving recovery sidecar refuses calibration even when every layer is 
     const sidecar = join(workDir, RECOVERY_FILE);
     const recovery = '{"layers":[{"original":"# the pre-edit rules\\n"}]}\n';
     writeFileSync(sidecar, recovery);
+    const capture = join(workDir, "melchior-1.calibration-isolated.txt");
+    writeFileSync(capture, "magi-canary-residue\n");
     await assert.rejects(calibrateCanaries({
       home: space.home,
       repoDir: space.repo,
@@ -76,13 +79,19 @@ test("a surviving recovery sidecar refuses calibration even when every layer is 
       ledgerPath: join(workDir, "ledger.jsonl"),
       nonce: "magi-canary-new-run",
       runRound: async () => assert.fail("a pending recovery must not launch a round"),
+      captureVersion: async () => assert.fail("a pending recovery must not probe versions"),
     }), (error: Error) => {
       assert.ok(error.message.includes(sidecar), "the refusal must name the sidecar");
       assert.match(error.message, /restore.*by hand/u);
       return true;
     });
     assert.equal(readFileSync(sidecar, "utf8"), recovery);
+    assert.equal(readFileSync(capture, "utf8"), "magi-canary-residue\n");
     assert.equal(readFileSync(join(space.repo, "AGENTS.md"), "utf8"), "# owner edit after a refused restore\n");
+    for (const layer of CALIBRATION_LAYERS.filter((entry) => entry.harness !== "codex")) {
+      const path = layer.target({ home: space.home, repoDir: space.repo });
+      assert.equal(existsSync(path), false, `${path} must not be created`);
+    }
     assert.equal(existsSync(join(workDir, "ledger.jsonl")), false);
   } finally {
     space.remove();
@@ -109,7 +118,23 @@ test("a dirty start preserves the previous recovery sidecar and captures", async
       ledgerPath: join(workDir, "ledger.jsonl"),
       nonce: "magi-canary-new-run",
       runRound: async () => assert.fail("a dirty start must not launch a round"),
-    }), /restore.*by hand/u);
+    }), (error: Error) => {
+      // Doctor, handed the same leftovers, reports each one the refusal names.
+      const [sidecarFailure, layerFailure] = calibrationHealth({
+        rows: [],
+        seated: [],
+        layers: [{
+          harness: "codex",
+          path: join(space.repo, "AGENTS.md"),
+          currentSha256: "unused",
+          hasNonceMarker: true,
+        }],
+        recoveryPending: sidecar,
+      }).failures;
+      assert.ok(sidecarFailure !== undefined && error.message.includes(sidecarFailure));
+      assert.ok(layerFailure !== undefined && error.message.includes(layerFailure));
+      return true;
+    });
     assert.equal(readFileSync(sidecar, "utf8"), recovery);
     assert.equal(readFileSync(capture, "utf8"), "magi-canary-residue\n");
     assert.equal(existsSync(join(workDir, "ledger.jsonl")), false);

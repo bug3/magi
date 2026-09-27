@@ -58,7 +58,8 @@ export function calibrationHealth(inputs: {
   readonly rows: readonly LedgerCalibration[];
   readonly seated: readonly SeatedVersion[];
   readonly layers: readonly LayerFact[];
-  readonly recoveryPending: boolean;
+  /** The surviving recovery sidecar's path, or false when none survives. */
+  readonly recoveryPending: string | false;
 }): CalibrationHealthReport {
   const failures: string[] = [];
   const warnings: string[] = [];
