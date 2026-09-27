@@ -424,12 +424,30 @@ a login: the round measured nothing, and nothing is what it records. The two-rou
 surfaced it, and it stays as it is: with only the isolated round, a dead seat
 would have calibrated clean forever.
 
-Calibration is crash-safe. A recovery sidecar holding every original image is
+Layer recovery is crash-safe. A recovery sidecar holding every original image is
 written before the first layer changes. A layer restores only while its
 content still equals the expected nonce-bearing image; a concurrent edit is
 refused rather than clobbered, and the sidecar outlives a refused restore as
 the hand-recovery copy. The row records the seated CLI versions and the
 restored layers' hashes.
+
+A layer already carrying the calibration nonce marker makes calibration
+refuse, naming the file and asking for restoration by hand. This happens
+before scratch cleanup or any write, so an interrupted run's recovery sidecar
+and captures remain available and no new probe calls spend quota.
+
+Probe captures have a narrower guarantee. Completed rounds' raw streams stay
+in memory until the probe sequence ends and layer restoration has been
+attempted. An ordinary round error still runs that cleanup and writes any
+completed round's capture. A process crash or forced kill before the captures
+are written loses them, including an isolated round completed before the
+unisolated round starts; quota already spent on those calls is not recovered.
+The recovery sidecar survives an interruption while layers are mutated, but
+the captures and a completed ledger row are not promised. This is deliberate:
+writing captures between rounds inside the repository would give later seats
+another source for the token. Calibration keeps recovery durable and accepts
+the loss of diagnostic captures instead of maintaining a second capture store
+outside the repository.
 
 A fourth false positive was waiting in that sidecar. Calibration's work
 directory sits inside the repository every seat is pointed at, and two of the
@@ -448,7 +466,7 @@ holds the original images and two digests, the nonce's and the one restore
 expects the layer to still match, so hand recovery can tell MAGI's line from
 an owner edit without a token on disk. The captures land only once both rounds
 are over, and an earlier calibration's leavings are cleared out of the work
-directory before this one stages anything. The ledger row names its
+directory after staging has ruled out a dirty start and before probing. The ledger row names its
 calibration by the nonce's digest rather than the nonce, the ledger living
 inside that same repository; rows written before that keep their raw nonce and
 are read the same way, so the residue they carry is historical and visible.
