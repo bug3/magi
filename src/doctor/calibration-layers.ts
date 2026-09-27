@@ -89,6 +89,8 @@ export interface DirtyStartFacts {
   readonly layers: readonly {
     readonly harness: Harness;
     readonly path: string;
+    /** sha256 of the current content, or "absent" when the file is missing. */
+    readonly currentSha256: string;
     readonly hasNonceMarker: boolean;
   }[];
 }
@@ -96,7 +98,8 @@ export interface DirtyStartFacts {
 /**
  * Reads the dirty-start facts for one repository. Doctor's report and
  * calibration's refusal both take them from here, so where the sidecar lives
- * and how a layer is read cannot drift apart between the two.
+ * and how a layer is read cannot drift apart between the two. Each layer is
+ * read once, so its digest and its marker describe the same bytes.
  */
 export function readDirtyStartFacts(paths: {
   readonly home: string;
@@ -109,7 +112,12 @@ export function readDirtyStartFacts(paths: {
     layers: CALIBRATION_LAYERS.map((layer) => {
       const path = layer.target(paths);
       const content = existsSync(path) ? readFileSync(path, "utf8") : undefined;
-      return { harness: layer.harness, path, hasNonceMarker: carriesNonceMarker(content) };
+      return {
+        harness: layer.harness,
+        path,
+        currentSha256: content === undefined ? "absent" : sha256Text(content),
+        hasNonceMarker: carriesNonceMarker(content),
+      };
     }),
   };
 }
