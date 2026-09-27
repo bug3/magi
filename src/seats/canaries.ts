@@ -125,6 +125,20 @@ export function canaryEvidence(
     .map((canary) => canary.id);
 }
 
+/**
+ * The evidence across several streams of one seat, each read on its own: a
+ * stderr line appended to stdout would break the document stdout carries,
+ * and the seat's own quotations would then read as raw text.
+ */
+export function streamEvidence(
+  streams: readonly string[],
+  brief: string,
+  canaries: readonly Canary[],
+): readonly string[] {
+  const hit = new Set(streams.flatMap((stream) => canaryEvidence(stream, brief, canaries)));
+  return canaries.filter((canary) => hit.has(canary.id)).map((canary) => canary.id);
+}
+
 /** An inline code span in a seat's own text: what it quotes or names. */
 const CODE_SPAN = /`[^`\n]*`/gu;
 /** A quotation in a seat's own text: what it cites, not what it says. */

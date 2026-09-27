@@ -9,6 +9,7 @@ import {
   canaryEvidence,
   canaryHits,
   loadCanaries,
+  streamEvidence,
   type Canary,
 } from "../../src/seats/canaries.ts";
 
@@ -234,4 +235,16 @@ test("an escaped line break does not glue itself to the next word", () => {
   const brief = `const contents = '{"seal":"ok","unicode":"ölçüm"}';`;
   const stream = JSON.stringify({ position: "First line.\nölçüm is the fixture's word." });
   assert.deepEqual(canaryEvidence(stream, brief, CANARIES), []);
+});
+
+test("each stream is read on its own, so stderr cannot break stdout's document", () => {
+  const stdout = JSON.stringify({ result: 'A word like "ölçümü" is new.' }, null, 2);
+  const stderr = 'log {"level":"info"}';
+  assert.deepEqual(canaryEvidence(`${stdout}\n${stderr}`, ENGLISH_BRIEF, CANARIES), [
+    "turkish-text-leak",
+  ]);
+  assert.deepEqual(streamEvidence([stdout, stderr], ENGLISH_BRIEF, CANARIES), []);
+  assert.deepEqual(streamEvidence([stdout, "Uyarı: bağlam yüklendi"], ENGLISH_BRIEF, CANARIES), [
+    "turkish-text-leak",
+  ]);
 });
