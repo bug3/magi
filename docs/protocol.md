@@ -424,8 +424,8 @@ a login: the round measured nothing, and nothing is what it records. The two-rou
 surfaced it, and it stays as it is: with only the isolated round, a dead seat
 would have calibrated clean forever.
 
-Layer recovery is crash-safe. A recovery sidecar holding every original image is
-written before the first layer changes. A layer restores only while its
+Layer recovery is crash-safe. A recovery sidecar holding every original image
+is written before the first layer changes. A layer restores only while its
 content still equals the expected nonce-bearing image; a concurrent edit is
 refused rather than clobbered, and the sidecar outlives a refused restore as
 the hand-recovery copy. The row records the seated CLI versions and the
@@ -471,10 +471,11 @@ holds the original images and two digests, the nonce's and the one restore
 expects the layer to still match, so hand recovery can tell MAGI's line from
 an owner edit without a token on disk. The captures land only once both rounds
 are over, and an earlier calibration's leavings are cleared out of the work
-directory after staging has ruled out a dirty start and before probing. The ledger row names its
-calibration by the nonce's digest rather than the nonce, the ledger living
-inside that same repository; rows written before that keep their raw nonce and
-are read the same way, so the residue they carry is historical and visible.
+directory after staging has ruled out a dirty start and before probing. The
+ledger row names its calibration by the nonce's digest rather than the nonce,
+the ledger living inside that same repository; rows written before that keep
+their raw nonce and are read the same way, so the residue they carry is
+historical and visible.
 Only the layer targets hold a token, which is what is under test.
 
 Every doctor run then checks residue and clock, and every unproved state

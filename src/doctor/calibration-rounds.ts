@@ -1,3 +1,13 @@
+/**
+ * How one calibration probe round is composed and run: the brief that names
+ * only the nonce prefix, the echo contract, the isolated and unisolated seat
+ * profiles, and the production round that fans them out.
+ *
+ * A round reports, it never records. Its output carries whatever token a seat
+ * echoed, and `workDir` sits inside the repository every seat is pointed at,
+ * so the captures are the caller's to write once both rounds are over.
+ */
+
 import { join } from "node:path";
 
 import type { SeatProfile } from "../core/profile.ts";
