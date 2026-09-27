@@ -11,9 +11,9 @@ import { foldLedger } from "../consult.ts";
 import { SLOTS } from "../core/slots.ts";
 import {
   CALIBRATION_LAYERS,
-  NONCE_MARKER,
   RECOVERY_FILE,
   calibrateCanaries,
+  carriesNonceMarker,
   calibrationHealth,
   completenessFromLedger,
   formatCalibration,
@@ -188,7 +188,7 @@ export async function doctorCommand(rest: readonly string[]): Promise<number> {
         harness: layer.harness,
         path: target,
         currentSha256: content === undefined ? "absent" : sha256Text(content),
-        hasNonceMarker: content?.includes(NONCE_MARKER) ?? false,
+        hasNonceMarker: carriesNonceMarker(content),
       };
     }),
     recoveryPending: existsSync(join(repoDir, ".magi", "doctor", RECOVERY_FILE)),

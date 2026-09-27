@@ -10,6 +10,7 @@
  */
 
 import type { LedgerCalibration } from "../consult.ts";
+import { dirtyStart } from "./calibration-layers.ts";
 
 /** Calibration rows are not consult rows: the fold skips them, so doctor
  * reads them straight from the raw lines. */
@@ -62,16 +63,7 @@ export function calibrationHealth(inputs: {
   const failures: string[] = [];
   const warnings: string[] = [];
 
-  if (inputs.recoveryPending) {
-    failures.push(
-      "an interrupted calibration left a recovery sidecar; restore the layers from it by hand",
-    );
-  }
-  for (const layer of inputs.layers) {
-    if (layer.hasNonceMarker) {
-      failures.push(`${layer.path} still carries a calibration nonce; restore it by hand`);
-    }
-  }
+  failures.push(...dirtyStart(inputs));
 
   // Owner revision (r19): an unproved state fails, it does not warn. The
   // canaries are per-repo artifacts scanned on every consult, so a fresh
