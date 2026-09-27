@@ -153,15 +153,17 @@ test("rendering is pure: the same inputs give the same argv", () => {
   }
 });
 
-test("only casper declares a residue probe, and it is grok inspect --json", () => {
-  for (const definition of SLOTS) {
-    const profile = seatProfile(definition.id, INPUTS);
-    if (definition.id === "casper-3") {
-      assert.deepEqual(profile.residueProbe, ["grok", "inspect", "--json"]);
-    } else {
-      assert.equal(profile.residueProbe, undefined);
-    }
-  }
+test("a residue probe is declared exactly where a layer has no switch", () => {
+  // Grok's rules and codex's global AGENTS.md both reach the seat whatever it
+  // is launched with, so each is snapshotted; claude strips everything.
+  assert.deepEqual(
+    Object.fromEntries(SLOTS.map(({ id }) => [id, seatProfile(id, INPUTS).residueProbe])),
+    {
+      "melchior-1": undefined,
+      "balthasar-2": ["codex", "debug", "prompt-input", "-c", "project_doc_max_bytes=0"],
+      "casper-3": ["grok", "inspect", "--json"],
+    },
+  );
 });
 
 test("every seat gets a wall-clock cap", () => {

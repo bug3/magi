@@ -22,6 +22,8 @@
 //                           test can generate it from the real profiles
 //                           rather than restate them and go stale
 //   grok inspect --json     the residue probe the casper-3 profile carries
+//   codex debug prompt-input
+//                           the residue probe the balthasar-2 profile carries
 //   anything else           a seat call: read the brief, answer the contract
 //
 // The answer quotes the consult id out of the brief it was given, so a test
@@ -70,6 +72,11 @@ async function answer() {
   // go of; a stub holds nothing, and says so in the shape the probe reads.
   if (argv[0] === "inspect") {
     return `${JSON.stringify({ rules: [], skills: [], mcp: [], hooks: [] })}\n`;
+  }
+  // The balthasar-2 residue probe: the prompt the seat would be handed, which
+  // for a stub carries no instructions at all.
+  if (argv[0] === "debug" && argv[1] === "prompt-input") {
+    return "[]\n";
   }
 
   const brief = await readBrief();
