@@ -160,7 +160,17 @@ test("a residue probe is declared exactly where a layer has no switch", () => {
     Object.fromEntries(SLOTS.map(({ id }) => [id, seatProfile(id, INPUTS).residueProbe])),
     {
       "melchior-1": undefined,
-      "balthasar-2": ["codex", "debug", "prompt-input", "-c", "project_doc_max_bytes=0"],
+      "balthasar-2": [
+        "codex",
+        "debug",
+        "prompt-input",
+        "-c",
+        "project_doc_max_bytes=0",
+        "-c",
+        "tools.web_search=false",
+        "-c",
+        'sandbox_mode="read-only"',
+      ],
       "casper-3": ["grok", "inspect", "--json"],
     },
   );

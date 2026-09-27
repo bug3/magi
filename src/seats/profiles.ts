@@ -93,18 +93,20 @@ function melchiorProfile(inputs: SeatInputs): SeatProfile {
 }
 
 /**
- * codex 0.148.0. `--ignore-user-config` drops `~/.codex/config.toml`,
- * `--ignore-rules` the execpolicy rules, `project_doc_max_bytes=0` the repo
- * AGENTS.md. No `--model`: this seat keeps the CLI default, so the flag is
- * omitted rather than pinned to a guess.
+ * codex 0.148.0 for the seat's flags. `--ignore-user-config` drops
+ * `~/.codex/config.toml`, `--ignore-rules` the execpolicy rules,
+ * `project_doc_max_bytes=0` the repo AGENTS.md. No `--model`: this seat keeps
+ * the CLI default, so the flag is omitted rather than pinned to a guess.
  *
- * The global `~/.codex/AGENTS.md` has no switch. The byte cap does not reach
- * it, `--ignore-user-config` is about config.toml alone, and the file lives
- * beside the credentials under the same `CODEX_HOME` (verified on 0.157.1:
- * `codex debug prompt-input` still carries it with the cap at zero, and a
- * seat briefed in English answered in the language that file names). So it
- * is residue: the probe renders the prompt the seat is handed, locally and
- * without a model call, with the same cap, and every consult keeps it.
+ * The global `~/.codex/AGENTS.md` has no switch, verified on 0.157.1. The
+ * byte cap does not reach it, `--ignore-user-config` is about config.toml
+ * alone, and the file lives beside the credentials under the same
+ * `CODEX_HOME`. A seat briefed in English answered in the language that file
+ * names. So it is residue, and the probe records it: `codex debug
+ * prompt-input` renders codex's model-visible prompt locally, without a model
+ * call, with every seat override it accepts. It cannot take
+ * `--ignore-user-config` or `--ignore-rules`, so the snapshot is a superset
+ * of what the seat gets: config.toml layers the seat strips can appear in it.
  */
 function balthasarProfile(inputs: SeatInputs): SeatProfile {
   return {
@@ -136,7 +138,18 @@ function balthasarProfile(inputs: SeatInputs): SeatProfile {
     model: modelSelection("balthasar-2"),
     reasoningEffort: reasoningEffortSelection("balthasar-2"),
     timeoutMs: SEAT_TIMEOUT_MS,
-    residueProbe: ["codex", "debug", "prompt-input", "-c", "project_doc_max_bytes=0"],
+    residueProbe: [
+      "codex",
+      "debug",
+      "prompt-input",
+      "-c",
+      "project_doc_max_bytes=0",
+      "-c",
+      "tools.web_search=false",
+      // The seat's `--sandbox read-only`, in the only form the probe takes.
+      "-c",
+      'sandbox_mode="read-only"',
+    ],
   };
 }
 
