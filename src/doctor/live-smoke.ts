@@ -10,7 +10,7 @@ import { join } from "node:path";
 import { SEAT_PARSERS } from "../adapters/parsers.ts";
 import { seatAnswered, unansweredReason } from "../seats/answer.ts";
 import { slot, SLOTS, type SlotId } from "../core/slots.ts";
-import { canaryEvidence, loadCanaries } from "../seats/canaries.ts";
+import { loadCanaries, streamEvidence } from "../seats/canaries.ts";
 import { seatProfile, type SeatInputs } from "../seats/profiles.ts";
 import { runSeats } from "../seats/runner.ts";
 import { writeFileDurable } from "../util/fs.ts";
@@ -94,7 +94,6 @@ export async function liveSmoke(
     writeFileDurable(join(inputs.workDir, `${run.slot}.stdout.txt`), run.result.stdout);
     writeFileDurable(join(inputs.workDir, `${run.slot}.stderr.txt`), run.result.stderr);
     const parse = SEAT_PARSERS[slot(run.slot).harness](run.result.stdout);
-    const text = `${run.result.stdout}\n${run.result.stderr}`;
     const harness = slot(run.slot).harness;
     const answered = seatAnswered(harness, run.result);
     return {
@@ -107,7 +106,7 @@ export async function liveSmoke(
           : run.result.outcome.kind,
       parsed: parse.ok,
       parseReason: parse.ok ? undefined : parse.reason,
-      canaryHits: canaryEvidence(text, SMOKE_BRIEF, canaries),
+      canaryHits: streamEvidence([run.result.stdout, run.result.stderr], SMOKE_BRIEF, canaries),
       durationMs: run.durationMs,
       stdout: run.result.stdout,
     };
