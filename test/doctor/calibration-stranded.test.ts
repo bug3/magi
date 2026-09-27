@@ -4,11 +4,11 @@ import { join } from "node:path";
 import { test } from "node:test";
 
 import {
-  NONCE_MARKER,
   STRANDED_WRITE_MAX_BYTES,
   dirtyStart,
   readDirtyStartFacts,
-} from "../../src/doctor/calibration-layers.ts";
+} from "../../src/doctor/calibration-dirty-start.ts";
+import { NONCE_MARKER } from "../../src/doctor/calibration-layers.ts";
 import { workspace } from "../support/cli.ts";
 
 // The scan runs on every `magi doctor`, over the repository root, ~/.claude
