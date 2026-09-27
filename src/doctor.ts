@@ -8,6 +8,7 @@ export {
   NONCE_MARKER,
   RECOVERY_FILE,
   calibrateCanaries,
+  carriesNonceMarker,
   unisolatedProfile,
   type CalibrateInputs,
   type CalibrationReport,

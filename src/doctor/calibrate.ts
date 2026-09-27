@@ -60,6 +60,7 @@ export {
   NONCE_MARKER,
   NONCE_PREFIX,
   RECOVERY_FILE,
+  carriesNonceMarker,
   type CalibrationLayer,
 } from "./calibration-layers.ts";
 export {
