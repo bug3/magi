@@ -407,6 +407,12 @@ ledger as a warning and prints at the console. It is never an automatic
 degrade: a match is evidence of a leak, not proof of one, and degradation
 stays mechanical.
 
+A hit the seat could have copied out of its own brief, pack included, is an
+echo and not evidence. That is judged per match: each match is widened to
+the word it sits in, and the hit is dropped only when every such word is in
+the brief. A pack that quotes one Turkish word therefore echoes that word,
+and nothing else; a seat that answers in Turkish is still caught.
+
 Where a harness has unstrippable residue, a hit is read against that
 consult's residue snapshot first. A marker the snapshot already carries is
 residue, not news. Warnings stay warnings either way.
