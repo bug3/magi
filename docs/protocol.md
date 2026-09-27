@@ -471,7 +471,7 @@ holds the original images and two digests, the nonce's and the one restore
 expects the layer to still match, so hand recovery can tell MAGI's line from
 an owner edit without a token on disk. The captures land only once both rounds
 are over, and an earlier calibration's leavings are cleared out of the work
-directory after staging has ruled out a dirty start and before probing. The
+directory once the start is confirmed clean and before probing. The
 ledger row names its calibration by the nonce's digest rather than the nonce,
 the ledger living inside that same repository; rows written before that keep
 their raw nonce and are read the same way, so the residue they carry is

@@ -137,9 +137,9 @@ test("leftover nonce residue and a pending recovery sidecar are failures", () =>
     rows: [VERSIONED],
     seated: SEATED,
     layers,
-    recoveryPending: true,
+    recoveryPending: "/repo/.magi/doctor/calibration-recovery.json",
   });
   assert.equal(health.failures.length, 2);
   assert.match(health.failures.join(" "), /nonce/);
-  assert.match(health.failures.join(" "), /recovery/);
+  assert.match(health.failures.join(" "), /recovery sidecar at \/repo\/\.magi\/doctor\//);
 });
