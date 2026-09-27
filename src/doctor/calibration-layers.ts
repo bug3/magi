@@ -145,6 +145,6 @@ export function restoreLayer(layer: AppliedLayer): boolean {
     rmSync(layer.path, { force: true });
     return true;
   }
-  writeFileDurable(layer.path, layer.original ?? "");
+  writeFileDurable(layer.path, layer.original ?? "", "keep");
   return true;
 }

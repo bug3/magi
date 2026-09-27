@@ -431,6 +431,11 @@ refused rather than clobbered, and the sidecar outlives a refused restore as
 the hand-recovery copy. The row records the seated CLI versions and the
 restored layers' hashes.
 
+The layers are the owner's files in the owner's directories, so neither the
+mutation nor the restore changes a mode there: a layer keeps the mode it had,
+its directory is never re-moded, and one calibration creates is made the way
+any tool would make it. Only MAGI's own state under `.magi/` is kept private.
+
 Calibration refuses a dirty start, the same states doctor fails on: a
 recovery sidecar an earlier run left behind, a layer still carrying the nonce
 marker, or a temp file beside a layer that carries it or could not be checked

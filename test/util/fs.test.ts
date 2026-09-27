@@ -1,5 +1,14 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -79,6 +88,25 @@ test("writeFileDurable creates the parent directory and asserts private modes", 
 
     assert.equal(statSync(target).mode & 0o777, 0o600);
     assert.equal(statSync(join(root, "runs", "r1")).mode & 0o777, 0o700);
+  }));
+
+test("writeFileDurable with keep leaves a foreign directory and file at their modes", () =>
+  withSandbox((root) => {
+    const dir = join(root, "owner");
+    const existing = join(dir, "rules.md");
+    mkdirSync(dir, { mode: 0o755 });
+    chmodSync(dir, 0o755);
+    writeFileSync(existing, "old\n");
+    chmodSync(existing, 0o640);
+
+    writeFileDurable(existing, KNOWN_CONTENT, "keep");
+    writeFileDurable(join(dir, "new.md"), KNOWN_CONTENT, "keep");
+
+    assert.equal(readFileSync(existing, "utf8"), KNOWN_CONTENT);
+    assert.equal(statSync(existing).mode & 0o777, 0o640, "an existing file keeps its mode");
+    assert.equal(statSync(join(dir, "new.md")).mode & 0o777, 0o644, "a new file is ordinary");
+    assert.equal(statSync(dir).mode & 0o777, 0o755, "the directory is not re-moded");
+    assert.deepEqual(tempLeftovers(dir), []);
   }));
 
 test("writeFileDurable removes the temp file when the rename fails", () =>
