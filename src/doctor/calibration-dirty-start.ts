@@ -44,7 +44,11 @@ export interface DirtyStartFacts {
 /** A temp file beside a layer, by what reading it could establish. */
 export interface StrandedWrite {
   readonly path: string;
-  /** "unchecked": it could not be read, so it is not known to be clean. */
+  /**
+   * "unchecked": the file could not be read or is over the size limit, or
+   * `path` is a layer directory that could not be listed; either way it is
+   * not known to be clean.
+   */
   readonly nonce: "carried" | "unchecked";
 }
 
@@ -148,8 +152,9 @@ export function readDirtyStartFacts(paths: {
 
 /**
  * What an interrupted or refused calibration left for a person to finish: a
- * surviving recovery sidecar, a layer still carrying a nonce line, or a
- * nonce-bearing write stranded beside a layer. Doctor fails on each and
+ * surviving recovery sidecar, a layer still carrying a nonce line, or a temp
+ * file or layer directory beside one that carries a nonce or cannot be read
+ * to rule one out. Doctor fails on each and
  * calibration refuses to start over any of them, both from this one list, so
  * the two cannot disagree about what a dirty start is.
  */

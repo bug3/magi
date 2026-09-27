@@ -433,19 +433,21 @@ restored layers' hashes.
 
 Calibration refuses a dirty start, the same three states doctor fails on: a
 recovery sidecar an earlier run left behind, a layer still carrying the nonce
-marker, or a nonce-bearing temp file stranded beside a layer. Each one is a
-recovery a person has to finish, so the refusal names the file and asks for
-it to be handled by hand. The sidecar counts even when every layer is clean,
-because an owner who resolved a refused restore by editing the layer leaves no
-marker, and calibrating over it would replace the sidecar's originals with the
-current layers and then delete it. The temp file is what a kill between a
-durable write's open and its rename leaves: the nonce-bearing image under a
-name no layer read looks at, in the repository root for codex and in the rules
-directory grok loads whole. Only regular temp files are read, never through a
-link; one that cannot be read, or is larger than any calibration write, counts
-as unchecked rather than clean. The checks run before scratch cleanup or any
-write, so an interrupted run's recovery sidecar and captures remain available
-and no new probe calls spend quota.
+marker, or a temp file beside a layer that carries it or cannot be ruled
+out. Each one is a recovery a person has to finish, so the refusal names the
+file and asks for it to be handled by hand. The sidecar counts even when every
+layer is clean, because an owner who resolved a refused restore by editing the
+layer leaves no marker, and calibrating over it would replace the sidecar's
+originals with the current layers and then delete it. The temp file is what a
+kill between a durable write's open and its rename leaves: the nonce-bearing
+image under a name no layer read looks at, in the repository root for codex
+and in the rules directory grok loads whole. Only regular temp files are
+read, never through a link. A temp file that cannot be read or is over 4 MiB,
+and a layer directory that cannot be listed, count as unchecked rather than
+clean: the refusal names the file or the directory to be checked by hand.
+The checks run before scratch cleanup or any write, so an interrupted run's
+recovery sidecar and captures remain available and no new probe calls spend
+quota.
 `magi doctor --calibrate` makes the same refusal before it asks to spend, and
 its health report still names each leftover.
 
@@ -487,9 +489,9 @@ historical and visible.
 Only the layer targets hold a token, which is what is under test.
 
 Every doctor run then checks residue and clock, and every unproved state
-fails: a leftover sidecar, a nonce still in a live layer, a nonce-bearing or
-unreadable temp file beside a layer, a seated version that no passing
-calibration proved, and a ledger with no calibration at all.
+fails: a leftover sidecar, a nonce still in a live layer, a temp file or
+layer directory that carries a nonce or cannot be read, a seated version that
+no passing calibration proved, and a ledger with no calibration at all.
 The canaries are per-repository artifacts scanned on every consult, so a
 fresh target repository is honestly red until its own calibration runs. Only
 a layer whose hash drifted since the last calibration warns instead of
