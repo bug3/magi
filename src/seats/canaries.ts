@@ -73,14 +73,38 @@ export function canaryHits(text: string, canaries: readonly Canary[]): readonly 
  * after a seat echoed the token and looked like a leak. The evidence pack is
  * the same channel and needs the same rule: a pack that quotes this catalog
  * would otherwise make every seat discussing it look compromised.
+ *
+ * What counts as copied is judged per match, not per pattern. Each match is
+ * widened to the word it sits in, and the hit is an echo only when every such
+ * word is in the brief. A whole-pattern rule is right for a token and blind
+ * for a character class: one Turkish word quoted from a test fixture in the
+ * pack once silenced the language canary for a seat that answered its whole
+ * position in Turkish.
  */
 export function canaryEvidence(
   output: string,
   brief: string,
   canaries: readonly Canary[],
 ): readonly string[] {
-  const echoed = new Set(canaryHits(brief, canaries));
-  return canaryHits(output, canaries).filter((id) => !echoed.has(id));
+  return canaries
+    .filter((canary) => matchedWords(output, canary.pattern).some((word) => !brief.includes(word)))
+    .map((canary) => canary.id);
+}
+
+/** Letters, digits, `_` and `-`: what a word, or a token, is made of. */
+const WORD_CHARACTER = /[\p{L}\p{N}_-]/u;
+
+/** Every match of `pattern` in `text`, each widened to the word around it. */
+function matchedWords(text: string, pattern: RegExp): readonly string[] {
+  const flags = pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`;
+  const every = new RegExp(pattern.source, flags);
+  return [...text.matchAll(every)].map((match) => {
+    let start = match.index;
+    let end = start + match[0].length;
+    while (start > 0 && WORD_CHARACTER.test(text[start - 1] ?? "")) start -= 1;
+    while (end < text.length && WORD_CHARACTER.test(text[end] ?? "")) end += 1;
+    return text.slice(start, end);
+  });
 }
 
 export const CANARIES: readonly Canary[] = [

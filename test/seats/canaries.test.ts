@@ -114,3 +114,24 @@ test("a canary the brief never carries stays evidence", () => {
   const brief = "Answer in English. Nothing here is in any other script.";
   assert.deepEqual(canaryEvidence("bir görüş önsözü", brief, CANARIES), ["turkish-text-leak"]);
 });
+
+// Found live: a pack quoting one Turkish word from a test fixture silenced
+// the language canary for a seat that answered its whole position in Turkish.
+test("one quoted word in the brief does not silence a seat that answered in that script", () => {
+  const brief = `const contents = '{"seal":"ok","unicode":"ölçüm"}';`;
+  const output = "Birleştirmeyi engelleyen bir kusur bulmadım.";
+  assert.deepEqual(canaryEvidence(output, brief, CANARIES), ["turkish-text-leak"]);
+});
+
+test("a seat quoting the brief's own word back is still an echo", () => {
+  const brief = `const contents = '{"seal":"ok","unicode":"ölçüm"}';`;
+  const output = 'The fixture writes "ölçüm" to prove the write is byte-exact.';
+  assert.deepEqual(canaryEvidence(output, brief, CANARIES), []);
+});
+
+test("a token canary is an echo only for the token the brief carries", () => {
+  const token: Canary = { id: "token", pattern: /marker-[0-9]+/u, betrays: "a test layer" };
+  const brief = "The layer under test holds marker-42.";
+  assert.deepEqual(canaryEvidence("I see marker-42 in the brief.", brief, [token]), []);
+  assert.deepEqual(canaryEvidence("My context holds marker-43.", brief, [token]), ["token"]);
+});
