@@ -9,7 +9,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { test } from "node:test";
 
 import {
@@ -19,6 +19,7 @@ import {
   RECOVERY_FILE,
   calibrateCanaries,
 } from "../../src/doctor/calibrate.ts";
+import { realRound, roundProfiles } from "../../src/doctor/calibration-rounds.ts";
 import { sha256Text } from "../../src/util/fs.ts";
 
 // The canary's whole claim is that a token reaching a seat came from an
@@ -38,6 +39,41 @@ import { sha256Text } from "../../src/util/fs.ts";
 // while production puts it inside, so the shape could not be expressed at all.
 
 const NONCE = `${NONCE_PREFIX}hygiene-1`;
+
+test("the production round returns token-bearing output without recording it in scratch", async () => {
+  const w = world();
+  const profiles = roundProfiles(inputsFor(w), "isolated");
+  const claude = profiles.find((profile) => profile.slot === "melchior-1");
+  assert.ok(claude);
+  const payload = '{"type":"result","subtype":"success","is_error":false,' +
+    '"result":"magi-canary-production-round"}';
+  const before = scratchImages(w);
+
+  // Exercise realRound and runSeats, replacing only the harness executable.
+  // The existing stub emits a real result envelope carrying a token, so an
+  // eager capture write cannot hide behind an empty or inconclusive answer.
+  const runs = await realRound("isolated", [{
+    ...claude,
+    command: process.execPath,
+    args: [resolve("fixtures/seats/stub-seat.mjs"), "--payload", payload, ...claude.args],
+  }]);
+
+  assert.deepEqual(runs, [{
+    slot: "melchior-1",
+    stream: `${payload}\n`,
+    answered: true,
+  }]);
+  assert.deepEqual(scratchImages(w), before, "realRound reports output; the caller records it");
+  assert.deepEqual(magiScratchCarryingAToken(w), []);
+});
+
+function scratchImages(w: World): readonly { path: string; text: string }[] {
+  return readdirSync(w.workDir, { recursive: true, encoding: "utf8" })
+    .map((name) => join(w.workDir, name))
+    .filter((path) => statSync(path).isFile())
+    .sort()
+    .map((path) => ({ path, text: readFileSync(path, "utf8") }));
+}
 
 interface World {
   readonly home: string;
