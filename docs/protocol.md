@@ -431,15 +431,19 @@ refused rather than clobbered, and the sidecar outlives a refused restore as
 the hand-recovery copy. The row records the seated CLI versions and the
 restored layers' hashes.
 
-Calibration refuses a dirty start, the same two states doctor fails on: a
-recovery sidecar an earlier run left behind, or a layer still carrying the
-nonce marker. Either one is a recovery a person has to finish, so the refusal
-names the file and asks for restoration by hand. The sidecar counts even when
-every layer is clean, because an owner who resolved a refused restore by
-editing the layer leaves no marker, and calibrating over it would replace the
-sidecar's originals with the current layers and then delete it. Both checks
-run before scratch cleanup or any write, so an interrupted run's recovery
-sidecar and captures remain available and no new probe calls spend quota.
+Calibration refuses a dirty start, the same three states doctor fails on: a
+recovery sidecar an earlier run left behind, a layer still carrying the nonce
+marker, or a nonce-bearing temp file stranded beside a layer. Each one is a
+recovery a person has to finish, so the refusal names the file and asks for
+it to be handled by hand. The sidecar counts even when every layer is clean,
+because an owner who resolved a refused restore by editing the layer leaves no
+marker, and calibrating over it would replace the sidecar's originals with the
+current layers and then delete it. The temp file is what a kill between a
+durable write's open and its rename leaves: the nonce-bearing image under a
+name no layer read looks at, in the repository root for codex and in the rules
+directory grok loads whole. The checks run before scratch cleanup or any
+write, so an interrupted run's recovery sidecar and captures remain available
+and no new probe calls spend quota.
 `magi doctor --calibrate` makes the same refusal before it asks to spend, and
 its health report still names each leftover.
 
