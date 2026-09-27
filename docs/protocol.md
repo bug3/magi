@@ -440,6 +440,8 @@ editing the layer leaves no marker, and calibrating over it would replace the
 sidecar's originals with the current layers and then delete it. Both checks
 run before scratch cleanup or any write, so an interrupted run's recovery
 sidecar and captures remain available and no new probe calls spend quota.
+`magi doctor --calibrate` makes the same refusal before it asks to spend, and
+its health report still names each leftover.
 
 Probe captures have a narrower guarantee. Completed rounds' raw streams stay
 in memory until the probe sequence ends and layer restoration has been
