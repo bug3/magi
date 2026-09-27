@@ -25,7 +25,7 @@ import { buildEvidencePack, type EvidencePack } from "../evidence/pack.ts";
 import { compileSchema } from "../schema/validator.ts";
 import { canaryEvidence, loadCanaries } from "../seats/canaries.ts";
 import { seatProfile } from "../seats/profiles.ts";
-import { probeSucceeded, runResidueProbe } from "../seats/residue.ts";
+import { probeFailure, probeSucceeded, runResidueProbe } from "../seats/residue.ts";
 import { runSeats, type SeatRun } from "../seats/runner.ts";
 import { ensureDir, sha256Text, writeFileDurable } from "../util/fs.ts";
 import { gateBrief } from "./brief-gate.ts";
@@ -245,7 +245,11 @@ async function snapshotResidue(
     join(paths.rawDir, `${profile.slot}.inspect.json`),
     probeSucceeded(probe)
       ? probe.stdout
-      : `${JSON.stringify({ residueProbeFailed: probe.outcome, stderr: probe.stderr })}\n`,
+      : `${JSON.stringify({
+          residueProbeFailed: probe.outcome,
+          reason: probeFailure(probe),
+          stderr: probe.stderr,
+        })}\n`,
   );
 }
 
