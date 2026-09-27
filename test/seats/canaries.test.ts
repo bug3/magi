@@ -177,3 +177,46 @@ test("a long run of matches is widened once, not once per match", () => {
   assert.deepEqual(canaryEvidence(run, "Answer in English.", CANARIES), ["turkish-text-leak"]);
   assert.ok(Date.now() - started < 1_000, "widening is linear in the text");
 });
+
+/** A seat's answer the way codex prints it: JSON lines, the answer a nested document. */
+function codexStream(position: string): string {
+  return [
+    JSON.stringify({ type: "thread.started" }),
+    JSON.stringify({
+      type: "item.completed",
+      item: { type: "agent_message", text: JSON.stringify({ position, findings: [] }) },
+    }),
+  ].join("\n");
+}
+
+const ENGLISH_BRIEF = "Answer in English. Nothing here is in any other script.";
+
+// Found live: two seats discussing this very rule in English tripped it by
+// quoting example words, putting them in code spans, and naming letters.
+test("quotations, code spans and single letters in a seat's text are discussion", () => {
+  const discussion =
+    'A seat might write "ölçümü", `preölçüm` or `foo-ç-bar`; the class covers İ, ı, ş, ç and ğ.';
+  assert.deepEqual(canaryEvidence(codexStream(discussion), ENGLISH_BRIEF, CANARIES), []);
+  assert.deepEqual(canaryEvidence(codexStream(TURKISH_ANSWER), ENGLISH_BRIEF, CANARIES), [
+    "turkish-text-leak",
+  ]);
+});
+
+test("a preamble in front of the envelope is read as it stands", () => {
+  const stream = `Merhaba, işte cevabım:\n${codexStream("An answer in English.")}`;
+  assert.deepEqual(canaryEvidence(stream, ENGLISH_BRIEF, CANARIES), ["turkish-text-leak"]);
+});
+
+test("a fenced answer and an answer cut short are both still read", () => {
+  const answer = JSON.stringify({ position: TURKISH_ANSWER, findings: [] });
+  const fenced = JSON.stringify({ result: `\`\`\`json\n${answer}\n\`\`\`` });
+  assert.deepEqual(canaryEvidence(fenced, ENGLISH_BRIEF, CANARIES), ["turkish-text-leak"]);
+  const cut = codexStream(TURKISH_ANSWER).slice(0, -20);
+  assert.deepEqual(canaryEvidence(cut, ENGLISH_BRIEF, CANARIES), ["turkish-text-leak"]);
+});
+
+test("an escaped line break does not glue itself to the next word", () => {
+  const brief = `const contents = '{"seal":"ok","unicode":"ölçüm"}';`;
+  const stream = JSON.stringify({ position: "First line.\nölçüm is the fixture's word." });
+  assert.deepEqual(canaryEvidence(stream, brief, CANARIES), []);
+});
