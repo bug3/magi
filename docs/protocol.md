@@ -441,7 +441,9 @@ marker, and calibrating over it would replace the sidecar's originals with the
 current layers and then delete it. The temp file is what a kill between a
 durable write's open and its rename leaves: the nonce-bearing image under a
 name no layer read looks at, in the repository root for codex and in the rules
-directory grok loads whole. The checks run before scratch cleanup or any
+directory grok loads whole. Only regular temp files are read, never through a
+link; one that cannot be read, or is larger than any calibration write, counts
+as unchecked rather than clean. The checks run before scratch cleanup or any
 write, so an interrupted run's recovery sidecar and captures remain available
 and no new probe calls spend quota.
 `magi doctor --calibrate` makes the same refusal before it asks to spend, and
@@ -485,8 +487,9 @@ historical and visible.
 Only the layer targets hold a token, which is what is under test.
 
 Every doctor run then checks residue and clock, and every unproved state
-fails: a leftover sidecar, a nonce still in a live layer, a seated version
-that no passing calibration proved, and a ledger with no calibration at all.
+fails: a leftover sidecar, a nonce still in a live layer, a nonce-bearing or
+unreadable temp file beside a layer, a seated version that no passing
+calibration proved, and a ledger with no calibration at all.
 The canaries are per-repository artifacts scanned on every consult, so a
 fresh target repository is honestly red until its own calibration runs. Only
 a layer whose hash drifted since the last calibration warns instead of

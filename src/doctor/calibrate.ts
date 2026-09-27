@@ -14,8 +14,9 @@
  * image is written before the first layer changes, restore happens only
  * when the current content still equals the expected nonce-bearing image
  * (a concurrent edit is refused, never clobbered), and the sidecar is
- * removed only after every layer restored. A sidecar or a nonce marker left by
- * an earlier run refuses the start. The row records the seated CLI
+ * removed only after every layer restored. Anything an earlier run left for a
+ * person to finish refuses the start; `dirtyStart` is the one list of what
+ * counts. The row records the seated CLI
  * versions and the restored layers' hashes, so doctor can tell a stale
  * calibration from a current one.
  *
