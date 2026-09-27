@@ -408,10 +408,25 @@ degrade: a match is evidence of a leak, not proof of one, and degradation
 stays mechanical.
 
 A hit the seat could have copied out of its own brief, pack included, is an
-echo and not evidence. That is judged per match: each match is widened to
-the word it sits in, and the hit is dropped only when every such word is in
-the brief. A pack that quotes one Turkish word therefore echoes that word,
-and nothing else; a seat that answers in Turkish is still caught.
+echo and not evidence. That is judged per match, on the seat's own voice:
+
+- Each stream is read on its own, and taken apart first. Every JSON document
+  in it, the whole stream, a line, or the span from a first `{` or `[` to a
+  last `}` or `]`, is read down to its strings, and a string holding such a
+  document is opened in turn, up to eight deep. Text that is not JSON, a
+  preamble or an answer cut short, is read exactly as it stands.
+- Inside the strings the seat wrote, a quotation in straight or curly double
+  quotes on one line and an inline code span are what it cites, and are
+  skipped. A single letter is skipped everywhere.
+- Each remaining match is widened to its word: a run of letters, marks,
+  digits, `_` and `-`. The hit is an echo only when every such word is a whole
+  word of the brief, compared after Unicode normalization under both root and
+  Turkish lower-casing.
+
+A pack that quotes one Turkish word therefore echoes that word, capitalised
+or not, and nothing else; an inflected form of it is a new word, and a seat
+that answers in Turkish is still caught. A local canary may not carry the `g`
+or `y` flag or match empty text; the catalog refuses such a pattern by name.
 
 Where a harness has unstrippable residue, a hit is read against that
 consult's residue snapshot first. A marker the snapshot already carries is
