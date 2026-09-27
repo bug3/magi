@@ -74,37 +74,63 @@ export function canaryHits(text: string, canaries: readonly Canary[]): readonly 
  * the same channel and needs the same rule: a pack that quotes this catalog
  * would otherwise make every seat discussing it look compromised.
  *
- * What counts as copied is judged per match, not per pattern. Each match is
- * widened to the word it sits in, and the hit is an echo only when every such
- * word is in the brief. A whole-pattern rule is right for a token and blind
- * for a character class: one Turkish word quoted from a test fixture in the
- * pack once silenced the language canary for a seat that answered its whole
- * position in Turkish.
+ * What counts as copied is judged per match, not per pattern. A whole-pattern
+ * rule is right for a token and blind for a character class: one Turkish word
+ * quoted from a test fixture in the pack once silenced the language canary for
+ * a seat that answered its whole position in Turkish. So each match is widened
+ * to the word it sits in, and the hit is an echo only when every such word is
+ * a whole word of the brief, compared after Unicode normalization and case
+ * folding. An inflected form is a different word, and stays evidence.
  */
 export function canaryEvidence(
   output: string,
   brief: string,
   canaries: readonly Canary[],
 ): readonly string[] {
+  const briefWords = new Set((brief.normalize("NFC").match(WORD) ?? []).flatMap(folds));
+  const text = output.normalize("NFC");
   return canaries
-    .filter((canary) => matchedWords(output, canary.pattern).some((word) => !brief.includes(word)))
+    .filter((canary) =>
+      matchedWords(text, canary.pattern).some(
+        (word) => !folds(word).some((form) => briefWords.has(form)),
+      ),
+    )
     .map((canary) => canary.id);
 }
 
-/** Letters, digits, `_` and `-`: what a word, or a token, is made of. */
-const WORD_CHARACTER = /[\p{L}\p{N}_-]/u;
+/** Letters, marks, digits, `_` and `-`: what a word, or a token, is made of. */
+const WORD_CHARACTER = /[\p{L}\p{M}\p{N}_-]/u;
+const WORD = /[\p{L}\p{M}\p{N}_-]+/gu;
 
-/** Every match of `pattern` in `text`, each widened to the word around it. */
+/**
+ * The forms two words are compared in. Both casings count: Turkish folds İ
+ * and ı right, while text capitalised the ordinary way writes ASCII I for i,
+ * which only the root casing folds back.
+ */
+function folds(word: string): readonly string[] {
+  return [word.toLowerCase(), word.toLocaleLowerCase("tr")];
+}
+
+/**
+ * Every match of `pattern` in `text`, each widened to the word around it. A
+ * match inside a word already widened adds nothing and is skipped, so a long
+ * run of matches costs one pass, not one pass per match.
+ */
 function matchedWords(text: string, pattern: RegExp): readonly string[] {
-  const flags = pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`;
-  const every = new RegExp(pattern.source, flags);
-  return [...text.matchAll(every)].map((match) => {
+  const every = new RegExp(pattern.source, `${pattern.flags.replace("g", "")}g`);
+  const found: string[] = [];
+  let reached = 0;
+  for (const match of text.matchAll(every)) {
+    if (match.index < reached) continue;
     let start = match.index;
     let end = start + match[0].length;
     while (start > 0 && WORD_CHARACTER.test(text[start - 1] ?? "")) start -= 1;
     while (end < text.length && WORD_CHARACTER.test(text[end] ?? "")) end += 1;
-    return text.slice(start, end);
-  });
+    reached = Math.max(end, match.index + 1);
+    const word = text.slice(start, end);
+    if (word !== "") found.push(word);
+  }
+  return found;
 }
 
 export const CANARIES: readonly Canary[] = [
