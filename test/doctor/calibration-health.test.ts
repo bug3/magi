@@ -144,10 +144,10 @@ test("leftover nonce residue, a pending sidecar and a stranded write are failure
     seated: SEATED,
     layers,
     recoveryPending: "/repo/.magi/doctor/calibration-recovery.json",
-    strandedWrites: ["/repo/.tmp-1-a-b"],
+    strandedWrites: [{ path: "/repo/.tmp-1-a-b", nonce: "carried" }],
   });
   assert.equal(health.failures.length, 3);
   assert.match(health.failures.join(" "), /nonce/);
   assert.match(health.failures.join(" "), /recovery sidecar at \/repo\/\.magi\/doctor\//);
-  assert.match(health.failures.join(" "), /\/repo\/\.tmp-1-a-b is a write .* stranded/);
+  assert.match(health.failures.join(" "), /\/repo\/\.tmp-1-a-b is a temp file carrying a calibration nonce/);
 });
