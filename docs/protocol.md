@@ -133,11 +133,25 @@ artifact, and every seat's raw output is canary-scanned.
 
 Two seats carry one. Grok's is `grok inspect --json`, for the rules, skills,
 MCP servers and hooks it keeps. Codex's is `codex debug prompt-input`, which
-renders the prompt a seat is handed without a model call: the global
-`~/.codex/AGENTS.md` has no switch, the byte cap that drops the repository's
-`AGENTS.md` does not reach it, and it shares `CODEX_HOME` with the
-credentials. A seat briefed in English once answered in the language that
+renders codex's model-visible prompt without a model call, for the global
+`~/.codex/AGENTS.md`: that file has no switch, the byte cap that drops the
+repository's `AGENTS.md` does not reach it, and it shares `CODEX_HOME` with
+the credentials. A seat briefed in English once answered in the language that
 file names, and the snapshot is what makes such a hit readable.
+
+The codex snapshot is a superset of what the seat gets, not a copy. The probe
+takes the seat's byte cap, sandbox and web-search overrides, but it cannot
+skip `config.toml` or the execpolicy rules the way the seat does, so layers
+the seat strips can appear in it. Read against it, only what the global
+`AGENTS.md` carries is residue; a marker that only `config.toml` explains is
+news.
+
+Snapshots are written into the repository every seat is pointed at, so a seat
+with read tools can open another harness's snapshot: grok can read the
+owner's global codex instructions there, and codex grok's rules. The residue
+is the owner's own configuration, which the owning seat already carries;
+recording it is what makes a canary hit readable, and the cost is that each
+harness's residue becomes visible to the others.
 
 The canary calibration does not write into that file. A run has one nonce
 and tells its layers apart by harness, so a second codex layer that always
