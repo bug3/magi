@@ -502,8 +502,9 @@ layer leaves no marker, and calibrating over it would replace the sidecar's
 originals with the current layers and then delete it. The temp file is what a
 kill between a durable write's open and its rename leaves: the nonce-bearing
 image under a name no layer read looks at, in the repository root for codex
-and in the rules directory grok loads whole. Only regular temp files are
-read, never through a link. A temp file that cannot be read, one over 4 MiB,
+and in the rules directory grok loads whole. A layer that is a link is
+written at its target, so the target's directory is scanned beside the
+layer's. Only regular temp files are read, never through a link. A temp file that cannot be read, one over 4 MiB,
 which is not read at all, and a layer directory that cannot be listed are not
 known to be clean: the refusal names the file or the directory, says which,
 and asks for it to be checked by hand. A layer directory that does not exist,

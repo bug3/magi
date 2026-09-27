@@ -4,6 +4,7 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -122,6 +123,26 @@ test("a nonce-bearing temp file is reported by what it holds, not by where it ca
     assert.deepEqual(dirtyStart({ recoveryPending: false, layers: [], strandedWrites: facts }), [
       `${stranded} is a temp file carrying a calibration nonce line; remove it by hand`,
     ]);
+  } finally {
+    space.remove();
+  }
+});
+
+// A linked layer is written at its target, so its temp file lands beside the
+// target, which may be nowhere near the layer: a dotfiles checkout, say.
+test("a temp file stranded beside a linked layer's target is found", () => {
+  const space = workspace();
+  try {
+    const dotfiles = join(space.home, "dotfiles");
+    mkdirSync(dotfiles);
+    mkdirSync(join(space.home, ".claude"));
+    writeFileSync(join(dotfiles, "CLAUDE.md"), "# owner rules\n");
+    symlinkSync(join(dotfiles, "CLAUDE.md"), join(space.home, ".claude", "CLAUDE.md"));
+    const residue = `# owner rules\n${NONCE_MARKER} magi-canary-residue\n`;
+    writeFileSync(join(dotfiles, ".tmp-1-a-b"), residue);
+    // Found where the write lands: the target's real directory.
+    const stranded = join(realpathSync(dotfiles), ".tmp-1-a-b");
+    assert.deepEqual(scan(space), [{ path: stranded, nonce: "carried" }]);
   } finally {
     space.remove();
   }
