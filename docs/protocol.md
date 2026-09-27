@@ -129,10 +129,12 @@ selection policy is.
 **Residue is recorded, never denied.** Where a harness has no switch for a
 layer, the profile declares a residue probe, every fan-out snapshots that
 probe's output into the consult's `raw/` directory as a first-class
-artifact, and every seat's raw output is canary-scanned. `magi doctor` runs
-each declared probe the same way and fails when one does not run, so a CLI
-that lost the command is found before a consult, not as a failure record in
-its `raw/`.
+artifact, and every seat's raw output is canary-scanned. A probe counts only
+when it exits 0 with a whole, non-empty output; anything else is recorded as a
+failure in place of the snapshot. `magi doctor` runs each declared probe the
+same way and fails, naming the outcome, when one does not produce a snapshot,
+so a CLI that lost the command is found before a consult, not as a failure
+record in its `raw/`.
 
 Two seats carry one. Grok's is `grok inspect --json`, for the rules, skills,
 MCP servers and hooks it keeps. Codex's is `codex debug prompt-input`, which
