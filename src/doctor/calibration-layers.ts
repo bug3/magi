@@ -6,7 +6,7 @@
  * clobbering them.
  */
 
-import { existsSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 import type { Harness } from "../core/slots.ts";
@@ -69,7 +69,22 @@ export interface AppliedLayer {
   readonly mutated: string;
 }
 
+function isLink(path: string): boolean {
+  try {
+    return lstatSync(path).isSymbolicLink();
+  } catch {
+    return false;
+  }
+}
+
 export function stageLayer(harness: Harness, path: string, line: string): AppliedLayer {
+  // A link to nothing reads as absent, so it would be staged as a layer to
+  // create and removed on restore, taking the owner's link with it.
+  if (!existsSync(path) && isLink(path)) {
+    throw new Error(
+      `${path} is a link to a file that does not exist; calibration will not replace it`,
+    );
+  }
   if (existsSync(path)) {
     const original = readFileSync(path, "utf8");
     return { harness, path, kind: "appended", original, mutated: `${original}\n${line}\n` };

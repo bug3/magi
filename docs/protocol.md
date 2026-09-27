@@ -433,8 +433,11 @@ restored layers' hashes.
 
 The layers are the owner's files in the owner's directories, so neither the
 mutation nor the restore changes a mode there: a layer keeps the mode it had,
-its directory is never re-moded, and one calibration creates is made the way
-any tool would make it. Only MAGI's own state under `.magi/` is kept private.
+its directory is never re-moded, and a file or directory calibration creates
+is made under the owner's umask, as any tool would make it. A layer that is a
+link stays a link, because the write lands on its target; a link to nothing
+refuses the calibration rather than being replaced. Only MAGI's own state
+under `.magi/` is kept private.
 
 Calibration refuses a dirty start, the same states doctor fails on: a
 recovery sidecar an earlier run left behind, a layer still carrying the nonce

@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
 import {
   chmodSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
   rmSync,
   statSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -99,14 +101,42 @@ test("writeFileDurable with keep leaves a foreign directory and file at their mo
     writeFileSync(existing, "old\n");
     chmodSync(existing, 0o640);
 
-    writeFileDurable(existing, KNOWN_CONTENT, "keep");
-    writeFileDurable(join(dir, "new.md"), KNOWN_CONTENT, "keep");
+    // A strict umask, so a fixed mode for new files cannot pass by coincidence.
+    const previous = process.umask(0o077);
+    let ordinary: number;
+    try {
+      writeFileDurable(existing, KNOWN_CONTENT, "keep");
+      writeFileDurable(join(dir, "new.md"), KNOWN_CONTENT, "keep");
+      // What any tool gets for a new file here: 0o666 under that umask.
+      writeFileSync(join(dir, "ordinary.md"), "");
+      ordinary = statSync(join(dir, "ordinary.md")).mode & 0o777;
+    } finally {
+      process.umask(previous);
+    }
 
     assert.equal(readFileSync(existing, "utf8"), KNOWN_CONTENT);
     assert.equal(statSync(existing).mode & 0o777, 0o640, "an existing file keeps its mode");
-    assert.equal(statSync(join(dir, "new.md")).mode & 0o777, 0o644, "a new file is ordinary");
+    assert.equal(statSync(join(dir, "new.md")).mode & 0o777, ordinary, "a new file is ordinary");
     assert.equal(statSync(dir).mode & 0o777, 0o755, "the directory is not re-moded");
     assert.deepEqual(tempLeftovers(dir), []);
+  }));
+
+test("writeFileDurable with keep writes through a link to its target and keeps the link", () =>
+  withSandbox((root) => {
+    const target = join(root, "dotfiles", "CLAUDE.md");
+    const link = join(root, "home", "CLAUDE.md");
+    mkdirSync(join(root, "dotfiles"));
+    mkdirSync(join(root, "home"));
+    writeFileSync(target, "old\n");
+    chmodSync(target, 0o644);
+    symlinkSync(target, link);
+
+    writeFileDurable(link, KNOWN_CONTENT, "keep");
+
+    assert.ok(lstatSync(link).isSymbolicLink(), "the owner's link survives");
+    assert.equal(readFileSync(target, "utf8"), KNOWN_CONTENT, "the write lands on the target");
+    assert.equal(statSync(target).mode & 0o777, 0o644);
+    assert.deepEqual(tempLeftovers(join(root, "home")), []);
   }));
 
 test("writeFileDurable removes the temp file when the rename fails", () =>

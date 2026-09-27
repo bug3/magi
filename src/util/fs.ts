@@ -14,9 +14,11 @@ import {
   chmodSync,
   closeSync,
   createReadStream,
+  existsSync,
   fsyncSync,
   mkdirSync,
   openSync,
+  realpathSync,
   renameSync,
   statSync,
   unlinkSync,
@@ -61,19 +63,23 @@ export const DURABLE_TEMP_PREFIX = ".tmp-";
  *
  * A numeric `mode` is for MAGI's own state: the directory is asserted private
  * and the file gets exactly that mode. `"keep"` is for a file MAGI does not
- * own, such as a harness's config layer: an existing directory is left at
- * its mode, a missing one is made the way any tool would make it, and the
- * file keeps the mode it had, or gets an ordinary one if it is new.
+ * own, such as a harness's config layer. The write goes through an existing
+ * link to its target, so the owner's link survives; an existing directory is
+ * left at its mode and a missing one is made under the umask; the file keeps
+ * the mode it had, or is made under the umask like any new file.
  */
 export function writeFileDurable(
   path: string,
   contents: string | Uint8Array,
   mode: number | "keep" = 0o600,
 ): DurableWriteResult {
-  const dir = dirname(path);
+  const destination = mode === "keep" && existsSync(path) ? realpathSync(path) : path;
+  const dir = dirname(destination);
   if (mode === "keep") mkdirSync(dir, { recursive: true });
   else ensureDir(dir, 0o700);
-  const fileMode = mode === "keep" ? existingMode(path) ?? FOREIGN_FILE_MODE : mode;
+  // Undefined for a new file MAGI does not own: the umask decides, as it would
+  // for any tool, and nothing re-modes the result.
+  const fileMode = mode === "keep" ? existingMode(destination) : mode;
   const data = typeof contents === "string" ? Buffer.from(contents, "utf8") : Buffer.from(contents);
   const temp = join(
     dir,
@@ -81,7 +87,7 @@ export function writeFileDurable(
       Math.random().toString(36).slice(2, 8),
   );
 
-  const fd = openSync(temp, "wx", fileMode);
+  const fd = openSync(temp, "wx", fileMode ?? 0o666);
   try {
     let offset = 0;
     while (offset < data.length) offset += writeSync(fd, data, offset, data.length - offset);
@@ -94,8 +100,8 @@ export function writeFileDurable(
   closeSync(fd);
 
   try {
-    chmodSync(temp, fileMode);
-    renameSync(temp, path);
+    if (fileMode !== undefined) chmodSync(temp, fileMode);
+    renameSync(temp, destination);
   } catch (error) {
     safeUnlink(temp);
     throw error;
@@ -103,9 +109,6 @@ export function writeFileDurable(
   fsyncPath(dir);
   return { path, bytes: data.length };
 }
-
-/** The mode a new file MAGI does not own gets: owner-writable, readable by all. */
-const FOREIGN_FILE_MODE = 0o644;
 
 /** The permission bits of an existing file, or undefined when there is none. */
 function existingMode(path: string): number | undefined {
