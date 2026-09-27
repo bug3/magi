@@ -131,6 +131,19 @@ layer, the profile declares a residue probe, every fan-out snapshots that
 probe's output into the consult's `raw/` directory as a first-class
 artifact, and every seat's raw output is canary-scanned.
 
+Two seats carry one. Grok's is `grok inspect --json`, for the rules, skills,
+MCP servers and hooks it keeps. Codex's is `codex debug prompt-input`, which
+renders the prompt a seat is handed without a model call: the global
+`~/.codex/AGENTS.md` has no switch, the byte cap that drops the repository's
+`AGENTS.md` does not reach it, and it shares `CODEX_HOME` with the
+credentials. A seat briefed in English once answered in the language that
+file names, and the snapshot is what makes such a hit readable.
+
+The canary calibration does not write into that file. A run has one nonce
+and tells its layers apart by harness, so a second codex layer that always
+leaks would fail the repository layer's isolated direction on every run, and
+the snapshot already shows what calibration would measure.
+
 None of this touches interactive use. Stripping applies only to MAGI's own
 headless seat calls; your daily sessions keep every customization.
 

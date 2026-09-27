@@ -176,6 +176,16 @@ test("a review convenes three seats for real and records what each one said", as
       );
     }
 
+    // The residue the real profiles declare, snapshotted through the binary
+    // PATH resolved: a probe the harness failed would be recorded as a failure.
+    const raw = join(space.repo, ".magi", "consults", id, "raw");
+    assert.deepEqual(JSON.parse(readFileSync(join(raw, "balthasar-2.inspect.json"), "utf8")), []);
+    assert.deepEqual(
+      Object.keys(JSON.parse(readFileSync(join(raw, "casper-3.inspect.json"), "utf8"))),
+      ["rules", "skills", "mcp", "hooks"],
+    );
+    assert.ok(!existsSync(join(raw, "melchior-1.inspect.json")), "claude declares no probe");
+
     assert.ok(existsSync(join(space.repo, ".magi", "ledger.jsonl")), "the run reached the ledger");
     const synthesis = /scaffold: (\S+)/u.exec(run.out)?.[1];
     assert.ok(synthesis !== undefined && existsSync(synthesis), "the synthesis scaffold is on disk");

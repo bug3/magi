@@ -97,6 +97,14 @@ function melchiorProfile(inputs: SeatInputs): SeatProfile {
  * `--ignore-rules` the execpolicy rules, `project_doc_max_bytes=0` the repo
  * AGENTS.md. No `--model`: this seat keeps the CLI default, so the flag is
  * omitted rather than pinned to a guess.
+ *
+ * The global `~/.codex/AGENTS.md` has no switch. The byte cap does not reach
+ * it, `--ignore-user-config` is about config.toml alone, and the file lives
+ * beside the credentials under the same `CODEX_HOME` (verified on 0.157.1:
+ * `codex debug prompt-input` still carries it with the cap at zero, and a
+ * seat briefed in English answered in the language that file names). So it
+ * is residue: the probe renders the prompt the seat is handed, locally and
+ * without a model call, with the same cap, and every consult keeps it.
  */
 function balthasarProfile(inputs: SeatInputs): SeatProfile {
   return {
@@ -128,6 +136,7 @@ function balthasarProfile(inputs: SeatInputs): SeatProfile {
     model: modelSelection("balthasar-2"),
     reasoningEffort: reasoningEffortSelection("balthasar-2"),
     timeoutMs: SEAT_TIMEOUT_MS,
+    residueProbe: ["codex", "debug", "prompt-input", "-c", "project_doc_max_bytes=0"],
   };
 }
 
