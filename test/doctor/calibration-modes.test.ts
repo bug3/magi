@@ -1,5 +1,14 @@
 import assert from "node:assert/strict";
-import { chmodSync, mkdirSync, statSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 
@@ -25,23 +34,69 @@ test("a calibration round trip leaves every layer file and directory at its mode
       chmodSync(path, 0o644);
     }
     const mode = (path: string) => statSync(path).mode & 0o777;
-    const before = layers.map((path) => [path, mode(join(path, "..")), ...layers.slice(0, 2).includes(path) ? [mode(path)] : []]);
+    // Every layer directory, and the two layer files that outlive the run.
+    const modes = () => [
+      ...layers.map((path) => mode(join(path, ".."))),
+      ...layers.slice(0, 2).map(mode),
+    ];
+    const before = modes();
 
-    const workDir = join(space.repo, ".magi", "doctor");
-    await calibrateCanaries({
-      ...paths,
-      user: "nobody",
-      workDir,
-      path: space.bin,
-      ledgerPath: join(workDir, "ledger.jsonl"),
-      nonce: "magi-canary-modes",
-      runRound: async () => [],
-      captureVersion: async () => "1.0.0",
+    await calibrate(space);
+
+    assert.deepEqual(modes(), before);
+    assert.equal(mode(join(space.repo, ".magi", "doctor")), 0o700, "MAGI's own state stays private");
+  } finally {
+    space.remove();
+  }
+});
+
+function calibrate(space: ReturnType<typeof workspace>) {
+  const workDir = join(space.repo, ".magi", "doctor");
+  return calibrateCanaries({
+    home: space.home,
+    repoDir: space.repo,
+    user: "nobody",
+    workDir,
+    path: space.bin,
+    ledgerPath: join(workDir, "ledger.jsonl"),
+    nonce: "magi-canary-links",
+    runRound: async () => [],
+    captureVersion: async () => "1.0.0",
+  });
+}
+
+test("a layer that is a link stays a link, and its target gets the original back", async () => {
+  const space = workspace();
+  try {
+    const target = join(space.home, "dotfiles", "CLAUDE.md");
+    const layer = join(space.home, ".claude", "CLAUDE.md");
+    mkdirSync(join(space.home, "dotfiles"), { recursive: true });
+    mkdirSync(join(space.home, ".claude"), { recursive: true });
+    writeFileSync(target, "# owner rules\n");
+    symlinkSync(target, layer);
+
+    await calibrate(space);
+
+    assert.ok(lstatSync(layer).isSymbolicLink(), "the owner's link survives the round trip");
+    assert.equal(readFileSync(target, "utf8"), "# owner rules\n");
+  } finally {
+    space.remove();
+  }
+});
+
+test("a layer that is a link to nothing refuses calibration before any write", async () => {
+  const space = workspace();
+  try {
+    const layer = join(space.home, ".claude", "CLAUDE.md");
+    mkdirSync(join(space.home, ".claude"), { recursive: true });
+    symlinkSync(join(space.home, "missing.md"), layer);
+
+    await assert.rejects(calibrate(space), (error: Error) => {
+      assert.ok(error.message.includes(layer), "the refusal names the layer");
+      return true;
     });
-
-    const after = layers.map((path) => [path, mode(join(path, "..")), ...layers.slice(0, 2).includes(path) ? [mode(path)] : []]);
-    assert.deepEqual(after, before);
-    assert.equal(mode(workDir), 0o700, "MAGI's own state stays private");
+    assert.ok(lstatSync(layer).isSymbolicLink(), "the link is left as it was");
+    assert.equal(existsSync(join(space.repo, ".magi", "doctor")), false, "nothing was written");
   } finally {
     space.remove();
   }
