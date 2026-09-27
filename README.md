@@ -286,7 +286,8 @@ never convenes.
 
 `magi doctor` is quota-free. It renders every seat profile, probes the
 installed CLI versions and help text, checks every short and long flag the
-profiles rely on against that help, verifies `.magi/` is untracked and
+profiles rely on against that help, runs each seat's residue probe and fails
+when one produces no snapshot, verifies `.magi/` is untracked and
 ignored, reports where each harness would find the skill and whether that
 link still resolves to this installation, reports chronic seat failures with
 the disposition, skew and value telemetry, and fails when a seated CLI
