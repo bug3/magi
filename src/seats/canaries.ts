@@ -51,11 +51,24 @@ export function loadCanaries(magiDir: string): readonly Canary[] {
     if (typeof id !== "string" || typeof pattern !== "string" || typeof betrays !== "string") {
       throw new Error(`${localPath}[${at}] needs string id, pattern and betrays fields`);
     }
+    const flagText = typeof flags === "string" ? flags : "u";
+    // Scanning is stateless and unanchored: a sticky or global pattern would
+    // carry lastIndex from one text into the next.
+    if (/[gy]/u.test(flagText)) {
+      throw new Error(`${localPath}[${at}] ("${id}") carries the y or g flag`);
+    }
+    let compiled: RegExp;
     try {
-      return { id, pattern: new RegExp(pattern, typeof flags === "string" ? flags : "u"), betrays };
+      compiled = new RegExp(pattern, flagText);
     } catch {
       throw new Error(`${localPath}[${at}] ("${id}") carries an invalid pattern`);
     }
+    // A pattern that matches empty text matches at every word, so every seat
+    // would trip it once its matches are judged one by one.
+    if (compiled.test("")) {
+      throw new Error(`${localPath}[${at}] ("${id}") matches empty text`);
+    }
+    return { id, pattern: compiled, betrays };
   });
   return [...CANARIES, ...locals];
 }
