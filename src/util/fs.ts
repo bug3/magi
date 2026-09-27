@@ -58,6 +58,14 @@ export interface DurableWriteResult {
 export const DURABLE_TEMP_PREFIX = ".tmp-";
 
 /**
+ * Where a `"keep"` write of `path` lands, and so where its temp file is made:
+ * through an existing link to its target, otherwise the path itself.
+ */
+export function foreignDestination(path: string): string {
+  return existsSync(path) ? realpathSync(path) : path;
+}
+
+/**
  * Writes `contents` to `path` durably and atomically. The temp file is created
  * in the destination directory so the rename never crosses a filesystem.
  *
@@ -73,7 +81,7 @@ export function writeFileDurable(
   contents: string | Uint8Array,
   mode: number | "keep" = 0o600,
 ): DurableWriteResult {
-  const destination = mode === "keep" && existsSync(path) ? realpathSync(path) : path;
+  const destination = mode === "keep" ? foreignDestination(path) : path;
   const dir = dirname(destination);
   if (mode === "keep") mkdirSync(dir, { recursive: true });
   else ensureDir(dir, 0o700);
