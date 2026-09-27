@@ -51,6 +51,7 @@ test("matching versions and hashes are healthy: no failures, no warnings", () =>
     seated: SEATED,
     layers: LAYERS,
     recoveryPending: false,
+    strandedWrites: [],
   });
   assert.deepEqual(health.failures, []);
   assert.deepEqual(health.warnings, []);
@@ -63,6 +64,7 @@ test("a seated version with no matching calibration row is a failure (owner: fai
     seated: [{ harness: "claude", version: "2.2.0" }],
     layers: LAYERS,
     recoveryPending: false,
+    strandedWrites: [],
   });
   assert.equal(health.failures.length, 1);
   assert.match(health.failures[0] as string, /claude 2\.2\.0.*no passing calibration/);
@@ -85,6 +87,7 @@ test("a failed direction does not prove its harness: the leak keeps doctor red",
     seated: SEATED,
     layers: LAYERS,
     recoveryPending: false,
+    strandedWrites: [],
   });
   assert.equal(health.failures.length, 1);
   assert.match(health.failures[0] as string, /codex codex-cli 0\.148\.0.*no passing calibration/);
@@ -97,6 +100,7 @@ test("a drifted ambient layer is a warning, not a failure (owner: warn)", () => 
     seated: SEATED,
     layers,
     recoveryPending: false,
+    strandedWrites: [],
   });
   assert.deepEqual(health.failures, []);
   assert.equal(health.warnings.length, 1);
@@ -111,6 +115,7 @@ test("legacy rows without versions prove nothing: unverifiable is a failure", ()
     seated: SEATED,
     layers: LAYERS,
     recoveryPending: false,
+    strandedWrites: [],
   });
   assert.equal(health.failures.length, 1);
   assert.match(health.failures[0] as string, /predate version recording/);
@@ -125,21 +130,24 @@ test("no calibration rows at all is a failure: unproved canaries fail doctor", (
     seated: SEATED,
     layers: LAYERS,
     recoveryPending: false,
+    strandedWrites: [],
   });
   assert.equal(health.failures.length, 1);
   assert.match(health.failures[0] as string, /no calibration recorded/);
   assert.deepEqual(health.warnings, []);
 });
 
-test("leftover nonce residue and a pending recovery sidecar are failures", () => {
+test("leftover nonce residue, a pending sidecar and a stranded write are failures", () => {
   const layers = [{ ...LAYERS[0]!, hasNonceMarker: true }, LAYERS[1]!, LAYERS[2]!];
   const health = calibrationHealth({
     rows: [VERSIONED],
     seated: SEATED,
     layers,
     recoveryPending: "/repo/.magi/doctor/calibration-recovery.json",
+    strandedWrites: ["/repo/.tmp-1-a-b"],
   });
-  assert.equal(health.failures.length, 2);
+  assert.equal(health.failures.length, 3);
   assert.match(health.failures.join(" "), /nonce/);
   assert.match(health.failures.join(" "), /recovery sidecar at \/repo\/\.magi\/doctor\//);
+  assert.match(health.failures.join(" "), /\/repo\/\.tmp-1-a-b is a write .* stranded/);
 });

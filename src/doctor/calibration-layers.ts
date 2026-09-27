@@ -7,10 +7,10 @@
  */
 
 import { existsSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import type { Harness } from "../core/slots.ts";
-import { sha256Text, writeFileDurable } from "../util/fs.ts";
+import { DURABLE_TEMP_PREFIX, sha256Text, writeFileDurable } from "../util/fs.ts";
 
 /** The sidecar under workDir holding original images until restore succeeds. */
 export const RECOVERY_FILE = "calibration-recovery.json";
@@ -93,6 +93,29 @@ export interface DirtyStartFacts {
     readonly currentSha256: string;
     readonly hasNonceMarker: boolean;
   }[];
+  /** Durable-write temp files beside a layer that carry a nonce line. */
+  readonly strandedWrites: readonly string[];
+}
+
+/**
+ * A kill between a durable write's temp open and its rename leaves the
+ * nonce-bearing image beside the layer, under a name no layer read looks at.
+ * For codex that is the repository root, readable by the seats; for grok it
+ * is the rules directory the harness loads whole.
+ */
+function strandedWrites(layerPaths: readonly string[]): readonly string[] {
+  const stranded: string[] = [];
+  for (const dir of new Set(layerPaths.map((path) => dirname(path)))) {
+    if (!existsSync(dir)) continue;
+    for (const name of readdirSync(dir)) {
+      if (!name.startsWith(DURABLE_TEMP_PREFIX)) continue;
+      const path = join(dir, name);
+      if (statSync(path).isFile() && carriesNonceMarker(readFileSync(path, "utf8"))) {
+        stranded.push(path);
+      }
+    }
+  }
+  return stranded;
 }
 
 /**
@@ -107,31 +130,35 @@ export function readDirtyStartFacts(paths: {
   readonly workDir: string;
 }): DirtyStartFacts {
   const recoveryPath = join(paths.workDir, RECOVERY_FILE);
+  const layers = CALIBRATION_LAYERS.map((layer) => {
+    const path = layer.target(paths);
+    const content = existsSync(path) ? readFileSync(path, "utf8") : undefined;
+    return {
+      harness: layer.harness,
+      path,
+      currentSha256: content === undefined ? "absent" : sha256Text(content),
+      hasNonceMarker: carriesNonceMarker(content),
+    };
+  });
   return {
     recoveryPending: existsSync(recoveryPath) && recoveryPath,
-    layers: CALIBRATION_LAYERS.map((layer) => {
-      const path = layer.target(paths);
-      const content = existsSync(path) ? readFileSync(path, "utf8") : undefined;
-      return {
-        harness: layer.harness,
-        path,
-        currentSha256: content === undefined ? "absent" : sha256Text(content),
-        hasNonceMarker: carriesNonceMarker(content),
-      };
-    }),
+    layers,
+    strandedWrites: strandedWrites(layers.map((layer) => layer.path)),
   };
 }
 
 /**
  * What an interrupted or refused calibration left for a person to finish: a
- * surviving recovery sidecar, or a layer still carrying a nonce line. Doctor
- * fails on each and calibration refuses to start over any of them, both from
- * this one list, so the two cannot disagree about what a dirty start is.
+ * surviving recovery sidecar, a layer still carrying a nonce line, or a
+ * nonce-bearing write stranded beside a layer. Doctor fails on each and
+ * calibration refuses to start over any of them, both from this one list, so
+ * the two cannot disagree about what a dirty start is.
  */
 export function dirtyStart(facts: {
   /** The surviving sidecar's path, or false when none survives. */
   readonly recoveryPending: string | false;
   readonly layers: readonly { readonly path: string; readonly hasNonceMarker: boolean }[];
+  readonly strandedWrites: readonly string[];
 }): readonly string[] {
   const found: string[] = [];
   if (facts.recoveryPending !== false) {
@@ -144,6 +171,12 @@ export function dirtyStart(facts: {
     if (layer.hasNonceMarker) {
       found.push(`${layer.path} still carries a calibration nonce; restore it by hand`);
     }
+  }
+  for (const path of facts.strandedWrites) {
+    found.push(
+      `${path} is a write an interrupted calibration stranded with a nonce in it; ` +
+        "remove it by hand",
+    );
   }
   return found;
 }
