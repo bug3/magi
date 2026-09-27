@@ -431,10 +431,15 @@ refused rather than clobbered, and the sidecar outlives a refused restore as
 the hand-recovery copy. The row records the seated CLI versions and the
 restored layers' hashes.
 
-A layer already carrying the calibration nonce marker makes calibration
-refuse, naming the file and asking for restoration by hand. This happens
-before scratch cleanup or any write, so an interrupted run's recovery sidecar
-and captures remain available and no new probe calls spend quota.
+Calibration refuses a dirty start, the same two states doctor fails on: a
+recovery sidecar an earlier run left behind, or a layer still carrying the
+nonce marker. Either one is a recovery a person has to finish, so the refusal
+names the file and asks for restoration by hand. The sidecar counts even when
+every layer is clean, because an owner who resolved a refused restore by
+editing the layer leaves no marker, and calibrating over it would replace the
+sidecar's originals with the current layers and then delete it. Both checks
+run before scratch cleanup or any write, so an interrupted run's recovery
+sidecar and captures remain available and no new probe calls spend quota.
 
 Probe captures have a narrower guarantee. Completed rounds' raw streams stay
 in memory until the probe sequence ends and layer restoration has been
