@@ -4,7 +4,17 @@
  * calibration refuses to start over it, so both take it from here.
  */
 
-import { existsSync, lstatSync, readFileSync, readdirSync } from "node:fs";
+import {
+  closeSync,
+  constants,
+  existsSync,
+  fstatSync,
+  lstatSync,
+  openSync,
+  readFileSync,
+  readSync,
+  readdirSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
 
 import type { Harness } from "../core/slots.ts";
@@ -68,17 +78,34 @@ function strandedWrites(layerPaths: readonly string[]): readonly StrandedWrite[]
     for (const name of names) {
       if (!name.startsWith(DURABLE_TEMP_PREFIX)) continue;
       const path = join(dir, name);
-      const nonce = attempt(() => {
-        const entry = lstatSync(path);
-        if (!entry.isFile()) return false;
-        if (entry.size > STRANDED_WRITE_MAX_BYTES) return "unchecked";
-        return carriesNonceMarker(readFileSync(path, "utf8")) && "carried";
-      });
+      const nonce = attempt(() => lstatSync(path).isFile() && readTemp(path));
       if (nonce === "gone" || nonce === false) continue;
       found.push({ path, nonce: nonce === "unreadable" ? "unchecked" : nonce });
     }
   }
   return found;
+}
+
+/**
+ * Reads one temp file the lstat above found regular. The entry can change
+ * between that look and this open, so the open refuses a link and never
+ * waits on a FIFO, the type is checked again on the descriptor, and at most
+ * one byte past the limit is read, however much the file has grown since.
+ */
+function readTemp(path: string): "carried" | "unchecked" | false {
+  const fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+  try {
+    if (!fstatSync(fd).isFile()) return false;
+    const buffer = Buffer.alloc(STRANDED_WRITE_MAX_BYTES + 1);
+    let length = 0;
+    for (let read = 1; read > 0 && length < buffer.length; length += read) {
+      read = readSync(fd, buffer, length, buffer.length - length, null);
+    }
+    if (length > STRANDED_WRITE_MAX_BYTES) return "unchecked";
+    return carriesNonceMarker(buffer.toString("utf8", 0, length)) && "carried";
+  } finally {
+    closeSync(fd);
+  }
 }
 
 /** A filesystem read, with a vanished path told apart from any other failure. */
