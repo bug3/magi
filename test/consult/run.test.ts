@@ -275,6 +275,21 @@ test("a profile's residue probe is snapshotted into raw/ at every consult", asyn
   });
 });
 
+test("a probe that exits 0 with nothing to show is recorded as a failure, with why", async () => {
+  await withConsultWorld(async (world) => {
+    const casper = {
+      ...stubProfile("casper-3", grokEnvelope(), "prompt-file"),
+      residueProbe: [NODE, "-e", ""],
+    };
+    const result = await runConsult(inputsFor(world, [casper]));
+    const record = JSON.parse(
+      readFileSync(join(result.paths.rawDir, "casper-3.inspect.json"), "utf8"),
+    );
+    assert.deepEqual(record.residueProbeFailed, { kind: "exit", code: 0 });
+    assert.equal(record.reason, "exit 0, no output");
+  });
+});
+
 test("a canary hit in valid seat output is a ledger warning, never a degrade", async () => {
   await withConsultWorld(async (world) => {
     const leaky = opinionJson().replace(
