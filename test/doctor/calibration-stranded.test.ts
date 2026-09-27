@@ -4,7 +4,6 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
-  statSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -46,59 +45,68 @@ test("links and directories named like a temp file are neither followed nor read
 });
 
 /** Whether the mode actually stops this process, which it does not for root. */
-function modeBites(path: string): boolean {
+function modeBites(read: () => unknown): boolean {
   try {
-    readdirOrRead(path);
+    read();
     return false;
   } catch {
     return true;
   }
 }
 
-function readdirOrRead(path: string): void {
-  if (statSync(path).isDirectory()) readdirSync(path);
-  else readFileSync(path);
+function told(facts: ReturnType<typeof scan>): string {
+  return dirtyStart({ recoveryPending: false, layers: [], strandedWrites: facts }).join("\n");
 }
 
-test("a temp file that cannot be read is reported as unchecked, not as clean", (t) => {
+test("a temp file that cannot be read is reported as unreadable, not as clean", (t) => {
   const space = workspace();
   const locked = join(space.repo, ".tmp-locked");
   writeFileSync(locked, "unknown\n");
   chmodSync(locked, 0o000);
   try {
-    if (!modeBites(locked)) return t.skip("the mode does not stop this user");
+    if (!modeBites(() => readFileSync(locked))) return t.skip("the mode does not stop this user");
     const facts = scan(space);
-    assert.deepEqual(facts, [{ path: locked, nonce: "unchecked" }]);
-    assert.match(
-      dirtyStart({ recoveryPending: false, layers: [], strandedWrites: facts })[0] ?? "",
-      /could not be read .* by hand/u,
-    );
+    assert.deepEqual(facts, [{ path: locked, nonce: "unreadable" }]);
+    assert.match(told(facts), /could not be read .* by hand/u);
   } finally {
     chmodSync(locked, 0o600);
     space.remove();
   }
 });
 
-test("a layer directory that cannot be listed is reported as unchecked, not as clean", (t) => {
+test("a layer directory that cannot be listed is reported as unreadable, not as clean", (t) => {
   const space = workspace();
   const rules = join(space.home, ".grok", "rules");
   mkdirSync(rules, { recursive: true });
   chmodSync(rules, 0o000);
   try {
-    if (!modeBites(rules)) return t.skip("the mode does not stop this user");
-    assert.deepEqual(scan(space), [{ path: rules, nonce: "unchecked" }]);
+    if (!modeBites(() => readdirSync(rules))) return t.skip("the mode does not stop this user");
+    assert.deepEqual(scan(space), [{ path: rules, nonce: "unreadable" }]);
   } finally {
     chmodSync(rules, 0o700);
     space.remove();
   }
 });
 
-test("a temp file too large to be a calibration write is reported as unchecked", () => {
+test("a layer directory that is a file holds no temp file and is not reported", () => {
+  const space = workspace();
+  try {
+    writeFileSync(join(space.home, ".grok"), "not a directory\n");
+    assert.deepEqual(scan(space), []);
+  } finally {
+    space.remove();
+  }
+});
+
+test("a readable temp file over the limit is reported as oversized, not as unreadable", () => {
   const space = workspace();
   try {
     const large = join(space.repo, ".tmp-large");
     writeFileSync(large, Buffer.alloc(STRANDED_WRITE_MAX_BYTES + 1, 0x61));
-    assert.deepEqual(scan(space), [{ path: large, nonce: "unchecked" }]);
+    const facts = scan(space);
+    assert.deepEqual(facts, [{ path: large, nonce: "oversized" }]);
+    assert.match(told(facts), /is a temp file over 4 MiB, too large to check .* by hand/u);
+    assert.doesNotMatch(told(facts), /could not be read/u);
   } finally {
     space.remove();
   }

@@ -60,9 +60,10 @@ two rounds and six seat calls, and is the owner-approved canary calibration for
 CLI updates. Both ask once before they spend, on a terminal; --yes skips that
 question and a pipe is never asked.`,
   refuses: `--calibrate refuses to start over an interrupted calibration's leftovers, a
-recovery sidecar, a layer still carrying a nonce line, or a temp file or layer
-directory beside one that carries a nonce or cannot be read to rule it out, before
-it asks to spend; the report names each one for handling by hand.`,
+recovery sidecar, a layer still carrying a nonce line, or a temp file beside one
+that carries a nonce or could not be checked for one (it or its directory could not
+be read, or it is over 4 MiB), before it asks to spend; the report names each one
+for handling by hand.`,
   records: `--calibrate briefly writes a nonce into each ambient config layer and
 restores every layer after, asserts that the nonce surfaces without isolation
 and stays out with it, and records both directions in the ledger.`,
