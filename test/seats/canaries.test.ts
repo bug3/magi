@@ -99,6 +99,21 @@ test("a malformed local file throws naming the file, never thins the net silentl
   });
 });
 
+test("a local pattern that matches empty text, or carries y or g, is refused by name", () => {
+  withMagiDir((dir) => {
+    const refuse = (pattern: string, flags: string, why: RegExp) => {
+      writeFileSync(
+        join(dir, "canaries.local.json"),
+        JSON.stringify([{ id: "loose", pattern, flags, betrays: "b" }]),
+      );
+      assert.throws(() => loadCanaries(dir), why);
+    };
+    refuse("(secret)?", "u", /\("loose"\) matches empty text/u);
+    refuse("secret", "uy", /\("loose"\) carries the y or g flag/u);
+    refuse("secret", "ug", /\("loose"\) carries the y or g flag/u);
+  });
+});
+
 // A pack that quotes the canary catalog would otherwise make every seat that
 // discusses it look compromised, which is how a real consult produced two
 // warnings that were nothing but the seat reading its own brief back.
