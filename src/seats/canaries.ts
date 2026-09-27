@@ -15,6 +15,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { spokenText } from "./seat-voice.ts";
+
 export interface Canary {
   readonly id: string;
   readonly pattern: RegExp;
@@ -81,6 +83,13 @@ export function canaryHits(text: string, canaries: readonly Canary[]): readonly 
  * to the word it sits in, and the hit is an echo only when every such word is
  * a whole word of the brief, compared after Unicode normalization and case
  * folding. An inflected form is a different word, and stays evidence.
+ *
+ * Only the seat's own voice counts. In what it wrote inside its answer's
+ * strings, a quotation or a code span is something it cites, and a single
+ * letter is a letter being discussed: two seats reviewing this very rule
+ * tripped it both ways, in English. Text outside any document, a preamble or
+ * an answer cut short, is read as it stands, because that is where a leak
+ * shows first and where a quotation mark may be structure.
  */
 export function canaryEvidence(
   output: string,
@@ -88,15 +97,25 @@ export function canaryEvidence(
   canaries: readonly Canary[],
 ): readonly string[] {
   const briefWords = new Set((brief.normalize("NFC").match(WORD) ?? []).flatMap(folds));
-  const text = output.normalize("NFC");
+  const text = spokenText(output)
+    .map(({ text: piece, from }) => {
+      const normal = piece.normalize("NFC");
+      return from === "json" ? normal.replace(CODE_SPAN, " ").replace(QUOTATION, " ") : normal;
+    })
+    .join("\n");
   return canaries
     .filter((canary) =>
       matchedWords(text, canary.pattern).some(
-        (word) => !folds(word).some((form) => briefWords.has(form)),
+        (word) => [...word].length > 1 && !folds(word).some((form) => briefWords.has(form)),
       ),
     )
     .map((canary) => canary.id);
 }
+
+/** An inline code span in a seat's own text: what it quotes or names. */
+const CODE_SPAN = /`[^`\n]*`/gu;
+/** A quotation in a seat's own text: what it cites, not what it says. */
+const QUOTATION = /"[^"\n]*"|“[^”\n]*”/gu;
 
 /** Letters, marks, digits, `_` and `-`: what a word, or a token, is made of. */
 const WORD_CHARACTER = /[\p{L}\p{M}\p{N}_-]/u;
