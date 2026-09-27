@@ -135,3 +135,45 @@ test("a token canary is an echo only for the token the brief carries", () => {
   assert.deepEqual(canaryEvidence("I see marker-42 in the brief.", brief, [token]), []);
   assert.deepEqual(canaryEvidence("My context holds marker-43.", brief, [token]), ["token"]);
 });
+
+/** The opening a seat really wrote when a Turkish layer reached it. */
+const TURKISH_ANSWER = "Birleştirmeyi engelleyen bir kusur bulmadım.";
+
+test("an echo is a whole word of the brief, not a piece of one", () => {
+  const token: Canary = { id: "token", pattern: /marker-[0-9]+/u, betrays: "a test layer" };
+  assert.deepEqual(canaryEvidence("marker-42", "The layer holds marker-420.", [token]), [
+    "token",
+  ]);
+  assert.deepEqual(canaryEvidence("ölçüm", "Benchmarks: ölçümler.", CANARIES), [
+    "turkish-text-leak",
+  ]);
+});
+
+test("case and normalization do not turn a quoted word into a new one", () => {
+  const brief = "Fixture words: ölçüm and şimdi.";
+  assert.deepEqual(canaryEvidence("Ölçüm is the fixture's word.", brief, CANARIES), []);
+  assert.deepEqual(canaryEvidence("ÖLÇÜM, again.", brief, CANARIES), []);
+  // Capitals the way toUpperCase writes them: ASCII I, not İ.
+  assert.deepEqual(canaryEvidence("ŞIMDI, in capitals.", brief, CANARIES), []);
+  const decomposed = brief.normalize("NFD");
+  assert.notEqual(decomposed, brief);
+  assert.deepEqual(canaryEvidence("ölçüm, composed.", decomposed, CANARIES), []);
+});
+
+test("an inflected form of a quoted word is a new word, and stays evidence", () => {
+  const brief = `const contents = '{"seal":"ok","unicode":"ölçüm"}';`;
+  assert.deepEqual(canaryEvidence("ölçümü", brief, CANARIES), ["turkish-text-leak"]);
+});
+
+test("a case-insensitive token canary folds both ways", () => {
+  const token: Canary = { id: "sigil", pattern: /sigil-[0-9]+/iu, betrays: "a test layer" };
+  assert.deepEqual(canaryEvidence("It says sigil-7.", "The brief holds SIGIL-7.", [token]), []);
+});
+
+test("a long run of matches is widened once, not once per match", () => {
+  // Quadratic widening takes tens of seconds here; linear takes milliseconds.
+  const run = "ş".repeat(20_000);
+  const started = Date.now();
+  assert.deepEqual(canaryEvidence(run, "Answer in English.", CANARIES), ["turkish-text-leak"]);
+  assert.ok(Date.now() - started < 1_000, "widening is linear in the text");
+});
