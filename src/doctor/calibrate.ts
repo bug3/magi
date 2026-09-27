@@ -14,7 +14,8 @@
  * image is written before the first layer changes, restore happens only
  * when the current content still equals the expected nonce-bearing image
  * (a concurrent edit is refused, never clobbered), and the sidecar is
- * removed only after every layer restored. The row records the seated CLI
+ * removed only after every layer restored. A sidecar or a nonce marker left by
+ * an earlier run refuses the start. The row records the seated CLI
  * versions and the restored layers' hashes, so doctor can tell a stale
  * calibration from a current one.
  *
@@ -27,7 +28,7 @@
  * after staging has confirmed that no layer carries an old nonce marker.
  */
 
-import { mkdirSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 import { appendLedgerCalibration } from "../consult.ts";
@@ -109,6 +110,18 @@ export async function calibrateCanaries(inputs: CalibrateInputs): Promise<Calibr
     `${NONCE_MARKER} ${inputs.nonce} ` +
     "(temporary; written and removed by magi doctor --calibrate)";
 
+  // A surviving sidecar is an earlier run's hand-recovery copy, and doctor
+  // already fails on it. Staging over it would replace those originals with
+  // the current layers and a clean run would then delete it, so it is a dirty
+  // start even when no layer carries a marker.
+  const recoveryPath = join(inputs.workDir, RECOVERY_FILE);
+  if (existsSync(recoveryPath)) {
+    throw new Error(
+      `${recoveryPath} survives an interrupted calibration; ` +
+        "restore the layers from it by hand and remove it before calibrating",
+    );
+  }
+
   // Stage first, then persist the recovery sidecar, then mutate: a crash at
   // any later point leaves every original image on disk.
   const staged = CALIBRATION_LAYERS.map((layer) =>
@@ -116,7 +129,6 @@ export async function calibrateCanaries(inputs: CalibrateInputs): Promise<Calibr
   );
   // Refuse dirty layers before cleanup can erase their hand-recovery evidence.
   clearScratch(inputs.workDir);
-  const recoveryPath = join(inputs.workDir, RECOVERY_FILE);
   writeFileDurable(recoveryPath, recoveryImage(staged, inputs.nonce));
   for (const layer of staged) {
     mkdirSync(dirname(layer.path), { recursive: true });

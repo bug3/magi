@@ -56,6 +56,39 @@ for (const dirty of CALIBRATION_LAYERS) {
   });
 }
 
+test("a surviving recovery sidecar refuses calibration even when every layer is clean", async () => {
+  // A refused restore the owner resolved by editing the layer: no marker is
+  // left, but the sidecar still holds the only copy of the pre-edit image.
+  const space = workspace();
+  try {
+    const workDir = join(space.repo, ".magi", "doctor");
+    mkdirSync(workDir, { recursive: true });
+    writeFileSync(join(space.repo, "AGENTS.md"), "# owner edit after a refused restore\n");
+    const sidecar = join(workDir, RECOVERY_FILE);
+    const recovery = '{"layers":[{"original":"# the pre-edit rules\\n"}]}\n';
+    writeFileSync(sidecar, recovery);
+    await assert.rejects(calibrateCanaries({
+      home: space.home,
+      repoDir: space.repo,
+      user: "nobody",
+      workDir,
+      path: space.bin,
+      ledgerPath: join(workDir, "ledger.jsonl"),
+      nonce: "magi-canary-new-run",
+      runRound: async () => assert.fail("a pending recovery must not launch a round"),
+    }), (error: Error) => {
+      assert.ok(error.message.includes(sidecar), "the refusal must name the sidecar");
+      assert.match(error.message, /restore.*by hand/u);
+      return true;
+    });
+    assert.equal(readFileSync(sidecar, "utf8"), recovery);
+    assert.equal(readFileSync(join(space.repo, "AGENTS.md"), "utf8"), "# owner edit after a refused restore\n");
+    assert.equal(existsSync(join(workDir, "ledger.jsonl")), false);
+  } finally {
+    space.remove();
+  }
+});
+
 test("a dirty start preserves the previous recovery sidecar and captures", async () => {
   const space = workspace();
   try {
