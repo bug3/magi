@@ -13,6 +13,7 @@ import {
   calibrateCanaries,
   calibrationHealth,
   completenessFromLedger,
+  dirtyStart,
   formatCalibration,
   formatCalibrationHealth,
   formatCompleteness,
@@ -59,6 +60,9 @@ export const DOCTOR_NOTE: CommandNote = {
 two rounds and six seat calls, and is the owner-approved canary calibration for
 CLI updates. Both ask once before they spend, on a terminal; --yes skips that
 question and a pipe is never asked.`,
+  refuses: `--calibrate refuses to start over an interrupted calibration's leftovers, a
+recovery sidecar or a layer still carrying a nonce line, before it asks to spend;
+the report names each one for restoring by hand.`,
   records: `--calibrate briefly writes a nonce into each ambient config layer and
 restores every layer after, asserts that the nonce surfaces without isolation
 and stays out with it, and records both directions in the ledger.`,
@@ -116,6 +120,15 @@ export async function doctorCommand(rest: readonly string[]): Promise<number> {
   report(formatTelemetry(skewFromLedger(consults), valueFromLedger(consults)));
   let healthy = staticReport.healthy;
 
+  // A dirty start is refused before the spend is asked for: there is a
+  // recovery for a person to finish, and the health report below names each
+  // leftover. calibrateCanaries refuses the same state for any other caller.
+  if (calibrate) {
+    const dirty = dirtyStart(readDirtyStartFacts({ home, repoDir, workDir }));
+    for (const leftover of dirty) problem(`calibration refused: ${leftover}`);
+    if (dirty.length > 0) calibrate = false;
+  }
+
   // Both spending flags, asked once. Asked here rather than at the top so a
   // decline still leaves the free reports on screen, which is the whole
   // command minus the part that costs.
@@ -149,7 +162,6 @@ export async function doctorCommand(rest: readonly string[]): Promise<number> {
   }
 
   if (calibrate) {
-    mkdirSync(workDir, { recursive: true });
     const calibration = await waiting(
       "canary calibration: two rounds, six seat calls, this spends quota",
       () =>

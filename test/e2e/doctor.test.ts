@@ -151,3 +151,29 @@ test("--calibrate catches a canary that proves nothing, and restores every layer
     space.remove();
   }
 });
+
+test("--calibrate over a dirty start refuses in doctor's own report, not a stack trace", async () => {
+  // Found live: the refusal escaped the command as an uncaught error, after
+  // the spend was asked for and before the health report that names the same
+  // leftover had printed.
+  const space = workspace();
+  try {
+    await initRepo(space.repo);
+    installStubHarnesses(space.bin);
+    const layer = join(space.repo, "AGENTS.md");
+    const dirty = `# conventions\n\n${NONCE_MARKER} magi-canary-residue\n`;
+    writeFileSync(layer, dirty);
+
+    const run = await magi(["doctor", "--calibrate"], space);
+
+    assert.equal(run.code, 1, "a dirty start is a red doctor");
+    assert.doesNotMatch(run.err, /^\s+at /mu, "no stack trace reaches the user");
+    assert.match(run.err, /calibration refused: .*AGENTS\.md still carries a calibration nonce/u);
+    assert.match(run.out, /AGENTS\.md still carries a calibration nonce/u, "the health report prints");
+    assert.doesNotMatch(run.out, /canary calibration: two rounds/u, "no calibration was started");
+    assert.equal(readFileSync(layer, "utf8"), dirty, "the layer is left for hand recovery");
+    assert.ok(!existsSync(join(space.repo, ".magi", "doctor")), "a refusal creates no work directory");
+  } finally {
+    space.remove();
+  }
+});
