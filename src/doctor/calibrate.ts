@@ -29,8 +29,8 @@
  * after the start has been confirmed clean.
  */
 
-import { mkdirSync, rmSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { rmSync } from "node:fs";
+import { join } from "node:path";
 
 import { appendLedgerCalibration } from "../consult.ts";
 import {
@@ -127,10 +127,7 @@ export async function calibrateCanaries(inputs: CalibrateInputs): Promise<Calibr
   clearScratch(inputs.workDir);
   const recoveryPath = join(inputs.workDir, RECOVERY_FILE);
   writeFileDurable(recoveryPath, recoveryImage(staged, inputs.nonce));
-  for (const layer of staged) {
-    mkdirSync(dirname(layer.path), { recursive: true });
-    writeFileDurable(layer.path, layer.mutated);
-  }
+  for (const layer of staged) writeFileDurable(layer.path, layer.mutated, "keep");
 
   const runRound = inputs.runRound ?? realRound;
   const restoreFailures: { path: string }[] = [];
