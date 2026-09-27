@@ -147,6 +147,7 @@ test("a seat silent in one round only still proves no seated version", () => {
     seated: [{ harness: "claude", version: "2.1.278" }],
     layers: [],
     recoveryPending: false,
+    strandedWrites: [],
   });
   assert.deepEqual(health.failures, [
     "claude 2.1.278 has no passing calibration row; run magi doctor --calibrate",

@@ -5,7 +5,8 @@
  * Every unproved state is a failure: a seated CLI version no PASSING
  * calibration row proved, version-less legacy rows, a ledger with no
  * calibration at all, and any leftover of an interrupted calibration (a
- * recovery sidecar, a nonce still in a live layer). Only a drifted
+ * recovery sidecar, a nonce still in a live layer, a nonce-bearing temp file
+ * stranded beside one). Only a drifted
  * ambient layer warns, because editing your own config is routine.
  */
 
@@ -60,6 +61,8 @@ export function calibrationHealth(inputs: {
   readonly layers: readonly LayerFact[];
   /** The surviving recovery sidecar's path, or false when none survives. */
   readonly recoveryPending: string | false;
+  /** Nonce-bearing durable-write temp files stranded beside a layer. */
+  readonly strandedWrites: readonly string[];
 }): CalibrationHealthReport {
   const failures: string[] = [];
   const warnings: string[] = [];
