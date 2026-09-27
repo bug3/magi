@@ -45,16 +45,16 @@ export interface DirtyStartFacts {
 export interface StrandedWrite {
   readonly path: string;
   /**
-   * "unchecked": the file could not be read or is over the size limit, or
-   * `path` is a layer directory that could not be listed; either way it is
-   * not known to be clean.
+   * "unreadable": the file could not be read, or `path` is a layer directory
+   * that could not be listed. "oversized": the file is over the limit and was
+   * not read. Neither is known to be clean.
    */
-  readonly nonce: "carried" | "unchecked";
+  readonly nonce: "carried" | "unreadable" | "oversized";
 }
 
 /**
- * The largest temp file read in full. A calibration write is one layer image
- * plus one line; a larger file is reported unchecked rather than read.
+ * The largest temp file read. A calibration write is one layer image plus one
+ * line; a larger file is reported oversized rather than read.
  */
 export const STRANDED_WRITE_MAX_BYTES = 4 * 1024 * 1024;
 
@@ -67,24 +67,24 @@ export const STRANDED_WRITE_MAX_BYTES = 4 * 1024 * 1024;
  * This runs on every doctor, over directories MAGI does not own, so nothing
  * found there may crash it. Only regular files are read: a durable write
  * opens its temp exclusively, so a link or a directory is never one of its
- * leftovers. An entry that vanished is gone; one that cannot be read is
- * reported unchecked, because an unread file is not a clean one.
+ * leftovers. An entry that vanished, or became a link, is skipped; one that
+ * cannot be read is reported, because an unread file is not a clean one.
  */
 function strandedWrites(layerPaths: readonly string[]): readonly StrandedWrite[] {
   const found: StrandedWrite[] = [];
   for (const dir of new Set(layerPaths.map((path) => dirname(path)))) {
     const names = attempt(() => readdirSync(dir));
-    if (names === "gone") continue;
+    if (names === "skip") continue;
     if (names === "unreadable") {
-      found.push({ path: dir, nonce: "unchecked" });
+      found.push({ path: dir, nonce: "unreadable" });
       continue;
     }
     for (const name of names) {
       if (!name.startsWith(DURABLE_TEMP_PREFIX)) continue;
       const path = join(dir, name);
       const nonce = attempt(() => lstatSync(path).isFile() && readTemp(path));
-      if (nonce === "gone" || nonce === false) continue;
-      found.push({ path, nonce: nonce === "unreadable" ? "unchecked" : nonce });
+      if (nonce === "skip" || nonce === false) continue;
+      found.push({ path, nonce });
     }
   }
   return found;
@@ -93,31 +93,40 @@ function strandedWrites(layerPaths: readonly string[]): readonly StrandedWrite[]
 /**
  * Reads one temp file the lstat above found regular. The entry can change
  * between that look and this open, so the open refuses a link and never
- * waits on a FIFO, the type is checked again on the descriptor, and at most
- * one byte past the limit is read, however much the file has grown since.
+ * waits on a FIFO, the type and size are checked again on the descriptor,
+ * and at most one byte past the limit is read, however much it has grown.
  */
-function readTemp(path: string): "carried" | "unchecked" | false {
+function readTemp(path: string): "carried" | "oversized" | false {
   const fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   try {
-    if (!fstatSync(fd).isFile()) return false;
-    const buffer = Buffer.alloc(STRANDED_WRITE_MAX_BYTES + 1);
+    const entry = fstatSync(fd);
+    if (!entry.isFile()) return false;
+    if (entry.size > STRANDED_WRITE_MAX_BYTES) return "oversized";
+    const buffer = Buffer.alloc(entry.size + 1);
     let length = 0;
     for (let read = 1; read > 0 && length < buffer.length; length += read) {
       read = readSync(fd, buffer, length, buffer.length - length, null);
     }
-    if (length > STRANDED_WRITE_MAX_BYTES) return "unchecked";
+    if (length > STRANDED_WRITE_MAX_BYTES) return "oversized";
     return carriesNonceMarker(buffer.toString("utf8", 0, length)) && "carried";
   } finally {
     closeSync(fd);
   }
 }
 
-/** A filesystem read, with a vanished path told apart from any other failure. */
-function attempt<T>(read: () => T): T | "gone" | "unreadable" {
+/**
+ * The failures that say there is nothing here to check: the path is gone, a
+ * component of it is not a directory, or it became a link after the lstat.
+ */
+const NOTHING_TO_CHECK = new Set(["ENOENT", "ENOTDIR", "ELOOP"]);
+
+/** A filesystem read, with nothing to check told apart from any other failure. */
+function attempt<T>(read: () => T): T | "skip" | "unreadable" {
   try {
     return read();
   } catch (error) {
-    return (error as NodeJS.ErrnoException).code === "ENOENT" ? "gone" : "unreadable";
+    const code = (error as NodeJS.ErrnoException).code ?? "";
+    return NOTHING_TO_CHECK.has(code) ? "skip" : "unreadable";
   }
 }
 
@@ -150,13 +159,24 @@ export function readDirtyStartFacts(paths: {
   };
 }
 
+/** What a person is told about each kind of temp file, by what was found. */
+const STRANDED_MESSAGES: Readonly<Record<StrandedWrite["nonce"], (path: string) => string>> = {
+  carried: (path) => `${path} is a temp file carrying a calibration nonce line; remove it by hand`,
+  unreadable: (path) =>
+    `${path} could not be read to rule out a calibration nonce; check it by hand`,
+  oversized: (path) =>
+    `${path} is a temp file over ${STRANDED_WRITE_MAX_BYTES / 1024 / 1024} MiB, too large to ` +
+    "check for a calibration nonce; check it by hand",
+};
+
 /**
  * What an interrupted or refused calibration left for a person to finish: a
  * surviving recovery sidecar, a layer still carrying a nonce line, or a temp
- * file or layer directory beside one that carries a nonce or cannot be read
- * to rule one out. Doctor fails on each and
- * calibration refuses to start over any of them, both from this one list, so
- * the two cannot disagree about what a dirty start is.
+ * file beside one that carries a nonce or could not be checked for one,
+ * because it or its directory could not be read or it is over the size
+ * limit. Doctor fails on each and calibration refuses to start over any of
+ * them, both from this one list, so the two cannot disagree about what a
+ * dirty start is.
  */
 export function dirtyStart(facts: {
   /** The surviving sidecar's path, or false when none survives. */
@@ -177,11 +197,7 @@ export function dirtyStart(facts: {
     }
   }
   for (const { path, nonce } of facts.strandedWrites) {
-    found.push(
-      nonce === "carried"
-        ? `${path} is a temp file carrying a calibration nonce line; remove it by hand`
-        : `${path} could not be read to rule out a calibration nonce; check it by hand`,
-    );
+    found.push(STRANDED_MESSAGES[nonce](path));
   }
   return found;
 }

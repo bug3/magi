@@ -5,8 +5,8 @@
  * Every unproved state is a failure: a seated CLI version no PASSING
  * calibration row proved, version-less legacy rows, a ledger with no
  * calibration at all, and any leftover of an interrupted calibration (a
- * recovery sidecar, a nonce still in a live layer, a temp file or layer
- * directory beside one that carries a nonce or cannot be read). Only a drifted
+ * recovery sidecar, a nonce still in a live layer, a temp file beside one
+ * that carries a nonce or could not be checked for one). Only a drifted
  * ambient layer warns, because editing your own config is routine.
  */
 
