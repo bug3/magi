@@ -1,5 +1,13 @@
 import assert from "node:assert/strict";
-import { chmodSync, mkdirSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 
@@ -37,16 +45,50 @@ test("links and directories named like a temp file are neither followed nor read
   }
 });
 
-test("a temp file that cannot be read is reported as unchecked, not as clean", () => {
+/** Whether the mode actually stops this process, which it does not for root. */
+function modeBites(path: string): boolean {
+  try {
+    readdirOrRead(path);
+    return false;
+  } catch {
+    return true;
+  }
+}
+
+function readdirOrRead(path: string): void {
+  if (statSync(path).isDirectory()) readdirSync(path);
+  else readFileSync(path);
+}
+
+test("a temp file that cannot be read is reported as unchecked, not as clean", (t) => {
   const space = workspace();
   const locked = join(space.repo, ".tmp-locked");
+  writeFileSync(locked, "unknown\n");
+  chmodSync(locked, 0o000);
   try {
-    writeFileSync(locked, "unknown\n");
-    chmodSync(locked, 0o000);
-    assert.deepEqual(scan(space), [{ path: locked, nonce: "unchecked" }]);
-    assert.match(dirtyStart({ recoveryPending: false, layers: [], strandedWrites: scan(space) })[0] ?? "", /could not be read .* by hand/u);
+    if (!modeBites(locked)) return t.skip("the mode does not stop this user");
+    const facts = scan(space);
+    assert.deepEqual(facts, [{ path: locked, nonce: "unchecked" }]);
+    assert.match(
+      dirtyStart({ recoveryPending: false, layers: [], strandedWrites: facts })[0] ?? "",
+      /could not be read .* by hand/u,
+    );
   } finally {
     chmodSync(locked, 0o600);
+    space.remove();
+  }
+});
+
+test("a layer directory that cannot be listed is reported as unchecked, not as clean", (t) => {
+  const space = workspace();
+  const rules = join(space.home, ".grok", "rules");
+  mkdirSync(rules, { recursive: true });
+  chmodSync(rules, 0o000);
+  try {
+    if (!modeBites(rules)) return t.skip("the mode does not stop this user");
+    assert.deepEqual(scan(space), [{ path: rules, nonce: "unchecked" }]);
+  } finally {
+    chmodSync(rules, 0o700);
     space.remove();
   }
 });
