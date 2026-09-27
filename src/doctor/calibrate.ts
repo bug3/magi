@@ -28,7 +28,7 @@
  * after the start has been confirmed clean.
  */
 
-import { existsSync, mkdirSync, rmSync } from "node:fs";
+import { mkdirSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 import { appendLedgerCalibration } from "../consult.ts";
@@ -37,9 +37,9 @@ import {
   NONCE_MARKER,
   NONCE_PREFIX,
   RECOVERY_FILE,
-  carriesNonceMarker,
   clearScratch,
   dirtyStart,
+  readDirtyStartFacts,
   recoveryImage,
   restoreLayer,
   stageLayer,
@@ -62,7 +62,8 @@ export {
   NONCE_MARKER,
   NONCE_PREFIX,
   RECOVERY_FILE,
-  carriesNonceMarker,
+  dirtyStart,
+  readDirtyStartFacts,
   type CalibrationLayer,
 } from "./calibration-layers.ts";
 export {
@@ -113,24 +114,19 @@ export async function calibrateCanaries(inputs: CalibrateInputs): Promise<Calibr
     `${NONCE_MARKER} ${inputs.nonce} ` +
     "(temporary; written and removed by magi doctor --calibrate)";
 
+  // A dirty start is refused before anything is touched, so cleanup cannot
+  // erase an earlier run's hand-recovery evidence: a surviving sidecar would
+  // be replaced with the current layers and then deleted by a clean run.
+  const dirty = dirtyStart(readDirtyStartFacts(inputs));
+  if (dirty.length > 0) throw new Error(`calibration refused: ${dirty.join("; ")}`);
+
   // Stage first, then persist the recovery sidecar, then mutate: a crash at
   // any later point leaves every original image on disk.
   const staged = CALIBRATION_LAYERS.map((layer) =>
     stageLayer(layer.harness, layer.target(inputs), nonceLine),
   );
-  // Staging only read. A dirty start is refused here, before cleanup can
-  // erase an earlier run's hand-recovery evidence: a surviving sidecar would
-  // be replaced with the current layers and then deleted by a clean run.
-  const recoveryPath = join(inputs.workDir, RECOVERY_FILE);
-  const dirty = dirtyStart({
-    recoveryPending: existsSync(recoveryPath) && recoveryPath,
-    layers: staged.map((layer) => ({
-      path: layer.path,
-      hasNonceMarker: carriesNonceMarker(layer.original),
-    })),
-  });
-  if (dirty.length > 0) throw new Error(`calibration refused: ${dirty.join("; ")}`);
   clearScratch(inputs.workDir);
+  const recoveryPath = join(inputs.workDir, RECOVERY_FILE);
   writeFileDurable(recoveryPath, recoveryImage(staged, inputs.nonce));
   for (const layer of staged) {
     mkdirSync(dirname(layer.path), { recursive: true });

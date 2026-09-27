@@ -82,6 +82,38 @@ export function carriesNonceMarker(content: string | undefined): boolean {
   return content?.includes(NONCE_MARKER) ?? false;
 }
 
+/** The facts a dirty start is judged on, as they stand on disk. */
+export interface DirtyStartFacts {
+  /** The surviving sidecar's path, or false when none survives. */
+  readonly recoveryPending: string | false;
+  readonly layers: readonly {
+    readonly harness: Harness;
+    readonly path: string;
+    readonly hasNonceMarker: boolean;
+  }[];
+}
+
+/**
+ * Reads the dirty-start facts for one repository. Doctor's report and
+ * calibration's refusal both take them from here, so where the sidecar lives
+ * and how a layer is read cannot drift apart between the two.
+ */
+export function readDirtyStartFacts(paths: {
+  readonly home: string;
+  readonly repoDir: string;
+  readonly workDir: string;
+}): DirtyStartFacts {
+  const recoveryPath = join(paths.workDir, RECOVERY_FILE);
+  return {
+    recoveryPending: existsSync(recoveryPath) && recoveryPath,
+    layers: CALIBRATION_LAYERS.map((layer) => {
+      const path = layer.target(paths);
+      const content = existsSync(path) ? readFileSync(path, "utf8") : undefined;
+      return { harness: layer.harness, path, hasNonceMarker: carriesNonceMarker(content) };
+    }),
+  };
+}
+
 /**
  * What an interrupted or refused calibration left for a person to finish: a
  * surviving recovery sidecar, or a layer still carrying a nonce line. Doctor
