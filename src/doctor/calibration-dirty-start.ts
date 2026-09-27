@@ -18,7 +18,7 @@ import {
 import { dirname, join } from "node:path";
 
 import type { Harness } from "../core/slots.ts";
-import { DURABLE_TEMP_PREFIX, sha256Text } from "../util/fs.ts";
+import { DURABLE_TEMP_PREFIX, foreignDestination, sha256Text } from "../util/fs.ts";
 import { CALIBRATION_LAYERS, NONCE_MARKER, RECOVERY_FILE } from "./calibration-layers.ts";
 
 /** Whether a layer's content still carries a nonce line MAGI wrote. */
@@ -62,7 +62,8 @@ export const STRANDED_WRITE_MAX_BYTES = 4 * 1024 * 1024;
  * A kill between a durable write's temp open and its rename leaves the
  * nonce-bearing image beside the layer, under a name no layer read looks at.
  * For codex that is the repository root, readable by the seats; for grok it
- * is the rules directory the harness loads whole.
+ * is the rules directory the harness loads whole. A layer that is a link is
+ * written at its target, so the directory of that target is scanned too.
  *
  * This runs on every doctor, over directories MAGI does not own, so nothing
  * found there may crash it. Only regular files are read: a durable write
@@ -72,7 +73,9 @@ export const STRANDED_WRITE_MAX_BYTES = 4 * 1024 * 1024;
  */
 function strandedWrites(layerPaths: readonly string[]): readonly StrandedWrite[] {
   const found: StrandedWrite[] = [];
-  for (const dir of new Set(layerPaths.map((path) => dirname(path)))) {
+  // A linked layer is written at its target, so its temp file lands there.
+  const dirs = layerPaths.flatMap((path) => [dirname(path), dirname(foreignDestination(path))]);
+  for (const dir of new Set(dirs)) {
     const names = attempt(() => readdirSync(dir));
     if (names === "skip") continue;
     if (names === "unreadable") {
