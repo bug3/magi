@@ -101,22 +101,22 @@ test("writeFileDurable with keep leaves a foreign directory and file at their mo
     writeFileSync(existing, "old\n");
     chmodSync(existing, 0o640);
 
-    // A strict umask, so a fixed mode for new files cannot pass by coincidence.
-    const previous = process.umask(0o077);
-    let ordinary: number;
+    // A umask neither MAGI's private modes (0600, 0700) nor a fixed 0644 or
+    // 0755 matches, so no fixed mode for a new file or directory can pass.
+    const previous = process.umask(0o027);
     try {
       writeFileDurable(existing, KNOWN_CONTENT, "keep");
       writeFileDurable(join(dir, "new.md"), KNOWN_CONTENT, "keep");
-      // What any tool gets for a new file here: 0o666 under that umask.
-      writeFileSync(join(dir, "ordinary.md"), "");
-      ordinary = statSync(join(dir, "ordinary.md")).mode & 0o777;
+      writeFileDurable(join(dir, "made", "new.md"), KNOWN_CONTENT, "keep");
     } finally {
       process.umask(previous);
     }
 
     assert.equal(readFileSync(existing, "utf8"), KNOWN_CONTENT);
     assert.equal(statSync(existing).mode & 0o777, 0o640, "an existing file keeps its mode");
-    assert.equal(statSync(join(dir, "new.md")).mode & 0o777, ordinary, "a new file is ordinary");
+    const mode = (path: string) => statSync(path).mode & 0o777;
+    assert.equal(mode(join(dir, "new.md")), 0o640, "a new file is 0666 under the umask");
+    assert.equal(mode(join(dir, "made")), 0o750, "a new directory is 0777 under the umask");
     assert.equal(statSync(dir).mode & 0o777, 0o755, "the directory is not re-moded");
     assert.deepEqual(tempLeftovers(dir), []);
   }));

@@ -22,29 +22,27 @@ test("a calibration round trip leaves every layer file and directory at its mode
   const space = workspace();
   try {
     const paths = { home: space.home, repoDir: space.repo };
+    const target = (harness: string) =>
+      CALIBRATION_LAYERS.find((layer) => layer.harness === harness)?.target(paths) ??
+      assert.fail(`no ${harness} layer`);
     const layers = CALIBRATION_LAYERS.map((layer) => layer.target(paths));
-    for (const path of layers) {
-      mkdirSync(join(path, ".."), { recursive: true });
-      chmodSync(join(path, ".."), 0o755);
-    }
-    // Two layers exist beforehand, readable by group and world; grok's is
-    // created by calibration and removed again.
-    for (const path of layers.slice(0, 2)) {
-      writeFileSync(path, "# owner rules\n");
-      chmodSync(path, 0o644);
-    }
+    layers.map((path) => mkdirSync(join(path, ".."), { recursive: true }));
+    layers.map((path) => chmodSync(join(path, ".."), 0o755));
+    // The claude and codex layers exist beforehand, readable by group and
+    // world; grok's is created by calibration and removed again.
+    const existing = [target("claude"), target("codex")];
+    existing.map((path) => writeFileSync(path, "# owner rules\n"));
+    existing.map((path) => chmodSync(path, 0o644));
     const mode = (path: string) => statSync(path).mode & 0o777;
-    // Every layer directory, and the two layer files that outlive the run.
-    const modes = () => [
-      ...layers.map((path) => mode(join(path, ".."))),
-      ...layers.slice(0, 2).map(mode),
-    ];
+    // Every layer directory, and the layer files that outlive the run.
+    const modes = () => [...layers.map((path) => mode(join(path, ".."))), ...existing.map(mode)];
     const before = modes();
 
     await calibrate(space);
 
     assert.deepEqual(modes(), before);
-    assert.equal(mode(join(space.repo, ".magi", "doctor")), 0o700, "MAGI's own state stays private");
+    const workDir = join(space.repo, ".magi", "doctor");
+    assert.equal(mode(workDir), 0o700, "MAGI's own state stays private");
   } finally {
     space.remove();
   }
