@@ -63,7 +63,8 @@ export const STRANDED_WRITE_MAX_BYTES = 4 * 1024 * 1024;
  * nonce-bearing image beside the layer, under a name no layer read looks at.
  * For codex that is the repository root, readable by the seats; for grok it
  * is the rules directory the harness loads whole. A layer that is a link is
- * written at its target, so the directory of that target is scanned too.
+ * written at its target, so the directory of that target is scanned too; a
+ * layer whose link cannot be resolved is reported, like an unread file.
  *
  * This runs on every doctor, over directories MAGI does not own, so nothing
  * found there may crash it. Only regular files are read: a durable write
@@ -73,9 +74,16 @@ export const STRANDED_WRITE_MAX_BYTES = 4 * 1024 * 1024;
  */
 function strandedWrites(layerPaths: readonly string[]): readonly StrandedWrite[] {
   const found: StrandedWrite[] = [];
-  // A linked layer is written at its target, so its temp file lands there.
-  const dirs = layerPaths.flatMap((path) => [dirname(path), dirname(foreignDestination(path))]);
-  for (const dir of new Set(dirs)) {
+  const dirs = new Set<string>();
+  for (const path of layerPaths) {
+    dirs.add(dirname(path));
+    // A linked layer is written at its target, so its temp file lands there.
+    // The target can go between the look and the resolve.
+    const target = attempt(() => foreignDestination(path));
+    if (target === "unreadable") found.push({ path, nonce: "unreadable" });
+    else if (target !== "skip") dirs.add(dirname(target));
+  }
+  for (const dir of dirs) {
     const names = attempt(() => readdirSync(dir));
     if (names === "skip") continue;
     if (names === "unreadable") {
