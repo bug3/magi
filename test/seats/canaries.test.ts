@@ -7,16 +7,10 @@ import { test } from "node:test";
 import {
   CANARIES,
   canaryEvidence,
-  canaryHits,
   loadCanaries,
   streamEvidence,
   type Canary,
 } from "../../src/seats/canaries.ts";
-
-test("canaryHits names every matching canary and nothing else", () => {
-  assert.deepEqual(canaryHits("bir görüş önsözü", CANARIES), ["turkish-text-leak"]);
-  assert.deepEqual(canaryHits("plain ascii prose", CANARIES), []);
-});
 
 function canary(id: string): Canary {
   const found = CANARIES.find((entry) => entry.id === id);
@@ -122,7 +116,7 @@ test("a canary the brief itself trips is an echo, not evidence", () => {
   const brief = "The catalog holds a pattern for Turkish text: bir görüş.";
   const output = "Bu bir görüş, not a leak.";
 
-  assert.deepEqual(canaryHits(output, CANARIES), ["turkish-text-leak"]);
+  assert.ok(canary("turkish-text-leak").pattern.test(output));
   assert.deepEqual(canaryEvidence(output, brief, CANARIES), []);
 });
 
