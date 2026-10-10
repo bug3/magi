@@ -30,7 +30,17 @@ test("a word in curly quotes is a citation, as in straight ones", () => {
 });
 
 test("a dropped citation leaves a line break, as between pieces", () => {
-  assert.deepEqual(canaryEvidence(envelope('secret"x"marker'), ENGLISH_BRIEF, [TOKEN]), []);
+  const stream = envelope('secret"x"marker');
+  assert.deepEqual(canaryEvidence(stream, ENGLISH_BRIEF, [TOKEN]), []);
+  const broken: Canary = { id: "broken", pattern: /secret\nmarker/u, betrays: "a test layer" };
+  assert.deepEqual(canaryEvidence(stream, ENGLISH_BRIEF, [broken]), ["broken"]);
+});
+
+test("the two sides of a document parsed out of a string are two pieces", () => {
+  const sides = spokenText(JSON.stringify({ result: 'secret{"a":1}marker' }))
+    .filter((piece) => piece.from === "json")
+    .map((piece) => piece.text);
+  assert.deepEqual(sides, ["secret", "marker"]);
 });
 
 test("a quotation never straddles a document parsed out of its string", () => {
