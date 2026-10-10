@@ -43,9 +43,12 @@ export interface SeatInputs {
 /**
  * Wall-clock cap for one seat call. `claude -p` has no native turn cap in this
  * CLI's help, so the wrapper timeout is the only bound it gets; the other two
- * carry it for symmetry.
+ * carry it for symmetry. It is a backstop against a runaway, not a budget: a
+ * seat cut off spends its quota and answers nothing, and a seat thinks as long
+ * as its CLI's default effort makes it. Ten minutes once cut off two seats of
+ * one consult, and the slower answered in 784 seconds when let run.
  */
-export const SEAT_TIMEOUT_MS = 600_000;
+export const SEAT_TIMEOUT_MS = 1_800_000;
 
 /** Grok's own turn cap, kept as data because the argv is asserted verbatim. */
 const CASPER_MAX_TURNS = "8";
