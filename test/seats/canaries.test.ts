@@ -249,6 +249,12 @@ test("quotations, code spans and single letters in a seat's text are discussion"
   ]);
 });
 
+test("a single letter with a hyphen or underscore beside it is still a single letter", () => {
+  const discussion = "Prefixes such as ç- or -ş and names like ğ_ are what the class covers.";
+  assert.deepEqual(canaryEvidence(codexStream(discussion), ENGLISH_BRIEF, CANARIES), []);
+  assert.deepEqual(canaryEvidence("ça", ENGLISH_BRIEF, CANARIES), ["turkish-text-leak"]);
+});
+
 test("a preamble in front of the envelope is read as it stands", () => {
   const stream = `Merhaba, işte cevabım:\n${codexStream("An answer in English.")}`;
   assert.deepEqual(canaryEvidence(stream, ENGLISH_BRIEF, CANARIES), ["turkish-text-leak"]);

@@ -127,7 +127,7 @@ export function canaryEvidence(
   return canaries
     .filter((canary) =>
       matchedWords(text, canary.pattern).some(
-        (word) => [...word].length > 1 && !echoed(word),
+        (word) => (word.match(LETTER_OR_DIGIT) ?? []).length > 1 && !echoed(word),
       ),
     )
     .map((canary) => canary.id);
@@ -160,6 +160,8 @@ const QUOTATION = /"[^"\n]*"|“[^“”\n]*”/gu;
 const WORD_CHARACTER = /[\p{L}\p{M}\p{N}_-]/u;
 const WORD = /[\p{L}\p{M}\p{N}_-]+/gu;
 const ONE_WORD = /^[\p{L}\p{M}\p{N}_-]+$/u;
+/** What a word is counted in: `ç-` is one letter, not two characters. */
+const LETTER_OR_DIGIT = /[\p{L}\p{N}]/gu;
 
 /**
  * Whether `span` occurs in `text` with no word character on either side. A
