@@ -30,3 +30,9 @@ test("a span with no word in it is found by a search of the whole brief", () => 
   assert.equal(echoJudge("a . b")("."), true);
   assert.equal(echoJudge("a.b")("."), false);
 });
+
+// Raised in review: the search for an empty span never advanced past the end.
+test("an empty span copies nothing and is never an echo", () => {
+  assert.equal(echoJudge("abc")(""), false);
+  assert.equal(echoJudge("")(""), false);
+});

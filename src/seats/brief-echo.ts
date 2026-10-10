@@ -81,6 +81,8 @@ function indexed(text: string): IndexedText {
  * distinct span made a seat echoing many of them cost the square of the brief.
  */
 function standsAlone(span: string, { text, starts }: IndexedText): boolean {
+  // An empty span copies nothing, and a search for it would never advance.
+  if (span === "") return false;
   let rarest: { readonly offset: number; readonly at: readonly number[] } | undefined;
   for (const match of span.matchAll(WORD)) {
     const at = starts.get(match[0]) ?? [];
