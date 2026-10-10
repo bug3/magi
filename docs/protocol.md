@@ -419,13 +419,18 @@ echo and not evidence. That is judged per match, on the seat's own voice:
   preamble or an answer cut short, is read exactly as it stands. So is a
   string, or what is left of one once a document in it was opened, that
   still carries an opener outside the code spans it cites: an object's first
-  key, `{"name":`, anywhere in it, or an array of documents or strings, `[{`,
-  `[[` or `["`, at the start of a line, with each quote plain or escaped. The
-  harness closes its envelope even when the answer inside was cut short, and
-  an array inside the cut answer can parse on its own. A bracket or a brace
-  in prose opens nothing. A code span holding an odd number of double quotes
-  runs across a string boundary, from before a cut answer's opener into its
-  prose, and cites nothing.
+  key, `{"name":`, anywhere in it, with whitespace or a line break allowed
+  around the key and no quote or line break inside it, or an array of
+  documents or strings, `[{`, `[[` or `["`, at the start of a line, indented
+  or not; each quote may be escaped. The harness closes its envelope even
+  when the answer inside was cut short, and an array inside the cut answer
+  can parse on its own. A bracket or a brace in prose opens nothing, and
+  neither does a cut inside the first key, which leaves no value to hide.
+  For this decision a code span is set aside only when it holds an even
+  number of double quotes; one holding an odd number is kept, which is the
+  shape of a span running from before a cut answer's opener into its prose,
+  and also of an unfinished example. The decision only chooses which quoted
+  words are dropped, since a quoted phrase is read either way.
 - Inside the strings the seat wrote, a quotation in straight or curly double
   quotes on one line, or an inline code span, that holds no whitespace is
   what it cites, a word, a token or a letter under discussion, and is
