@@ -437,9 +437,10 @@ echo and not evidence. That is judged per match, on the seat's own voice:
   and also of an unfinished example. The decision only chooses which quoted
   words are dropped, since a quoted phrase is read either way. A code span
   set aside for the decision leaves the same mark. The scan never sees the
-  mark: the text on either side of a document parsed out of a string is read
-  as two pieces, as if a line break stood between them, so a U+FFFC the seat
-  wrote itself is read as written.
+  mark: the text on either side of a document parsed out of a string, or out
+  of the stream or one of its lines, is read as two pieces, as if a line
+  break stood between them, so a U+FFFC the seat wrote itself is read as
+  written.
 - Inside the strings the seat wrote, a quotation in straight or curly double
   quotes on one line, or an inline code span, whichever starts first, that
   holds no whitespace is what it cites, a word, a token or a letter under
