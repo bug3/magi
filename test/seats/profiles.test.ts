@@ -183,6 +183,6 @@ const SLOWEST_LIVE_SEAT_MS = 784_000;
 
 test("every seat gets a wall-clock cap with room over the slowest live seat", () => {
   for (const { id } of SLOTS) {
-    assert.ok(seatProfile(id, INPUTS).timeoutMs >= 2 * SLOWEST_LIVE_SEAT_MS);
+    assert.ok(seatProfile(id, INPUTS).timeoutMs >= 2 * SLOWEST_LIVE_SEAT_MS, id);
   }
 });
