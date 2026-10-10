@@ -17,8 +17,8 @@ export interface Spoken {
    * "json": the content of a string the seat wrote, where a quotation mark is
    * the seat's own. "raw": text outside any document, or a string that still
    * opens a document that did not parse, read as it stands. The text on either
-   * side of a document parsed out of a string comes as two pieces, so nothing
-   * stands in the document's place.
+   * side of a document parsed out of a string, or out of the stream or one of
+   * its lines, comes as two pieces, so nothing stands in the document's place.
    */
   readonly from: "json" | "raw";
 }

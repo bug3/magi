@@ -24,7 +24,7 @@ const PLAIN_ENGLISH =
 test("every canary has a distinct id and says which layer it betrays", () => {
   assert.equal(new Set(CANARIES.map((entry) => entry.id)).size, CANARIES.length);
   for (const entry of CANARIES) {
-    assert.ok(entry.betrays.length > 0);
+    assert.ok(entry.betrays.length > 0, entry.id);
   }
 });
 
@@ -44,8 +44,8 @@ test("the Turkish canary leaves plain English alone", () => {
 
 test("canary patterns are stateless, so doctor can reuse them across seats", () => {
   for (const entry of CANARIES) {
-    assert.equal(entry.pattern.global, false);
-    assert.equal(entry.pattern.sticky, false);
+    assert.equal(entry.pattern.global, false, entry.id);
+    assert.equal(entry.pattern.sticky, false, entry.id);
   }
 });
 
@@ -154,9 +154,10 @@ test("a dotted or multi-word token the brief carries is an echo", () => {
   ] as const) {
     const layer: Canary = { id: "token", pattern, betrays: "a test layer" };
     const brief = `The layer under test holds ${token}.`;
-    assert.deepEqual(canaryEvidence(`I see ${token} in the brief.`, brief, [layer]), []);
-    assert.deepEqual(canaryEvidence(`I see ${token}s here.`, brief, [layer]), ["token"]);
-    assert.deepEqual(canaryEvidence(`I see ${token}.`, "The brief is silent.", [layer]), ["token"]);
+    assert.deepEqual(canaryEvidence(`I see ${token} in the brief.`, brief, [layer]), [], token);
+    assert.deepEqual(canaryEvidence(`I see ${token}s here.`, brief, [layer]), ["token"], token);
+    const silent = canaryEvidence(`I see ${token}.`, "The brief is silent.", [layer]);
+    assert.deepEqual(silent, ["token"], token);
   }
 });
 
@@ -165,7 +166,7 @@ test("a dotted or multi-word token the brief carries is an echo", () => {
 test("a zero-width match is no evidence of anything", () => {
   for (const pattern of [/\b/u, /(?=\p{L})/u]) {
     const loose: Canary = { id: "loose", pattern, betrays: "a test layer" };
-    assert.deepEqual(canaryEvidence(PLAIN_ENGLISH, "Answer in English.", [loose]), []);
+    assert.deepEqual(canaryEvidence(PLAIN_ENGLISH, "Answer in English.", [loose]), [], `${pattern}`);
   }
 });
 
@@ -380,7 +381,7 @@ test("taken-out text separates words and matches nothing a line break would not"
 // seat's own as much as MAGI's marks, and a local canary aimed at it missed.
 test("a U+FFFC the seat wrote is its own text", () => {
   const marker: Canary = { id: "marker", pattern: /secret\Smarker/u, betrays: "a test layer" };
-  for (const stream of ["secret￼marker", codexStream("It says secret￼marker.")]) {
+  for (const stream of ["secret\uFFFCmarker", codexStream("It says secret\uFFFCmarker.")]) {
     assert.deepEqual(canaryEvidence(stream, ENGLISH_BRIEF, [marker]), ["marker"], stream);
   }
 });
