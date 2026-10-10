@@ -14,6 +14,7 @@ import {
   readFileSync,
   readSync,
   readdirSync,
+  realpathSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
 
@@ -74,16 +75,23 @@ export const STRANDED_WRITE_MAX_BYTES = 4 * 1024 * 1024;
  */
 function strandedWrites(layerPaths: readonly string[]): readonly StrandedWrite[] {
   const found: StrandedWrite[] = [];
-  const dirs = new Set<string>();
+  // One directory can be reached under two names, through a linked parent or
+  // a linked temp root, so each is scanned once, under the first name met.
+  const dirs = new Map<string, string>();
+  const add = (dir: string): void => {
+    const real = attempt(() => realpathSync(dir));
+    const key = real === "skip" || real === "unreadable" ? dir : real;
+    if (!dirs.has(key)) dirs.set(key, dir);
+  };
   for (const path of layerPaths) {
-    dirs.add(dirname(path));
+    add(dirname(path));
     // A linked layer is written at its target, so its temp file lands there.
     // The target can go between the look and the resolve.
     const target = attempt(() => foreignDestination(path));
     if (target === "unreadable") found.push({ path, nonce: "unreadable" });
-    else if (target !== "skip") dirs.add(dirname(target));
+    else if (target !== "skip") add(dirname(target));
   }
-  for (const dir of dirs) {
+  for (const dir of dirs.values()) {
     const names = attempt(() => readdirSync(dir));
     if (names === "skip") continue;
     if (names === "unreadable") {
