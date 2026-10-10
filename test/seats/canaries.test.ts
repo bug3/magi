@@ -220,9 +220,11 @@ test("a line of opening curly quotes with no closing one is skipped in one pass"
 });
 
 test("an echo repeated in the text is looked up in the brief once", () => {
-  // Searching the brief again for every repeat takes seconds here; once, milliseconds.
+  // Both words are everywhere in the brief and the span stands alone only at
+  // its end, so a lookup walks every place either word starts: per repeat,
+  // seconds; once, milliseconds.
   const phrase: Canary = { id: "phrase", pattern: /secret phrase/u, betrays: "a test layer" };
-  const brief = `${"secret phrasex ".repeat(20_000)}secret phrase.`;
+  const brief = `${"secret, phrase, ".repeat(20_000)}secret phrase.`;
   const started = Date.now();
   assert.deepEqual(canaryEvidence("secret phrase. ".repeat(20_000), brief, [phrase]), []);
   assert.ok(Date.now() - started < 1_000, "an echo is judged once per word");
