@@ -56,3 +56,17 @@ test("no depth of nesting in a stream can throw", () => {
   for (let level = 0; level < 12; level += 1) nested = JSON.stringify({ text: nested });
   assert.doesNotThrow(() => spokenText(nested));
 });
+
+// Raised in a release review: a backtick before a cut answer's opener and one
+// inside its prose made a single span of both, and dropping that span as a
+// citation took the opener with it.
+test("a code span across a string boundary of a cut answer is not a citation", () => {
+  for (const cut of [
+    '`{"position":"Kesik `x","findings":[',
+    'Output (cut at `max_tokens): {"position":"Kesik `x","findings":[',
+  ]) {
+    assert.deepEqual(pieces(JSON.stringify({ result: cut })), { json: [], raw: [cut] });
+  }
+  const cited = 'For `{"position":"x"` the rule holds.';
+  assert.deepEqual(pieces(JSON.stringify({ result: cited })), { json: [cited], raw: [] });
+});

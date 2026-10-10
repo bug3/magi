@@ -37,9 +37,18 @@ export const CODE_SPAN = /`[^`\n]*`/gu;
  */
 const OPENS_DOCUMENT = /\{\s*"|\[\s*[[{"]/u;
 
+/**
+ * A code span the seat cites closes every string it opens. One holding an odd
+ * number of quotes runs across a string boundary of a cut answer, from before
+ * its opener into its prose, and cites nothing.
+ */
+function cited(span: string): string {
+  return (span.match(/"/gu) ?? []).length % 2 === 0 ? " " : span;
+}
+
 /** Whether the quotation marks in `text` are the seat's own or structure. */
 function voiceOf(text: string): Spoken["from"] {
-  return OPENS_DOCUMENT.test(text.replace(CODE_SPAN, " ")) ? "raw" : "json";
+  return OPENS_DOCUMENT.test(text.replace(CODE_SPAN, cited)) ? "raw" : "json";
 }
 
 export function spokenText(stream: string): readonly Spoken[] {
