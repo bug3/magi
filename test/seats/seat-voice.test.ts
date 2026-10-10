@@ -100,3 +100,10 @@ test("a cut before the first key's colon opens nothing", () => {
   const cut = '{"position';
   assert.deepEqual(pieces(JSON.stringify({ result: cut })), { json: [cut], raw: [] });
 });
+
+// Raised by a fresh-context review: the parsed document's place was filled
+// with a line break, which put the text after it at the start of a line.
+test("what follows a parsed document stays on its line", () => {
+  const prose = 'Compare {"a":1} ["x" and "word" quoted.';
+  assert.deepEqual(pieces(JSON.stringify({ result: prose })).raw, []);
+});
