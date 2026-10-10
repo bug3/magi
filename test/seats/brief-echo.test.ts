@@ -32,7 +32,9 @@ test("a span with no word in it is found by a search of the whole brief", () => 
 });
 
 // Raised in review: the search for an empty span never advanced past the end.
+// The empty brief comes first: without the guard it answers true, so the test
+// fails by value instead of waiting on a search.
 test("an empty span copies nothing and is never an echo", () => {
-  assert.equal(echoJudge("abc")(""), false);
   assert.equal(echoJudge("")(""), false);
+  assert.equal(echoJudge("abc")(""), false);
 });
