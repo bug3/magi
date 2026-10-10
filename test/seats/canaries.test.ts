@@ -208,6 +208,14 @@ test("a long run of matches is widened once, not once per match", () => {
   assert.ok(Date.now() - started < 1_000, "widening is linear in the text");
 });
 
+test("a line of opening curly quotes with no closing one is skipped in one pass", () => {
+  // Backtracking over every opening quote takes seconds here; one pass, milliseconds.
+  const stream = JSON.stringify({ result: "“".repeat(60_000) });
+  const started = Date.now();
+  assert.deepEqual(canaryEvidence(stream, "Answer in English.", CANARIES), []);
+  assert.ok(Date.now() - started < 1_000, "the quotation pattern is linear in the text");
+});
+
 /** A seat's answer the way codex prints it: JSON lines, the answer a nested document. */
 function codexStream(position: string): string {
   return [
