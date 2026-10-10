@@ -16,7 +16,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { WORD_CHARACTER, charAfter, charBefore, echoJudge } from "./brief-echo.ts";
-import { CODE_SPAN, spokenText } from "./seat-voice.ts";
+import { CODE_SPAN, TAKEN, spokenText } from "./seat-voice.ts";
 
 export interface Canary {
   readonly id: string;
@@ -147,13 +147,14 @@ export function streamEvidence(
 const QUOTATION = /"[^"\n]*"|“[^“”\n]*”/gu;
 
 /**
- * What is left of a quotation or a code span: nothing when it holds no
- * whitespace, a word, a token or a letter, and the whole of it when it holds
- * whitespace. A phrase is read whatever the classification of its string decided,
+ * What is left of a quotation or a code span: when it holds no whitespace, a
+ * word, a token or a letter, only the mark of something taken out, which adds
+ * no whitespace to a quotation around it; when it holds whitespace, the whole
+ * of it. A phrase is read whatever the classification of its string decided,
  * so a leak in sentences never rests on telling structure from citation.
  */
 function keepPhrase(span: string): string {
-  return /\s/u.test(span) ? span : " ";
+  return /\s/u.test(span) ? span : TAKEN;
 }
 
 /** What a word is counted in: `ç-` is one letter, not two characters. */

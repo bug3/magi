@@ -28,6 +28,15 @@ const MAX_NESTING = 8;
 export const CODE_SPAN = /`[^`\n]*`/gu;
 
 /**
+ * What stands where a document or a cited span was taken out of a string the
+ * seat wrote: no whitespace, no word character and no opener, so the words on
+ * either side stay apart and what follows keeps its place on its line, where
+ * a space would read as indentation. Raw text is never classified, and gets a
+ * plain space.
+ */
+export const TAKEN = "\uFFFC";
+
+/**
  * Where a JSON document opens: an object's first key, anywhere, or an array
  * of documents or strings at the start of a line. A quote may follow a
  * backslash, as in an answer written out escaped. Text that still carries one
@@ -44,7 +53,7 @@ const OPENS_DOCUMENT = /\{\s*\\?"[^"\n]*"\s*:|(?:^|\n)[ \t]*\[\s*(?:[[{]|\\?")/u
  * its opener into its prose, and cites nothing.
  */
 function cited(span: string): string {
-  return (span.match(/"/gu) ?? []).length % 2 === 0 ? " " : span;
+  return (span.match(/"/gu) ?? []).length % 2 === 0 ? TAKEN : span;
 }
 
 /** Whether the quotation marks in `text` are the seat's own or structure. */
@@ -57,7 +66,7 @@ export function spokenText(stream: string): readonly Spoken[] {
   const whole = embedded(stream);
   if (whole !== undefined) {
     walk(whole.value, found);
-    found.push({ text: whole.around, from: "raw" });
+    found.push({ text: `${whole.before} ${whole.after}`, from: "raw" });
     return found;
   }
   for (const line of stream.split("\n")) {
@@ -66,7 +75,7 @@ export function spokenText(stream: string): readonly Spoken[] {
       found.push({ text: line, from: "raw" });
     } else {
       walk(document.value, found);
-      found.push({ text: document.around, from: "raw" });
+      found.push({ text: `${document.before} ${document.after}`, from: "raw" });
     }
   }
   return found;
@@ -88,7 +97,8 @@ function walk(root: object, found: Spoken[]): void {
         found.push({ text: value, from: voiceOf(value) });
       } else {
         pending.push({ value: document.value, depth: depth + 1 });
-        found.push({ text: document.around, from: voiceOf(document.around) });
+        const around = `${document.before}${TAKEN}${document.after}`;
+        found.push({ text: around, from: voiceOf(around) });
       }
     } else if (value !== null && typeof value === "object") {
       for (const child of Object.values(value)) pending.push({ value: child, depth });
@@ -99,18 +109,17 @@ function walk(root: object, found: Spoken[]): void {
 /**
  * The document in `text`, if there is one: the text as a whole, or the span
  * from its first `{` or `[` to its last `}` or `]`, which covers a preamble in
- * front and a fence around. `around` is what is left of the text, with a
- * space where the document was: enough to keep the words on either side
- * apart, and not a line break, which would put what follows at the start of
- * a line, where an array opener means a document.
+ * front and a fence around, with the text before it and after it.
  */
-function embedded(text: string): { value: object; around: string } | undefined {
+function embedded(
+  text: string,
+): { value: object; before: string; after: string } | undefined {
   const end = Math.max(text.lastIndexOf("}"), text.lastIndexOf("]"));
   for (const start of [text.indexOf("{"), text.indexOf("[")]) {
     if (start === -1 || end <= start) continue;
     const value = parsed(text.slice(start, end + 1));
     if (value !== null && typeof value === "object") {
-      return { value, around: `${text.slice(0, start)} ${text.slice(end + 1)}` };
+      return { value, before: text.slice(0, start), after: text.slice(end + 1) };
     }
   }
   return undefined;

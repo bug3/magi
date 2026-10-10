@@ -333,6 +333,8 @@ test("a quoted phrase is the seat's own voice; only a quoted word is a citation"
   // The accepted cost, recorded: a phrase the seat composed is read too.
   const composed = codexStream('Use the "façade pattern" here.');
   assert.deepEqual(canaryEvidence(composed, ENGLISH_BRIEF, CANARIES), ["turkish-text-leak"]);
+  // A code span dropped inside a quoted word leaves the word one word.
+  assert.deepEqual(canaryEvidence(codexStream('A word like "ölçüm`x`" here.'), ENGLISH_BRIEF, CANARIES), []);
   const copied = codexStream(`The brief says "${TURKISH_ANSWER}" here.`);
   assert.deepEqual(canaryEvidence(copied, `${ENGLISH_BRIEF} ${TURKISH_ANSWER}`, CANARIES), []);
 });
