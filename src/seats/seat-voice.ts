@@ -17,8 +17,9 @@ export interface Spoken {
    * "json": the content of a string the seat wrote, where a quotation mark is
    * the seat's own. "raw": text outside any document, or a string that still
    * opens a document it was not opened as, read as it stands: one that does
-   * not parse, one nested past the depth limit, or one whose span from the
-   * first `{` or `[` to the last `}` or `]` does not parse as a whole. The
+   * not parse, one nested past the depth limit, or one where neither span
+   * parses as a whole, from the first `{` nor from the first `[`, each to
+   * the last `}` or `]`. The
    * text on either side of a document parsed out of a string, or out of the
    * stream or one of its lines, comes as two pieces, so nothing stands in the
    * document's place; in a string, both carry the voice decided for the
@@ -118,10 +119,10 @@ function walk(root: object, found: Spoken[]): void {
 }
 
 /**
- * The document in `text`, if there is one: the text as a whole, or the span
- * from its first `{` or `[` to its last `}` or `]`, which covers a preamble in
- * front and a fence around, with the text before it, its first character and
- * the text after it.
+ * The document in `text`, if there is one: the span from its first `{` to
+ * its last `}` or `]`, or failing that the span from its first `[`, which
+ * covers the text as a whole, a preamble in front and a fence around; with
+ * the text before it, its first character and the text after it.
  */
 function embedded(
   text: string,
