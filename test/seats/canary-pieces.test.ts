@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { CANARIES, canaryEvidence, type Canary } from "../../src/seats/canaries.ts";
+import { spokenText } from "../../src/seats/seat-voice.ts";
 
 // How a seat's text is cut into the pieces the canary scans: the sides of a
 // parsed document, and citations found in one pass. Raised by fresh-context
@@ -47,5 +48,9 @@ test("the text on either side of a document in the stream is two pieces", () => 
   // The second stream does not parse whole, so it is read line by line.
   for (const stream of ['secret{"a":1}marker', 'secret{"a":1}marker\n{"b":2} x']) {
     assert.deepEqual(canaryEvidence(stream, ENGLISH_BRIEF, [token]), [], stream);
+    // And the document is taken out, not left standing between the sides.
+    const raw = spokenText(stream).filter((piece) => piece.from === "raw");
+    assert.ok(raw.some((piece) => piece.text === "secret"), stream);
+    assert.ok(raw.some((piece) => piece.text === "marker"), stream);
   }
 });
