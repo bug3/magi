@@ -15,7 +15,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { spokenText } from "./seat-voice.ts";
+import { CODE_SPAN, spokenText } from "./seat-voice.ts";
 
 export interface Canary {
   readonly id: string;
@@ -151,8 +151,6 @@ export function streamEvidence(
   return canaries.filter((canary) => hit.has(canary.id)).map((canary) => canary.id);
 }
 
-/** An inline code span in a seat's own text: what it quotes or names. */
-const CODE_SPAN = /`[^`\n]*`/gu;
 /**
  * A quotation in a seat's own text: what it cites, not what it says. An
  * opening quote may not sit inside one, or a line of them with no closing

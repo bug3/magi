@@ -24,6 +24,9 @@ export interface Spoken {
 /** How many documents nested in strings are opened, one inside another. */
 const MAX_NESTING = 8;
 
+/** An inline code span in a seat's own text: what it quotes or names. */
+export const CODE_SPAN = /`[^`\n]*`/gu;
+
 /**
  * A line that opens a JSON object or array. A string carrying one that was
  * not opened, an answer cut short or slightly invalid, is read as raw text:
