@@ -15,6 +15,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { WORD_CHARACTER, charAfter, charBefore, echoJudge } from "./brief-echo.ts";
 import { CODE_SPAN, spokenText } from "./seat-voice.ts";
 
 export interface Canary {
@@ -106,22 +107,7 @@ export function canaryEvidence(
   brief: string,
   canaries: readonly Canary[],
 ): readonly string[] {
-  const briefText = brief.normalize("NFC");
-  const briefWords = new Set((briefText.match(WORD) ?? []).flatMap(folds));
-  const briefForms = folds(briefText);
-  // A word is judged once: looking a repeat up in the brief again would cost
-  // a pass over the brief per match.
-  const judged = new Map<string, boolean>();
-  const echoed = (word: string): boolean => {
-    let echo = judged.get(word);
-    if (echo === undefined) {
-      echo = ONE_WORD.test(word)
-        ? folds(word).some((form) => briefWords.has(form))
-        : folds(word).some((form) => briefForms.some((text) => standsAlone(form, text)));
-      judged.set(word, echo);
-    }
-    return echo;
-  };
+  const echoed = echoJudge(brief);
   const text = spokenText(output)
     .map(({ text: piece, from }) => {
       const normal = piece.normalize("NFC");
@@ -158,51 +144,8 @@ export function streamEvidence(
  */
 const QUOTATION = /"[^"\n]*"|“[^“”\n]*”/gu;
 
-/** Letters, marks, digits, `_` and `-`: what a word, or a token, is made of. */
-const WORD_CHARACTER = /[\p{L}\p{M}\p{N}_-]/u;
-const WORD = /[\p{L}\p{M}\p{N}_-]+/gu;
-const ONE_WORD = /^[\p{L}\p{M}\p{N}_-]+$/u;
 /** What a word is counted in: `ç-` is one letter, not two characters. */
 const LETTER_OR_DIGIT = /[\p{L}\p{N}]/gu;
-
-/**
- * Whether `span` occurs in `text` with no word character on either side. A
- * span a token canary widened across a space or punctuation is never one of
- * the brief's words, so it is looked up in the brief's text instead.
- */
-function standsAlone(span: string, text: string): boolean {
-  for (let at = text.indexOf(span); at !== -1; at = text.indexOf(span, at + 1)) {
-    const before = charBefore(text, at);
-    const after = charAfter(text, at + span.length);
-    if (!WORD_CHARACTER.test(before) && !WORD_CHARACTER.test(after)) return true;
-  }
-  return false;
-}
-
-/**
- * The character that ends at `at`, or "" at the start. Characters are read
- * whole: a letter outside the BMP is two UTF-16 units, and either half alone
- * is no word character, so a boundary read unit by unit would split it.
- */
-function charBefore(text: string, at: number): string {
-  const pair = at >= 2 && (text.codePointAt(at - 2) ?? 0) > 0xffff;
-  return text.slice(Math.max(0, pair ? at - 2 : at - 1), at);
-}
-
-/** The character that starts at `at`, read whole, or "" at the end. */
-function charAfter(text: string, at: number): string {
-  const point = text.codePointAt(at);
-  return point === undefined ? "" : String.fromCodePoint(point);
-}
-
-/**
- * The forms two words are compared in. Both casings count: Turkish folds İ
- * and ı right, while text capitalised the ordinary way writes ASCII I for i,
- * which only the root casing folds back.
- */
-function folds(word: string): readonly string[] {
-  return [word.toLowerCase(), word.toLocaleLowerCase("tr")];
-}
 
 /**
  * Every match of `pattern` in `text`, each widened to the word around it. A
