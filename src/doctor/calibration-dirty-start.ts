@@ -48,9 +48,9 @@ export interface StrandedWrite {
   /**
    * "unreadable": the file could not be read, or `path` is a layer directory
    * that could not be listed. "oversized": the file is over the limit and was
-   * not read. "unresolved": `path` is a layer whose link could not be
-   * resolved, so the directory its write lands in was not scanned. None is
-   * known to be clean.
+   * not read. "unresolved": `path` is a layer where a write to it lands
+   * could not be resolved, link or not, so that directory was not scanned.
+   * None is known to be clean.
    */
   readonly nonce: "carried" | "unreadable" | "oversized" | "unresolved";
 }
@@ -67,7 +67,7 @@ export const STRANDED_WRITE_MAX_BYTES = 4 * 1024 * 1024;
  * For codex that is the repository root, readable by the seats; for grok it
  * is the rules directory the harness loads whole. A layer that is a link is
  * written at its target, so the directory of that target is scanned too; a
- * layer whose link cannot be resolved is reported, like an unread file.
+ * layer whose write target cannot be resolved is reported as unresolved.
  *
  * This runs on every doctor, over directories MAGI does not own, so nothing
  * found there may crash it. Only regular files are read: a durable write
@@ -189,16 +189,16 @@ const STRANDED_MESSAGES: Readonly<Record<StrandedWrite["nonce"], (path: string) 
     `${path} is a temp file over ${STRANDED_WRITE_MAX_BYTES / 1024 / 1024} MiB, too large to ` +
     "check for a calibration nonce; check it by hand",
   unresolved: (path) =>
-    `${path} is a link that could not be resolved, so the directory a calibration ` +
-    "write to it lands in was not checked for a temp file; check it by hand",
+    `${path}: where a calibration write to it lands could not be resolved, so ` +
+    "that directory was not checked for a temp file; check it by hand",
 };
 
 /**
  * What an interrupted or refused calibration left for a person to finish: a
  * surviving recovery sidecar, a layer still carrying a nonce line, or a temp
  * file beside one that carries a nonce or could not be checked for one,
- * because it or its directory could not be read, the layer's link could not
- * be resolved, or it is over the size limit. Doctor fails on each and
+ * because it or its directory could not be read, where the layer is written
+ * could not be resolved, or it is over the size limit. Doctor fails on each and
  * calibration refuses to start over any of
  * them, both from this one list, so the two cannot disagree about what a
  * dirty start is.
