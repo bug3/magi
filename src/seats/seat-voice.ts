@@ -99,7 +99,10 @@ function walk(root: object, found: Spoken[]): void {
 /**
  * The document in `text`, if there is one: the text as a whole, or the span
  * from its first `{` or `[` to its last `}` or `]`, which covers a preamble in
- * front and a fence around. `around` is what is left of the text.
+ * front and a fence around. `around` is what is left of the text, with a
+ * space where the document was: enough to keep the words on either side
+ * apart, and not a line break, which would put what follows at the start of
+ * a line, where an array opener means a document.
  */
 function embedded(text: string): { value: object; around: string } | undefined {
   const end = Math.max(text.lastIndexOf("}"), text.lastIndexOf("]"));
@@ -107,7 +110,7 @@ function embedded(text: string): { value: object; around: string } | undefined {
     if (start === -1 || end <= start) continue;
     const value = parsed(text.slice(start, end + 1));
     if (value !== null && typeof value === "object") {
-      return { value, around: `${text.slice(0, start)}\n${text.slice(end + 1)}` };
+      return { value, around: `${text.slice(0, start)} ${text.slice(end + 1)}` };
     }
   }
   return undefined;
