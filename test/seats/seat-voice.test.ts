@@ -88,3 +88,15 @@ test("a bracket or a brace in prose opens nothing", () => {
     assert.deepEqual(pieces(JSON.stringify({ result: prose })), { json: [prose], raw: [] });
   }
 });
+
+test("an array of documents or strings at the start of a line opens a document", () => {
+  for (const cut of ['[{"position":"Kesik', '[["Kesik', '["Kesik', 'Notes:\n  [{"position":"Kesik']) {
+    assert.deepEqual(pieces(JSON.stringify({ result: cut })).json, []);
+  }
+});
+
+// Accepted, not missed: a cut inside the first key leaves no value to hide.
+test("a cut before the first key's colon opens nothing", () => {
+  const cut = '{"position';
+  assert.deepEqual(pieces(JSON.stringify({ result: cut })), { json: [cut], raw: [] });
+});
