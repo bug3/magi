@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { WORD_CHARACTER } from "../../src/seats/brief-echo.ts";
 import { TAKEN, spokenText } from "../../src/seats/seat-voice.ts";
 
 /** The pieces that came out of JSON strings, and those read as they stand. */
@@ -117,10 +116,9 @@ test("what follows a parsed document or a cited span stays where it was on its l
   }
 });
 
-// The scan turns every mark back into a line break, so the mark must be a
-// character a seat does not write in a word.
-test("the mark of taken-out text is no whitespace, no word character and stable", () => {
-  assert.equal(/\s/u.test(TAKEN), false);
-  assert.equal(WORD_CHARACTER.test(TAKEN), false);
-  assert.equal(TAKEN.normalize("NFC"), TAKEN);
+// The mark stands only inside the voice decision: it must not read as
+// indentation, nor form an opener, nor change a code span's count of quotes.
+test("the mark of taken-out text is no whitespace, no opener and no quote", () => {
+  assert.equal(/\s/u.test(TAKEN), false, "whitespace");
+  assert.equal(/[{["`\\]/u.test(TAKEN), false, "an opener or a quote");
 });

@@ -16,7 +16,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { WORD_CHARACTER, charAfter, charBefore, echoJudge } from "./brief-echo.ts";
-import { CODE_SPAN, TAKEN, spokenText } from "./seat-voice.ts";
+import { CODE_SPAN, spokenText } from "./seat-voice.ts";
 
 export interface Canary {
   readonly id: string;
@@ -117,12 +117,7 @@ export function canaryEvidence(
   const text = spokenText(output)
     .map(({ text: piece, from }) => {
       const normal = piece.normalize("NFC");
-      const read =
-        from === "raw" ? normal : normal.replace(CODE_SPAN, keepPhrase).replace(QUOTATION, keepPhrase);
-      // The mark of taken-out text did its work in deciding what is cited;
-      // scanned, it is the line break the pieces are joined with, so no
-      // pattern can match it that a line break between pieces would not.
-      return read.replaceAll(TAKEN, "\n");
+      return from === "raw" ? normal : normal.replace(CITATION, keepPhrase);
     })
     .join("\n");
   return canaries
@@ -156,14 +151,21 @@ export function streamEvidence(
 const QUOTATION = /"[^"\n]*"|“[^“”\n]*”/gu;
 
 /**
- * What is left of a quotation or a code span: when it holds no whitespace, a
- * word, a token or a letter, only the mark of something taken out, which adds
- * no whitespace to a quotation around it; when it holds whitespace, the whole
- * of it. A phrase is read whatever the classification of its string decided,
- * so a leak in sentences never rests on telling structure from citation.
+ * A citation, a code span or a quotation, whichever starts first, found in
+ * one pass: a quoted word with a code span in it is one quotation, and a code
+ * span with quotes in it is one code span.
+ */
+const CITATION = new RegExp(`${CODE_SPAN.source}|${QUOTATION.source}`, "gu");
+
+/**
+ * What is left of a citation: when it holds no whitespace, a word, a token or
+ * a letter, a line break, as between pieces; when it holds whitespace, the
+ * whole of it. A phrase is read whatever the classification of its string
+ * decided, so a leak in sentences never rests on telling structure from
+ * citation.
  */
 function keepPhrase(span: string): string {
-  return /\s/u.test(span) ? span : TAKEN;
+  return /\s/u.test(span) ? span : "\n";
 }
 
 /** What a word is counted in: `ç-` is one letter, not two characters. */

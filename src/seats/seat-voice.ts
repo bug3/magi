@@ -15,8 +15,10 @@ export interface Spoken {
   readonly text: string;
   /**
    * "json": the content of a string the seat wrote, where a quotation mark is
-   * the seat's own. "raw": text outside any document, or a document that
-   * does not parse, read as it stands.
+   * the seat's own. "raw": text outside any document, or a string that still
+   * opens a document that did not parse, read as it stands. The text on either
+   * side of a document parsed out of a string comes as two pieces, so nothing
+   * stands in the document's place.
    */
   readonly from: "json" | "raw";
 }
@@ -28,12 +30,11 @@ const MAX_NESTING = 8;
 export const CODE_SPAN = /`[^`\n]*`/gu;
 
 /**
- * What stands where a document or a cited span was taken out of a string the
- * seat wrote: no whitespace, no word character and no opener, so the words on
- * either side stay apart and what follows keeps its place on its line, where
- * a space would read as indentation. Raw text is never classified, and gets a
- * plain space. The canary scan reads every mark as a line break, so it must
- * be a character a seat does not write in a word.
+ * What stands, for the voice decision only, where a document was parsed out
+ * of a string or a cited code span was set aside: no whitespace and no opener
+ * or quote, so what follows keeps its place on its line, where a space would
+ * read as indentation. It never reaches the text that is scanned, so a U+FFFC
+ * the seat wrote itself is read as the seat wrote it.
  */
 export const TAKEN = "\uFFFC";
 
@@ -68,7 +69,7 @@ export function spokenText(stream: string): readonly Spoken[] {
   const whole = embedded(stream);
   if (whole !== undefined) {
     walk(whole.value, found);
-    found.push({ text: `${whole.before} ${whole.after}`, from: "raw" });
+    found.push({ text: whole.before, from: "raw" }, { text: whole.after, from: "raw" });
     return found;
   }
   for (const line of stream.split("\n")) {
@@ -77,7 +78,7 @@ export function spokenText(stream: string): readonly Spoken[] {
       found.push({ text: line, from: "raw" });
     } else {
       walk(document.value, found);
-      found.push({ text: `${document.before} ${document.after}`, from: "raw" });
+      found.push({ text: document.before, from: "raw" }, { text: document.after, from: "raw" });
     }
   }
   return found;
@@ -99,11 +100,12 @@ function walk(root: object, found: Spoken[]): void {
         found.push({ text: value, from: voiceOf(value) });
       } else {
         pending.push({ value: document.value, depth: depth + 1 });
-        const around = `${document.before}${TAKEN}${document.after}`;
-        // The decision keeps the document's first character in front of the
-        // mark: an array opened just before it, `[{`, is still an opener.
-        const decided = `${document.before}${document.opener}${TAKEN}${document.after}`;
-        found.push({ text: around, from: voiceOf(decided) });
+        // The voice is decided on the whole string with the mark in the
+        // document's place and its first character kept in front of it, so an
+        // array opened just before it, `[{`, is still an opener. The two sides
+        // are scanned as separate pieces, as if a line break stood between.
+        const from = voiceOf(`${document.before}${document.opener}${TAKEN}${document.after}`);
+        found.push({ text: document.before, from }, { text: document.after, from });
       }
     } else if (value !== null && typeof value === "object") {
       for (const child of Object.values(value)) pending.push({ value: child, depth });
