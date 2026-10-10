@@ -183,15 +183,17 @@ test("a layer whose target went before it was resolved is still scanned beside i
   }
 });
 
-test("a layer whose target cannot be resolved is reported as unreadable, not as clean", () => {
+test("a layer whose target cannot be resolved is reported as unresolved, not as clean", () => {
   const space = workspace();
   try {
     const layer = join(space.home, ".claude", "CLAUDE.md");
     mkdirSync(join(space.home, ".claude"));
     writeFileSync(layer, "# owner rules\n");
-    assert.deepEqual(withResolveFailing("EACCES", () => scan(space)), [
-      { path: layer, nonce: "unreadable" },
-    ]);
+    const facts = withResolveFailing("EACCES", () => scan(space));
+    assert.deepEqual(facts, [{ path: layer, nonce: "unresolved" }]);
+    // The layer itself was read; what could not be checked is where it writes.
+    assert.match(told(facts), /could not be resolved, .* check it by hand/u);
+    assert.doesNotMatch(told(facts), /could not be read/u);
   } finally {
     space.remove();
   }

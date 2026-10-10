@@ -62,8 +62,8 @@ question and a pipe is never asked.`,
   refuses: `--calibrate refuses to start over an interrupted calibration's leftovers, a
 recovery sidecar, a layer still carrying a nonce line, or a temp file beside one
 that carries a nonce or could not be checked for one (it or its directory could not
-be read, or it is over 4 MiB), before it asks to spend; the report names each one
-for handling by hand.`,
+be read, the layer's link could not be resolved, or it is over 4 MiB), before it
+asks to spend; the report names each one for handling by hand.`,
   records: `--calibrate briefly writes a nonce into each ambient config layer and
 restores every layer after, asserts that the nonce surfaces without isolation
 and stays out with it, and records both directions in the ledger.`,

@@ -48,9 +48,11 @@ export interface StrandedWrite {
   /**
    * "unreadable": the file could not be read, or `path` is a layer directory
    * that could not be listed. "oversized": the file is over the limit and was
-   * not read. Neither is known to be clean.
+   * not read. "unresolved": `path` is a layer whose link could not be
+   * resolved, so the directory its write lands in was not scanned. None is
+   * known to be clean.
    */
-  readonly nonce: "carried" | "unreadable" | "oversized";
+  readonly nonce: "carried" | "unreadable" | "oversized" | "unresolved";
 }
 
 /**
@@ -88,7 +90,7 @@ function strandedWrites(layerPaths: readonly string[]): readonly StrandedWrite[]
     // A linked layer is written at its target, so its temp file lands there.
     // The target can go between the look and the resolve.
     const target = attempt(() => foreignDestination(path));
-    if (target === "unreadable") found.push({ path, nonce: "unreadable" });
+    if (target === "unreadable") found.push({ path, nonce: "unresolved" });
     else if (target !== "skip") add(dirname(target));
   }
   for (const dir of dirs.values()) {
@@ -186,14 +188,18 @@ const STRANDED_MESSAGES: Readonly<Record<StrandedWrite["nonce"], (path: string) 
   oversized: (path) =>
     `${path} is a temp file over ${STRANDED_WRITE_MAX_BYTES / 1024 / 1024} MiB, too large to ` +
     "check for a calibration nonce; check it by hand",
+  unresolved: (path) =>
+    `${path} is a link that could not be resolved, so the directory a calibration ` +
+    "write to it lands in was not checked for a temp file; check it by hand",
 };
 
 /**
  * What an interrupted or refused calibration left for a person to finish: a
  * surviving recovery sidecar, a layer still carrying a nonce line, or a temp
  * file beside one that carries a nonce or could not be checked for one,
- * because it or its directory could not be read or it is over the size
- * limit. Doctor fails on each and calibration refuses to start over any of
+ * because it or its directory could not be read, the layer's link could not
+ * be resolved, or it is over the size limit. Doctor fails on each and
+ * calibration refuses to start over any of
  * them, both from this one list, so the two cannot disagree about what a
  * dirty start is.
  */
