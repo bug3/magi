@@ -364,13 +364,25 @@ test("each stream is read on its own, so stderr cannot break stdout's document",
 // between pieces would not.
 test("taken-out text separates words and matches nothing a line break would not", () => {
   const glued = codexStream("A word`x`çok here.");
-  assert.deepEqual(canaryEvidence(glued, `${ENGLISH_BRIEF} çok`, CANARIES), []);
+  assert.deepEqual(canaryEvidence(glued, `${ENGLISH_BRIEF} çok`, CANARIES), [], "glued echo");
   const nonAscii: Canary = { id: "non-ascii", pattern: /[^\x00-\x7F]/u, betrays: "a test layer" };
   const flag = codexStream("the `x`-flag is set");
-  assert.deepEqual(canaryEvidence(flag, ENGLISH_BRIEF, [nonAscii]), []);
+  assert.deepEqual(canaryEvidence(flag, ENGLISH_BRIEF, [nonAscii]), [], "dropped span");
   const marker: Canary = { id: "marker", pattern: /secret\Smarker/u, betrays: "a test layer" };
-  assert.deepEqual(canaryEvidence(codexStream("secret`x`marker"), ENGLISH_BRIEF, [marker]), []);
+  const spanned = codexStream("secret`x`marker");
+  assert.deepEqual(canaryEvidence(spanned, ENGLISH_BRIEF, [marker]), [], "non-space pattern");
   // Left behind a parsed document in a string that is read raw, too.
   const cut = JSON.stringify({ result: 'x{"a":1}-flag and {"position":"cut' });
-  assert.deepEqual(canaryEvidence(cut, ENGLISH_BRIEF, [nonAscii]), []);
+  assert.deepEqual(canaryEvidence(cut, ENGLISH_BRIEF, [nonAscii]), [], "parsed document");
+});
+
+// Raised in review: the scan turned every U+FFFC into a line break, the
+// seat's own as much as MAGI's marks, and a local canary aimed at it missed.
+test("a U+FFFC the seat wrote is its own text, and a quotation never spans a parsed document", () => {
+  const marker: Canary = { id: "marker", pattern: /secret\Smarker/u, betrays: "a test layer" };
+  for (const stream of ["secret￼marker", codexStream("It says secret￼marker.")]) {
+    assert.deepEqual(canaryEvidence(stream, ENGLISH_BRIEF, [marker]), ["marker"], stream);
+  }
+  const straddling = codexStream('He said "çok{"a":1}daha" there.');
+  assert.deepEqual(canaryEvidence(straddling, ENGLISH_BRIEF, CANARIES), ["turkish-text-leak"]);
 });

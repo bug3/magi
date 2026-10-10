@@ -418,7 +418,11 @@ echo and not evidence. That is judged per match, on the seat's own voice:
   document is opened in turn, up to eight deep. Text that is not JSON, a
   preamble or an answer cut short, is read exactly as it stands. So is a
   string, or what is left of one once a document in it was opened, that
-  still carries an opener outside the code spans it cites: an object's first
+  still carries an opener outside the code spans it cites; for this decision
+  the document's place is held by U+FFFC, which is no whitespace and no
+  opener or quote, so what follows keeps its place on its line, with the
+  document's first character kept in front of it, so an array opened just
+  before it, `[{`, is still an opener. The openers are an object's first
   key, `{"name":`, anywhere in it, with whitespace or a line break allowed
   around the key and no quote or line break inside it, or an array of
   documents or strings, `[{`, `[[` or `["`, at the start of a line, indented
@@ -431,16 +435,17 @@ echo and not evidence. That is judged per match, on the seat's own voice:
   number of double quotes; one holding an odd number is kept, which is the
   shape of a span running from before a cut answer's opener into its prose,
   and also of an unfinished example. The decision only chooses which quoted
-  words are dropped, since a quoted phrase is read either way. Where a
-  document or a span is taken out of a string, the place is marked with
-  U+FFFC, which is no whitespace and no word character, so the words on
-  either side stay apart and what follows keeps its place on its line; the
-  scan reads each mark as a line break.
+  words are dropped, since a quoted phrase is read either way. A code span
+  set aside for the decision leaves the same mark. The scan never sees the
+  mark: the text on either side of a document parsed out of a string is read
+  as two pieces, as if a line break stood between them, so a U+FFFC the seat
+  wrote itself is read as written.
 - Inside the strings the seat wrote, a quotation in straight or curly double
-  quotes on one line, or an inline code span, that holds no whitespace is
-  what it cites, a word, a token or a letter under discussion, and is
-  skipped. One holding whitespace is a phrase in the seat's own voice and is
-  read like the rest of it, so an answer written inside quotation marks is
+  quotes on one line, or an inline code span, whichever starts first, that
+  holds no whitespace is what it cites, a word, a token or a letter under
+  discussion, and is skipped, leaving a line break. One holding whitespace
+  is a phrase in the seat's own voice and is read like the rest of it, so
+  an answer written inside quotation marks is
   still seen, and a leak in sentences never rests on telling structure from
   citation; a phrase copied from the brief is still an echo. The cost is
   accepted: a phrase the seat composed and quoted, carrying a watched letter
@@ -542,7 +547,8 @@ and a layer whose write target cannot be resolved, link or not, is named as
 one whose write target was not checked, so it is not known to be clean.
 A directory reached under two names, through a linked parent, is scanned
 once, so a temp file in it is named once.
-Only regular temp files are read, never through a link. A temp file that cannot be read, one over 4 MiB,
+Only regular temp files are read, never through a link. A temp file that
+cannot be read, one over 4 MiB,
 which is not read at all, and a layer directory that cannot be listed are not
 known to be clean: the refusal names the file or the directory, says which,
 and asks for it to be checked by hand. A layer directory that does not exist,
