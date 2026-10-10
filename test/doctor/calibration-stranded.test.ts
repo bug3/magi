@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import {
+import fs, {
   chmodSync,
   mkdirSync,
   readdirSync,
@@ -8,8 +8,9 @@ import {
   symlinkSync,
   writeFileSync,
 } from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import { join } from "node:path";
-import { test } from "node:test";
+import { mock, test } from "node:test";
 
 import {
   STRANDED_WRITE_MAX_BYTES,
@@ -143,6 +144,54 @@ test("a temp file stranded beside a linked layer's target is found", () => {
     // Found where the write lands: the target's real directory.
     const stranded = join(realpathSync(dotfiles), ".tmp-1-a-b");
     assert.deepEqual(scan(space), [{ path: stranded, nonce: "carried" }]);
+  } finally {
+    space.remove();
+  }
+});
+
+/**
+ * Runs `read` with every link resolution failing as `code`, the way it fails
+ * when a target goes between the look and the resolve.
+ */
+function withResolveFailing<T>(code: string, read: () => T): T {
+  const failing = mock.method(fs, "realpathSync", () => {
+    throw Object.assign(new Error(`${code}: mocked`), { code });
+  });
+  syncBuiltinESMExports();
+  try {
+    return read();
+  } finally {
+    failing.mock.restore();
+    syncBuiltinESMExports();
+  }
+}
+
+// A layer is looked at before its link is resolved, and its target can go in
+// between. That may cost the scan the target's directory, never the doctor.
+test("a layer whose target went before it was resolved is still scanned beside itself", () => {
+  const space = workspace();
+  try {
+    mkdirSync(join(space.home, ".claude"));
+    writeFileSync(join(space.home, ".claude", "CLAUDE.md"), "# owner rules\n");
+    const stranded = join(space.home, ".claude", ".tmp-1-a-b");
+    writeFileSync(stranded, `${NONCE_MARKER} magi-canary-residue\n`);
+    assert.deepEqual(withResolveFailing("ENOENT", () => scan(space)), [
+      { path: stranded, nonce: "carried" },
+    ]);
+  } finally {
+    space.remove();
+  }
+});
+
+test("a layer whose target cannot be resolved is reported as unreadable, not as clean", () => {
+  const space = workspace();
+  try {
+    const layer = join(space.home, ".claude", "CLAUDE.md");
+    mkdirSync(join(space.home, ".claude"));
+    writeFileSync(layer, "# owner rules\n");
+    assert.deepEqual(withResolveFailing("EACCES", () => scan(space)), [
+      { path: layer, nonce: "unreadable" },
+    ]);
   } finally {
     space.remove();
   }
