@@ -28,14 +28,15 @@ const MAX_NESTING = 8;
 export const CODE_SPAN = /`[^`\n]*`/gu;
 
 /**
- * Where a JSON object or array opens: a key, or an array of documents or
- * strings. Text that still carries one outside its code spans, once whatever
- * parsed was taken out, is an answer cut short or slightly invalid wherever
- * on the line it starts, and is read as raw text: its quotation marks are
- * structure, and stripping them would strip its prose. Inside a code span it
- * is an example the seat cites.
+ * Where a JSON document opens: an object's first key, anywhere, or an array
+ * of documents or strings at the start of a line. A quote may follow a
+ * backslash, as in an answer written out escaped. Text that still carries one
+ * outside the code spans it cites, once whatever parsed was taken out, is an
+ * answer cut short or slightly invalid, and is read as raw text: its
+ * quotation marks are structure, and stripping them would strip its prose.
+ * A bracket or a brace in prose, `env["HOME"` or `["word"`, opens nothing.
  */
-const OPENS_DOCUMENT = /\{\s*"|\[\s*[[{"]/u;
+const OPENS_DOCUMENT = /\{\s*\\?"[^"\n]*"\s*:|(?:^|\n)[ \t]*\[\s*(?:[[{]|\\?")/u;
 
 /**
  * A code span the seat cites closes every string it opens. One holding an odd

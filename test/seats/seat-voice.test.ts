@@ -70,3 +70,21 @@ test("a code span across a string boundary of a cut answer is not a citation", (
   const cited = 'For `{"position":"x"` the rule holds.';
   assert.deepEqual(pieces(JSON.stringify({ result: cited })), { json: [cited], raw: [] });
 });
+
+test("an answer written out escaped opens a document like a plain one", () => {
+  for (const answer of ['{\\"position\\":\\"Kesik', '{\\"position\\":\\"Tam\\",\\"findings\\":[]}']) {
+    assert.deepEqual(pieces(JSON.stringify({ result: answer })), { json: [], raw: [answer] });
+  }
+});
+
+// Raised in the same review: a bracket in prose read a whole English string
+// raw, and a word it quoted then raised a false warning.
+test("a bracket or a brace in prose opens nothing", () => {
+  for (const prose of [
+    'A token like ["word" is discussion.',
+    'Reading env["HOME" fails.',
+    'Strings open with {" in JSON.',
+  ]) {
+    assert.deepEqual(pieces(JSON.stringify({ result: prose })), { json: [prose], raw: [] });
+  }
+});
