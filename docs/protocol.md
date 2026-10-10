@@ -423,7 +423,9 @@ echo and not evidence. That is judged per match, on the seat's own voice:
 - Each remaining match is widened to its word: a run of letters, marks,
   digits, `_` and `-`. The hit is an echo only when every such word is a whole
   word of the brief, compared after Unicode normalization under both root and
-  Turkish lower-casing.
+  Turkish lower-casing. A span that a token matched across a space or
+  punctuation, `secret phrase` or `~/.claude/x`, is never one word, so it is
+  an echo when the brief carries it with no word character on either side.
 
 A pack that quotes one Turkish word therefore echoes that word, capitalised
 or not, and nothing else; an inflected form of it is a new word, and a seat

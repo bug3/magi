@@ -152,6 +152,20 @@ test("a token canary is an echo only for the token the brief carries", () => {
   assert.deepEqual(canaryEvidence("My context holds marker-43.", brief, [token]), ["token"]);
 });
 
+test("a dotted or multi-word token the brief carries is an echo", () => {
+  for (const [pattern, token] of [
+    [/secret phrase/iu, "Secret Phrase"],
+    [/~\/\.claude\/x/u, "~/.claude/x"],
+    [/owner@host/u, "owner@host"],
+  ] as const) {
+    const layer: Canary = { id: "token", pattern, betrays: "a test layer" };
+    const brief = `The layer under test holds ${token}.`;
+    assert.deepEqual(canaryEvidence(`I see ${token} in the brief.`, brief, [layer]), []);
+    assert.deepEqual(canaryEvidence(`I see ${token}s here.`, brief, [layer]), ["token"]);
+    assert.deepEqual(canaryEvidence(`I see ${token}.`, "The brief is silent.", [layer]), ["token"]);
+  }
+});
+
 /** The opening a seat really wrote when a Turkish layer reached it. */
 const TURKISH_ANSWER = "Birleştirmeyi engelleyen bir kusur bulmadım.";
 
