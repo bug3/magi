@@ -43,7 +43,8 @@ export const TAKEN = "\uFFFC";
  * outside the code spans it cites, once whatever parsed was taken out, is an
  * answer cut short or slightly invalid, and is read as raw text: its
  * quotation marks are structure, and stripping them would strip its prose.
- * A bracket or a brace in prose, `env["HOME"` or `["word"`, opens nothing.
+ * A bracket or a brace in prose, as in `env["HOME"` or `a token like ["word"`,
+ * opens nothing.
  */
 const OPENS_DOCUMENT = /\{\s*\\?"[^"\n]*"\s*:|(?:^|\n)[ \t]*\[\s*(?:[[{]|\\?")/u;
 
