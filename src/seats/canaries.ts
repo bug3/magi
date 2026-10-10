@@ -149,8 +149,12 @@ export function streamEvidence(
 
 /** An inline code span in a seat's own text: what it quotes or names. */
 const CODE_SPAN = /`[^`\n]*`/gu;
-/** A quotation in a seat's own text: what it cites, not what it says. */
-const QUOTATION = /"[^"\n]*"|“[^”\n]*”/gu;
+/**
+ * A quotation in a seat's own text: what it cites, not what it says. An
+ * opening quote may not sit inside one, or a line of them with no closing
+ * quote would be scanned once per opening quote.
+ */
+const QUOTATION = /"[^"\n]*"|“[^“”\n]*”/gu;
 
 /** Letters, marks, digits, `_` and `-`: what a word, or a token, is made of. */
 const WORD_CHARACTER = /[\p{L}\p{M}\p{N}_-]/u;
