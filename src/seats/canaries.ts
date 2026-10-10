@@ -95,7 +95,9 @@ export function canaryHits(text: string, canaries: readonly Canary[]): readonly 
  * a seat that answered its whole position in Turkish. So each match is widened
  * to the word it sits in, and the hit is an echo only when every such word is
  * a whole word of the brief, compared after Unicode normalization and case
- * folding. An inflected form is a different word, and stays evidence.
+ * folding. An inflected form is a different word, and stays evidence. A
+ * token widened across a space or punctuation is looked up in the brief's
+ * text instead, with no word character on either side.
  *
  * Only the seat's own voice counts. In what it wrote inside its answer's
  * strings, a quotation or a code span is something it cites, and a single
@@ -109,7 +111,13 @@ export function canaryEvidence(
   brief: string,
   canaries: readonly Canary[],
 ): readonly string[] {
-  const briefWords = new Set((brief.normalize("NFC").match(WORD) ?? []).flatMap(folds));
+  const briefText = brief.normalize("NFC");
+  const briefWords = new Set((briefText.match(WORD) ?? []).flatMap(folds));
+  const briefForms = folds(briefText);
+  const echoed = (word: string): boolean =>
+    ONE_WORD.test(word)
+      ? folds(word).some((form) => briefWords.has(form))
+      : folds(word).some((form) => briefForms.some((text) => standsAlone(form, text)));
   const text = spokenText(output)
     .map(({ text: piece, from }) => {
       const normal = piece.normalize("NFC");
@@ -119,7 +127,7 @@ export function canaryEvidence(
   return canaries
     .filter((canary) =>
       matchedWords(text, canary.pattern).some(
-        (word) => [...word].length > 1 && !folds(word).some((form) => briefWords.has(form)),
+        (word) => [...word].length > 1 && !echoed(word),
       ),
     )
     .map((canary) => canary.id);
@@ -147,6 +155,21 @@ const QUOTATION = /"[^"\n]*"|“[^”\n]*”/gu;
 /** Letters, marks, digits, `_` and `-`: what a word, or a token, is made of. */
 const WORD_CHARACTER = /[\p{L}\p{M}\p{N}_-]/u;
 const WORD = /[\p{L}\p{M}\p{N}_-]+/gu;
+const ONE_WORD = /^[\p{L}\p{M}\p{N}_-]+$/u;
+
+/**
+ * Whether `span` occurs in `text` with no word character on either side. A
+ * span a token canary widened across a space or punctuation is never one of
+ * the brief's words, so it is looked up in the brief's text instead.
+ */
+function standsAlone(span: string, text: string): boolean {
+  for (let at = text.indexOf(span); at !== -1; at = text.indexOf(span, at + 1)) {
+    const before = text[at - 1] ?? "";
+    const after = text[at + span.length] ?? "";
+    if (!WORD_CHARACTER.test(before) && !WORD_CHARACTER.test(after)) return true;
+  }
+  return false;
+}
 
 /**
  * The forms two words are compared in. Both casings count: Turkish folds İ
