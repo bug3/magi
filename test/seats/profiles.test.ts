@@ -176,8 +176,13 @@ test("a residue probe is declared exactly where a layer has no switch", () => {
   );
 });
 
-test("every seat gets a wall-clock cap", () => {
+// Measured live on 2026-10-10, one consult's seats rerun uncapped: grok
+// answered in 784 s and claude in 334 s, and both had timed out at a 600 s
+// cap with nothing on stdout. A timed-out seat spends its quota for no answer.
+const SLOWEST_LIVE_SEAT_MS = 784_000;
+
+test("every seat gets a wall-clock cap with room over the slowest live seat", () => {
   for (const { id } of SLOTS) {
-    assert.ok(seatProfile(id, INPUTS).timeoutMs > 0);
+    assert.ok(seatProfile(id, INPUTS).timeoutMs >= 2 * SLOWEST_LIVE_SEAT_MS);
   }
 });

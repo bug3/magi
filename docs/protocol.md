@@ -110,8 +110,10 @@ a thin pack is caught while it is still cheap.
 ## Fan-out and isolation
 
 Parallel headless calls, staggered on spawn, each with its own timeout
-counted from its own start. A seat is retried exactly once, and only when it
-never started.
+counted from its own start. The timeout is thirty minutes, a backstop against
+a runaway rather than a budget: a seat cut off has spent its quota and
+answers nothing, and a seat on a large pack has needed thirteen. A seat is
+retried exactly once, and only when it never started.
 
 The principle is **symmetric starting conditions and recorded trajectories**,
 not sensory deprivation. Seat tools are off by default and the network is
