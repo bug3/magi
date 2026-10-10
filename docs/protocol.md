@@ -422,7 +422,8 @@ echo and not evidence. That is judged per match, on the seat's own voice:
   key, `{"name":`, anywhere in it, with whitespace or a line break allowed
   around the key and no quote or line break inside it, or an array of
   documents or strings, `[{`, `[[` or `["`, at the start of a line, indented
-  or not; each quote may be escaped. The harness closes its envelope even
+  or not, with whitespace or a line break allowed after the bracket; each
+  quote may be escaped. The harness closes its envelope even
   when the answer inside was cut short, and an array inside the cut answer
   can parse on its own. A bracket or a brace in prose opens nothing, and
   neither does a cut inside the first key, which leaves no value to hide.
@@ -434,10 +435,14 @@ echo and not evidence. That is judged per match, on the seat's own voice:
 - Inside the strings the seat wrote, a quotation in straight or curly double
   quotes on one line, or an inline code span, that holds no whitespace is
   what it cites, a word, a token or a letter under discussion, and is
-  skipped. One holding a space is a phrase in the seat's own voice and is
+  skipped. One holding whitespace is a phrase in the seat's own voice and is
   read like the rest of it, so an answer written inside quotation marks is
   still seen, and a leak in sentences never rests on telling structure from
-  citation; a phrase copied from the brief is still an echo. A single letter,
+  citation; a phrase copied from the brief is still an echo. The cost is
+  accepted: a phrase the seat composed and quoted, carrying a watched letter
+  its brief does not, warns, whether an example sentence it wrote in Turkish
+  or an English loanword such as "façade pattern". A warning is recorded and
+  never degrades a consult. A single letter,
   counted without the `_` or `-` beside it, and a match of no width are
   skipped everywhere.
 - Each remaining match is widened to its word: a run of letters, marks,
