@@ -65,7 +65,7 @@ test("a code span across a string boundary of a cut answer is not a citation", (
     '`{"position":"Kesik `x","findings":[',
     'Output (cut at `max_tokens): {"position":"Kesik `x","findings":[',
   ]) {
-    assert.deepEqual(pieces(JSON.stringify({ result: cut })), { json: [], raw: [cut] });
+    assert.deepEqual(pieces(JSON.stringify({ result: cut })), { json: [], raw: [cut] }, cut);
   }
   const cited = 'For `{"position":"x"` the rule holds.';
   assert.deepEqual(pieces(JSON.stringify({ result: cited })), { json: [cited], raw: [] });
@@ -73,7 +73,8 @@ test("a code span across a string boundary of a cut answer is not a citation", (
 
 test("an answer written out escaped opens a document like a plain one", () => {
   for (const answer of ['{\\"position\\":\\"Kesik', '{\\"position\\":\\"Tam\\",\\"findings\\":[]}']) {
-    assert.deepEqual(pieces(JSON.stringify({ result: answer })), { json: [], raw: [answer] });
+    const read = pieces(JSON.stringify({ result: answer }));
+    assert.deepEqual(read, { json: [], raw: [answer] }, answer);
   }
 });
 
@@ -85,13 +86,14 @@ test("a bracket or a brace in prose opens nothing", () => {
     'Reading env["HOME" fails.',
     'Strings open with {" in JSON.',
   ]) {
-    assert.deepEqual(pieces(JSON.stringify({ result: prose })), { json: [prose], raw: [] });
+    assert.deepEqual(pieces(JSON.stringify({ result: prose })), { json: [prose], raw: [] }, prose);
   }
 });
 
 test("an array of documents or strings at the start of a line opens a document", () => {
-  for (const cut of ['[{"position":"Kesik', '[["Kesik', '["Kesik', 'Notes:\n  [{"position":"Kesik']) {
-    assert.deepEqual(pieces(JSON.stringify({ result: cut })).json, []);
+  const openers = ['[{"position":"Kesik', '[["Kesik', '["Kesik', '[\\"Kesik'];
+  for (const cut of [...openers, ...openers.map((opener) => `Notes:\n  ${opener}`)]) {
+    assert.deepEqual(pieces(JSON.stringify({ result: cut })).json, [], cut);
   }
 });
 
