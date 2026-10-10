@@ -305,6 +305,10 @@ test("an answer cut short is read as it stands wherever its document opens", () 
     JSON.stringify({ result: answer.slice(0, -1) }),
     JSON.stringify({ result: `${answer.slice(0, -1)},"answers":[{"question":"q",` }),
     JSON.stringify({ result: `Here it is: ${answer.slice(0, -2)} [}` }),
+    // Shapes a later review built to slip past the voice decision.
+    JSON.stringify({ result: 'Output: ["Birleştirmeyi engelleyen",' }),
+    JSON.stringify({ result: '`{"position":"a \\" `x","claim":"Birleştirmeyi engelleyen","f":[' }),
+    JSON.stringify({ result: `\`{"position":"It says "${TURKISH_ANSWER}\`x` }),
   ];
   for (const stream of cases) {
     assert.deepEqual(canaryEvidence(stream, ENGLISH_BRIEF, CANARIES), ["turkish-text-leak"]);
@@ -312,8 +316,21 @@ test("an answer cut short is read as it stands wherever its document opens", () 
 });
 
 test("a document a seat cites in a code span is an example, not its answer", () => {
+  // The example is the pack's own, as a seat reviewing this code would cite it.
   const claim = `For \`{"position":"${TURKISH_ANSWER}"\` the rule returns "ölçümü".`;
-  assert.deepEqual(canaryEvidence(codexStream(claim), ENGLISH_BRIEF, CANARIES), []);
+  const brief = `${ENGLISH_BRIEF} ${TURKISH_ANSWER}`;
+  assert.deepEqual(canaryEvidence(codexStream(claim), brief, CANARIES), []);
+});
+
+// Issue #25: an answer written inside quotation marks was dropped with them.
+test("a quoted phrase is the seat's own voice; only a quoted word is a citation", () => {
+  for (const position of [`“${TURKISH_ANSWER}”`, `"${TURKISH_ANSWER}"`, `\`${TURKISH_ANSWER}\``]) {
+    assert.deepEqual(canaryEvidence(codexStream(position), ENGLISH_BRIEF, CANARIES), [
+      "turkish-text-leak",
+    ]);
+  }
+  const copied = codexStream(`The brief says "${TURKISH_ANSWER}" here.`);
+  assert.deepEqual(canaryEvidence(copied, `${ENGLISH_BRIEF} ${TURKISH_ANSWER}`, CANARIES), []);
 });
 
 test("an escaped line break does not glue itself to the next word", () => {

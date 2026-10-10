@@ -427,9 +427,14 @@ echo and not evidence. That is judged per match, on the seat's own voice:
   runs across a string boundary, from before a cut answer's opener into its
   prose, and cites nothing.
 - Inside the strings the seat wrote, a quotation in straight or curly double
-  quotes on one line and an inline code span are what it cites, and are
-  skipped. A single letter, counted without the `_` or `-` beside it, and a
-  match of no width are skipped everywhere.
+  quotes on one line, or an inline code span, that holds no whitespace is
+  what it cites, a word, a token or a letter under discussion, and is
+  skipped. One holding a space is a phrase in the seat's own voice and is
+  read like the rest of it, so an answer written inside quotation marks is
+  still seen, and a leak in sentences never rests on telling structure from
+  citation; a phrase copied from the brief is still an echo. A single letter,
+  counted without the `_` or `-` beside it, and a match of no width are
+  skipped everywhere.
 - Each remaining match is widened to its word: a run of letters, marks,
   digits, `_` and `-`. The hit is an echo only when every such word is a whole
   word of the brief, compared after Unicode normalization under both root and

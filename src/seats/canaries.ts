@@ -96,11 +96,13 @@ export function loadCanaries(magiDir: string): readonly Canary[] {
  * text instead, with no word character on either side.
  *
  * Only the seat's own voice counts. In what it wrote inside its answer's
- * strings, a quotation or a code span is something it cites, and a single
- * letter is a letter being discussed: two seats reviewing this very rule
- * tripped it both ways, in English. Text outside any document, a preamble or
- * an answer cut short, is read as it stands, because that is where a leak
- * shows first and where a quotation mark may be structure.
+ * strings, a quotation or a code span of one word is something it cites, and
+ * a single letter is a letter being discussed: two seats reviewing this very
+ * rule tripped it both ways, in English. A quotation or a code span holding a
+ * space is a phrase, and is read: an answer written inside quotation marks
+ * once went unseen. Text outside any document, a preamble or an answer cut
+ * short, is read as it stands, because that is where a leak shows first and
+ * where a quotation mark may be structure.
  */
 export function canaryEvidence(
   output: string,
@@ -111,7 +113,7 @@ export function canaryEvidence(
   const text = spokenText(output)
     .map(({ text: piece, from }) => {
       const normal = piece.normalize("NFC");
-      return from === "json" ? normal.replace(CODE_SPAN, " ").replace(QUOTATION, " ") : normal;
+      return from === "json" ? normal.replace(CODE_SPAN, keepPhrase).replace(QUOTATION, keepPhrase) : normal;
     })
     .join("\n");
   return canaries
@@ -143,6 +145,16 @@ export function streamEvidence(
  * quote would be scanned once per opening quote.
  */
 const QUOTATION = /"[^"\n]*"|“[^“”\n]*”/gu;
+
+/**
+ * What is left of a quotation or a code span: nothing when it names one
+ * thing, a word, a token or a letter, and the whole of it when it holds a
+ * space. A phrase is read whatever the classification of its string decided,
+ * so a leak in sentences never rests on telling structure from citation.
+ */
+function keepPhrase(span: string): string {
+  return /\s/u.test(span) ? span : " ";
+}
 
 /** What a word is counted in: `ç-` is one letter, not two characters. */
 const LETTER_OR_DIGIT = /[\p{L}\p{N}]/gu;
