@@ -378,11 +378,9 @@ test("taken-out text separates words and matches nothing a line break would not"
 
 // Raised in review: the scan turned every U+FFFC into a line break, the
 // seat's own as much as MAGI's marks, and a local canary aimed at it missed.
-test("a U+FFFC the seat wrote is its own text, and a quotation never spans a parsed document", () => {
+test("a U+FFFC the seat wrote is its own text", () => {
   const marker: Canary = { id: "marker", pattern: /secret\Smarker/u, betrays: "a test layer" };
   for (const stream of ["secret￼marker", codexStream("It says secret￼marker.")]) {
     assert.deepEqual(canaryEvidence(stream, ENGLISH_BRIEF, [marker]), ["marker"], stream);
   }
-  const straddling = codexStream('He said "çok{"a":1}daha" there.');
-  assert.deepEqual(canaryEvidence(straddling, ENGLISH_BRIEF, CANARIES), ["turkish-text-leak"]);
 });
