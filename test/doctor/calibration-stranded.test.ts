@@ -191,9 +191,10 @@ test("a layer whose target cannot be resolved is reported as unresolved, not as 
     writeFileSync(layer, "# owner rules\n");
     const facts = withResolveFailing("EACCES", () => scan(space));
     assert.deepEqual(facts, [{ path: layer, nonce: "unresolved" }]);
-    // The layer itself was read; what could not be checked is where it writes.
-    assert.match(told(facts), /could not be resolved, .* check it by hand/u);
-    assert.doesNotMatch(told(facts), /could not be read/u);
+    // The layer itself was read, and is a plain file here, not a link: what
+    // could not be checked is the directory its write lands in.
+    assert.match(told(facts), /lands could not be resolved, so .* check it by hand/u);
+    assert.doesNotMatch(told(facts), /could not be read|a link/u);
   } finally {
     space.remove();
   }
