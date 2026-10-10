@@ -73,11 +73,6 @@ export function loadCanaries(magiDir: string): readonly Canary[] {
   return [...CANARIES, ...locals];
 }
 
-/** Which canaries match this text. A hit is evidence of a leak, not proof. */
-export function canaryHits(text: string, canaries: readonly Canary[]): readonly string[] {
-  return canaries.filter((canary) => canary.pattern.test(text)).map((canary) => canary.id);
-}
-
 /**
  * The hits that are evidence, given what the seat was handed.
  *
