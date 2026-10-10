@@ -24,6 +24,11 @@ test("a citation is the code span or the quotation that starts first", () => {
   assert.deepEqual(canaryEvidence(stream, ENGLISH_BRIEF, CANARIES), ["turkish-text-leak"]);
 });
 
+test("a word in curly quotes is a citation, as in straight ones", () => {
+  const stream = envelope("A word like “ölçümü” is new.");
+  assert.deepEqual(canaryEvidence(stream, ENGLISH_BRIEF, CANARIES), []);
+});
+
 test("a dropped citation leaves a line break, as between pieces", () => {
   assert.deepEqual(canaryEvidence(envelope('secret"x"marker'), ENGLISH_BRIEF, [TOKEN]), []);
 });
