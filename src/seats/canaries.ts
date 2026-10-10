@@ -100,9 +100,13 @@ export function loadCanaries(magiDir: string): readonly Canary[] {
  * token or a letter, is something it cites, and a single letter is a letter
  * being discussed: two seats reviewing this very rule tripped it both ways,
  * in English. A quotation or a code span holding whitespace is a phrase, and
- * is read: an answer written inside quotation marks once went unseen. Text outside any document, a preamble or an answer cut
- * short, is read as it stands, because that is where a leak shows first and
- * where a quotation mark may be structure.
+ * is read: an answer written inside quotation marks once went unseen. The
+ * cost is accepted: a phrase the seat composed and quoted, carrying a watched
+ * letter its brief does not, warns, "façade pattern" as much as a Turkish
+ * example sentence, and a warning never degrades a consult. Text outside any
+ * document, a preamble or an answer cut short, is read as it stands, because
+ * that is where a leak shows first and where a quotation mark may be
+ * structure.
  */
 export function canaryEvidence(
   output: string,
