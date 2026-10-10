@@ -9,34 +9,43 @@ import { CANARIES, canaryEvidence, type Canary } from "../../src/seats/canaries.
 
 const ENGLISH_BRIEF = "Answer in English. Nothing here is in any other script.";
 
-/** A seat's answer the way codex prints it: the answer a document in a JSON line. */
-function codexStream(position: string): string {
+/** One JSON document whose string holds the seat's answer document. */
+function envelope(position: string): string {
   return JSON.stringify({ item: { text: JSON.stringify({ position, findings: [] }) } });
 }
 
 test("a citation is the code span or the quotation that starts first", () => {
   // Two passes kept the code span, then took `"\`çok"` for a quoted word.
-  const stream = codexStream('See `a b"`çok" here.');
+  const stream = envelope('See `a b"`çok" here.');
   assert.deepEqual(canaryEvidence(stream, ENGLISH_BRIEF, CANARIES), ["turkish-text-leak"]);
 });
 
 test("a quotation never straddles a document parsed out of its string", () => {
-  const stream = codexStream('He said "çok{"a":1}daha" there.');
+  // Split, the second side leaves çok" unquoted. Joined with a space, the
+  // first quotation swallows the quote before çok; joined with nothing or a
+  // mark, both quotations are dropped as words.
+  const stream = envelope('"a{"x":1}b" "çok" end');
   assert.deepEqual(canaryEvidence(stream, ENGLISH_BRIEF, CANARIES), ["turkish-text-leak"]);
 });
 
 test("the text before a parsed document carries the voice of the whole string", () => {
-  // The cut answer after the document makes the whole string raw, so the
-  // quoted word before it is read too.
-  const stream = JSON.stringify({ result: '"Birleştirmeyi" {"a":1} {"position":"cut' });
-  assert.deepEqual(canaryEvidence(stream, ENGLISH_BRIEF, CANARIES), ["turkish-text-leak"]);
+  // The cut answer opens after the document in one case and before it in
+  // the other; either way the whole string is raw and the quoted word read.
+  for (const result of [
+    '"Birleştirmeyi" {"a":1} {"position":"cut',
+    '["Birleştirmeyi", {"a":1} x',
+  ]) {
+    const stream = JSON.stringify({ result });
+    assert.deepEqual(canaryEvidence(stream, ENGLISH_BRIEF, CANARIES), ["turkish-text-leak"], result);
+  }
 });
 
 test("the text on either side of a document in the stream is two pieces", () => {
-  // Joined with a space, the two sides read as a phrase the seat never wrote.
-  const phrase: Canary = { id: "phrase", pattern: /secret marker/u, betrays: "a test layer" };
+  // A line break between pieces is the one thing `.` does not match: joined
+  // with nothing, a space or a mark, the sides read as a token never written.
+  const token: Canary = { id: "token", pattern: /secret.?marker/u, betrays: "a test layer" };
   // The second stream does not parse whole, so it is read line by line.
   for (const stream of ['secret{"a":1}marker', 'secret{"a":1}marker\n{"b":2} x']) {
-    assert.deepEqual(canaryEvidence(stream, ENGLISH_BRIEF, [phrase]), [], stream);
+    assert.deepEqual(canaryEvidence(stream, ENGLISH_BRIEF, [token]), [], stream);
   }
 });
