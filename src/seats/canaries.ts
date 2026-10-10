@@ -194,7 +194,9 @@ function matchedWords(text: string, pattern: RegExp): readonly string[] {
   const found: string[] = [];
   let reached = 0;
   for (const match of text.matchAll(every)) {
-    if (match.index < reached) continue;
+    // A zero-width match sits beside a word, not in one, and widening it
+    // would turn every word of the text into a hit.
+    if (match.index < reached || match[0] === "") continue;
     let start = match.index;
     let end = start + match[0].length;
     while (start > 0 && WORD_CHARACTER.test(text[start - 1] ?? "")) start -= 1;

@@ -166,6 +166,15 @@ test("a dotted or multi-word token the brief carries is an echo", () => {
   }
 });
 
+// The empty-text refusal cannot see these: they match nothing in "" and
+// beside every word of real text.
+test("a zero-width match is no evidence of anything", () => {
+  for (const pattern of [/\b/u, /(?=\p{L})/u]) {
+    const loose: Canary = { id: "loose", pattern, betrays: "a test layer" };
+    assert.deepEqual(canaryEvidence(PLAIN_ENGLISH, "Answer in English.", [loose]), []);
+  }
+});
+
 /** The opening a seat really wrote when a Turkish layer reached it. */
 const TURKISH_ANSWER = "Birleştirmeyi engelleyen bir kusur bulmadım.";
 

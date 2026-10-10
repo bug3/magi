@@ -419,7 +419,7 @@ echo and not evidence. That is judged per match, on the seat's own voice:
   harness closes its envelope even when the answer inside was cut short.
 - Inside the strings the seat wrote, a quotation in straight or curly double
   quotes on one line and an inline code span are what it cites, and are
-  skipped. A single letter is skipped everywhere.
+  skipped. A single letter, and a match of no width, are skipped everywhere.
 - Each remaining match is widened to its word: a run of letters, marks,
   digits, `_` and `-`. The hit is an echo only when every such word is a whole
   word of the brief, compared after Unicode normalization under both root and
