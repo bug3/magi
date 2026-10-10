@@ -120,5 +120,5 @@ test("what follows a parsed document or a cited span stays where it was on its l
 // indentation, nor form an opener, nor change a code span's count of quotes.
 test("the mark of taken-out text is no whitespace, no opener and no quote", () => {
   assert.equal(/\s/u.test(TAKEN), false, "whitespace");
-  assert.equal(/[{["`\\]/u.test(TAKEN), false, "an opener or a quote");
+  assert.equal(/[{["“”`\\]/u.test(TAKEN), false, "an opener or a quote");
 });
