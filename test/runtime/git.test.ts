@@ -53,12 +53,20 @@ async function tempRepo(files: Readonly<Record<string, string>> = {}): Promise<T
     },
   };
 
-  await gitText(["init", "-b", "main"], { cwd: root });
-  const entries = Object.entries(files);
-  for (const [path, contents] of entries) repo.write(path, contents);
-  if (entries.length > 0) {
-    await gitText(["add", "-A"], { cwd: root });
-    await gitText(["commit", "--no-gpg-sign", "-m", "initial"], { cwd: root, config: IDENTITY });
+  // Only the returned repository is cleaned up by its caller, so a fixture
+  // that fails while being built removes itself: under a sandbox the root is
+  // in the worktree, where a half-made repository would stay behind.
+  try {
+    await gitText(["init", "-b", "main"], { cwd: root });
+    const entries = Object.entries(files);
+    for (const [path, contents] of entries) repo.write(path, contents);
+    if (entries.length > 0) {
+      await gitText(["add", "-A"], { cwd: root });
+      await gitText(["commit", "--no-gpg-sign", "-m", "initial"], { cwd: root, config: IDENTITY });
+    }
+  } catch (error) {
+    repo.cleanup();
+    throw error;
   }
   return repo;
 }
