@@ -530,6 +530,8 @@ and in the rules directory grok loads whole. A layer that is a link is
 written at its target, so the target's directory is scanned beside the
 layer's; a target that goes before it is resolved costs only that directory,
 and one that cannot be resolved names the layer as not known to be clean.
+A directory reached under two names, through a linked parent, is scanned
+once, so a temp file in it is named once.
 Only regular temp files are read, never through a link. A temp file that cannot be read, one over 4 MiB,
 which is not read at all, and a layer directory that cannot be listed are not
 known to be clean: the refusal names the file or the directory, says which,

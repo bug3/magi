@@ -196,3 +196,20 @@ test("a layer whose target cannot be resolved is reported as unreadable, not as 
     space.remove();
   }
 });
+
+// The layer's own directory and the directory its write lands in can be one
+// directory under two names, through a linked parent or a linked temp root.
+test("a temp file in one directory reached under two names is reported once", () => {
+  const space = workspace();
+  try {
+    const real = join(space.home, "claude-config");
+    mkdirSync(real);
+    symlinkSync(real, join(space.home, ".claude"));
+    writeFileSync(join(real, "CLAUDE.md"), "# owner rules\n");
+    writeFileSync(join(real, ".tmp-1-a-b"), `${NONCE_MARKER} magi-canary-residue\n`);
+    const stranded = join(space.home, ".claude", ".tmp-1-a-b");
+    assert.deepEqual(scan(space), [{ path: stranded, nonce: "carried" }]);
+  } finally {
+    space.remove();
+  }
+});
