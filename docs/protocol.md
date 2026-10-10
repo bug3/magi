@@ -431,7 +431,11 @@ echo and not evidence. That is judged per match, on the seat's own voice:
   number of double quotes; one holding an odd number is kept, which is the
   shape of a span running from before a cut answer's opener into its prose,
   and also of an unfinished example. The decision only chooses which quoted
-  words are dropped, since a quoted phrase is read either way.
+  words are dropped, since a quoted phrase is read either way. Where a
+  document or a span is taken out of a string, the place is marked with
+  U+FFFC, which is no whitespace and no word character, so the words on
+  either side stay apart and what follows keeps its place on its line; the
+  scan reads each mark as a line break.
 - Inside the strings the seat wrote, a quotation in straight or curly double
   quotes on one line, or an inline code span, that holds no whitespace is
   what it cites, a word, a token or a letter under discussion, and is
