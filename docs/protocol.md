@@ -418,12 +418,14 @@ echo and not evidence. That is judged per match, on the seat's own voice:
   document is opened in turn, up to eight deep. Text that is not JSON, a
   preamble or an answer cut short, is read exactly as it stands. So is a
   string, or what is left of one once a document in it was opened, that
-  still opens an object or array outside the code spans it cites, wherever
-  on a line that starts: the harness closes its envelope even when the
-  answer inside was cut short, and an array inside the cut answer can parse
-  on its own. A code span holding an odd number of double quotes runs across
-  a string boundary, from before a cut answer's opener into its prose, and
-  cites nothing.
+  still carries an opener outside the code spans it cites: an object's first
+  key, `{"name":`, anywhere in it, or an array of documents or strings, `[{`,
+  `[[` or `["`, at the start of a line, with each quote plain or escaped. The
+  harness closes its envelope even when the answer inside was cut short, and
+  an array inside the cut answer can parse on its own. A bracket or a brace
+  in prose opens nothing. A code span holding an odd number of double quotes
+  runs across a string boundary, from before a cut answer's opener into its
+  prose, and cites nothing.
 - Inside the strings the seat wrote, a quotation in straight or curly double
   quotes on one line and an inline code span are what it cites, and are
   skipped. A single letter, counted without the `_` or `-` beside it, and a
