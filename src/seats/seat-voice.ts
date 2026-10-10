@@ -32,7 +32,8 @@ export const CODE_SPAN = /`[^`\n]*`/gu;
  * seat wrote: no whitespace, no word character and no opener, so the words on
  * either side stay apart and what follows keeps its place on its line, where
  * a space would read as indentation. Raw text is never classified, and gets a
- * plain space.
+ * plain space. The canary scan reads every mark as a line break, so it must
+ * be a character a seat does not write in a word.
  */
 export const TAKEN = "\uFFFC";
 

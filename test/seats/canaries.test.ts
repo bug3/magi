@@ -356,3 +356,17 @@ test("each stream is read on its own, so stderr cannot break stdout's document",
     "turkish-text-leak",
   ]);
 });
+
+// Where text was taken out of a seat's string, the scan sees a line break:
+// it keeps the words on either side apart and matches no pattern a line break
+// between pieces would not.
+test("taken-out text separates words and matches nothing a line break would not", () => {
+  const glued = codexStream("A word`x`çok here.");
+  assert.deepEqual(canaryEvidence(glued, `${ENGLISH_BRIEF} çok`, CANARIES), []);
+  const nonAscii: Canary = { id: "non-ascii", pattern: /[^\x00-\x7F]/u, betrays: "a test layer" };
+  const flag = codexStream("the `x`-flag is set");
+  assert.deepEqual(canaryEvidence(flag, ENGLISH_BRIEF, [nonAscii]), []);
+  // Left behind a parsed document in a string that is read raw, too.
+  const cut = JSON.stringify({ result: 'x{"a":1}-flag and {"position":"cut' });
+  assert.deepEqual(canaryEvidence(cut, ENGLISH_BRIEF, [nonAscii]), []);
+});

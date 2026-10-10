@@ -117,7 +117,12 @@ export function canaryEvidence(
   const text = spokenText(output)
     .map(({ text: piece, from }) => {
       const normal = piece.normalize("NFC");
-      return from === "json" ? normal.replace(CODE_SPAN, keepPhrase).replace(QUOTATION, keepPhrase) : normal;
+      const read =
+        from === "raw" ? normal : normal.replace(CODE_SPAN, keepPhrase).replace(QUOTATION, keepPhrase);
+      // The mark of taken-out text did its work in deciding what is cited;
+      // scanned, it is the line break the pieces are joined with, so no
+      // pattern can match it that a line break between pieces would not.
+      return read.replaceAll(TAKEN, "\n");
     })
     .join("\n");
   return canaries
