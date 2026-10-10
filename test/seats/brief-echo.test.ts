@@ -25,3 +25,8 @@ test("a span is looked up in both foldings of the brief", () => {
   assert.equal(echoJudge("The brief holds SECRET PHRASE.")("secret phrase"), true);
   assert.equal(echoJudge("Bu İSTANBUL ŞEHRİ.")("istanbul şehri"), true);
 });
+
+test("a span with no word in it is found by a search of the whole brief", () => {
+  assert.equal(echoJudge("a . b")("."), true);
+  assert.equal(echoJudge("a.b")("."), false);
+});
