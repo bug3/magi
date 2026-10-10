@@ -174,11 +174,27 @@ const LETTER_OR_DIGIT = /[\p{L}\p{N}]/gu;
  */
 function standsAlone(span: string, text: string): boolean {
   for (let at = text.indexOf(span); at !== -1; at = text.indexOf(span, at + 1)) {
-    const before = text[at - 1] ?? "";
-    const after = text[at + span.length] ?? "";
+    const before = charBefore(text, at);
+    const after = charAfter(text, at + span.length);
     if (!WORD_CHARACTER.test(before) && !WORD_CHARACTER.test(after)) return true;
   }
   return false;
+}
+
+/**
+ * The character that ends at `at`, or "" at the start. Characters are read
+ * whole: a letter outside the BMP is two UTF-16 units, and either half alone
+ * is no word character, so a boundary read unit by unit would split it.
+ */
+function charBefore(text: string, at: number): string {
+  const pair = at >= 2 && (text.codePointAt(at - 2) ?? 0) > 0xffff;
+  return text.slice(Math.max(0, pair ? at - 2 : at - 1), at);
+}
+
+/** The character that starts at `at`, read whole, or "" at the end. */
+function charAfter(text: string, at: number): string {
+  const point = text.codePointAt(at);
+  return point === undefined ? "" : String.fromCodePoint(point);
 }
 
 /**
@@ -205,8 +221,12 @@ function matchedWords(text: string, pattern: RegExp): readonly string[] {
     if (match.index < reached || match[0] === "") continue;
     let start = match.index;
     let end = start + match[0].length;
-    while (start > 0 && WORD_CHARACTER.test(text[start - 1] ?? "")) start -= 1;
-    while (end < text.length && WORD_CHARACTER.test(text[end] ?? "")) end += 1;
+    for (let c = charBefore(text, start); WORD_CHARACTER.test(c); c = charBefore(text, start)) {
+      start -= c.length;
+    }
+    for (let c = charAfter(text, end); WORD_CHARACTER.test(c); c = charAfter(text, end)) {
+      end += c.length;
+    }
     reached = Math.max(end, match.index + 1);
     const word = text.slice(start, end);
     if (word !== "") found.push(word);

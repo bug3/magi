@@ -228,6 +228,18 @@ test("an echo repeated in the text is looked up in the brief once", () => {
   assert.ok(Date.now() - started < 1_000, "an echo is judged once per word");
 });
 
+test("a letter outside the BMP is a word character on either side of a match", () => {
+  // U+10400 is one letter in two UTF-16 units; read unit by unit, it was a boundary.
+  const phrase: Canary = { id: "phrase", pattern: /secret phrase/u, betrays: "a test layer" };
+  assert.deepEqual(canaryEvidence("It says secret phrase.", "\u{10400}secret phrase", [phrase]), [
+    "phrase",
+  ]);
+  const token: Canary = { id: "token", pattern: /marker-[0-9]+/u, betrays: "a test layer" };
+  assert.deepEqual(canaryEvidence("It says \u{10400}marker-1.", "It holds marker-1.", [token]), [
+    "token",
+  ]);
+});
+
 /** A seat's answer the way codex prints it: JSON lines, the answer a nested document. */
 function codexStream(position: string): string {
   return [
