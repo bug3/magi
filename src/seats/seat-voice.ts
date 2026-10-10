@@ -28,11 +28,19 @@ const MAX_NESTING = 8;
 export const CODE_SPAN = /`[^`\n]*`/gu;
 
 /**
- * A line that opens a JSON object or array. A string carrying one that was
- * not opened, an answer cut short or slightly invalid, is read as raw text:
- * its quotation marks are structure, and stripping them would strip its prose.
+ * Where a JSON object or array opens: a key, or an array of documents or
+ * strings. Text that still carries one outside its code spans, once whatever
+ * parsed was taken out, is an answer cut short or slightly invalid wherever
+ * on the line it starts, and is read as raw text: its quotation marks are
+ * structure, and stripping them would strip its prose. Inside a code span it
+ * is an example the seat cites.
  */
-const OPENS_DOCUMENT = /(?:^|\n)[ \t]*(?:\{\s*"|\[\s*[[{"])/u;
+const OPENS_DOCUMENT = /\{\s*"|\[\s*[[{"]/u;
+
+/** Whether the quotation marks in `text` are the seat's own or structure. */
+function voiceOf(text: string): Spoken["from"] {
+  return OPENS_DOCUMENT.test(text.replace(CODE_SPAN, " ")) ? "raw" : "json";
+}
 
 export function spokenText(stream: string): readonly Spoken[] {
   const found: Spoken[] = [];
@@ -67,10 +75,10 @@ function walk(root: object, found: Spoken[]): void {
     if (typeof value === "string") {
       const document = depth < MAX_NESTING ? embedded(value) : undefined;
       if (document === undefined) {
-        found.push({ text: value, from: OPENS_DOCUMENT.test(value) ? "raw" : "json" });
+        found.push({ text: value, from: voiceOf(value) });
       } else {
         pending.push({ value: document.value, depth: depth + 1 });
-        found.push({ text: document.around, from: "json" });
+        found.push({ text: document.around, from: voiceOf(document.around) });
       }
     } else if (value !== null && typeof value === "object") {
       for (const child of Object.values(value)) pending.push({ value: child, depth });

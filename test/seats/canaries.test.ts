@@ -297,6 +297,25 @@ test("a whole envelope around an answer cut short or slightly invalid is still r
   assert.deepEqual(canaryEvidence(tagged, ENGLISH_BRIEF, CANARIES), []);
 });
 
+// Raised by all three seats of one release review: an array inside the cut
+// answer parsed on its own, and what was left of the answer read as quoted.
+test("an answer cut short is read as it stands wherever its document opens", () => {
+  const answer = JSON.stringify({ position: TURKISH_ANSWER, findings: [] });
+  const cases = [
+    JSON.stringify({ result: answer.slice(0, -1) }),
+    JSON.stringify({ result: `${answer.slice(0, -1)},"answers":[{"question":"q",` }),
+    JSON.stringify({ result: `Here it is: ${answer.slice(0, -2)} [}` }),
+  ];
+  for (const stream of cases) {
+    assert.deepEqual(canaryEvidence(stream, ENGLISH_BRIEF, CANARIES), ["turkish-text-leak"]);
+  }
+});
+
+test("a document a seat cites in a code span is an example, not its answer", () => {
+  const claim = `For \`{"position":"${TURKISH_ANSWER}"\` the rule returns "ölçümü".`;
+  assert.deepEqual(canaryEvidence(codexStream(claim), ENGLISH_BRIEF, CANARIES), []);
+});
+
 test("an escaped line break does not glue itself to the next word", () => {
   const brief = `const contents = '{"seal":"ok","unicode":"ölçüm"}';`;
   const stream = JSON.stringify({ position: "First line.\nölçüm is the fixture's word." });
