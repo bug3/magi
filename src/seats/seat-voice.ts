@@ -100,7 +100,10 @@ function walk(root: object, found: Spoken[]): void {
       } else {
         pending.push({ value: document.value, depth: depth + 1 });
         const around = `${document.before}${TAKEN}${document.after}`;
-        found.push({ text: around, from: voiceOf(around) });
+        // The decision keeps the document's first character in front of the
+        // mark: an array opened just before it, `[{`, is still an opener.
+        const decided = `${document.before}${document.opener}${TAKEN}${document.after}`;
+        found.push({ text: around, from: voiceOf(decided) });
       }
     } else if (value !== null && typeof value === "object") {
       for (const child of Object.values(value)) pending.push({ value: child, depth });
@@ -111,17 +114,19 @@ function walk(root: object, found: Spoken[]): void {
 /**
  * The document in `text`, if there is one: the text as a whole, or the span
  * from its first `{` or `[` to its last `}` or `]`, which covers a preamble in
- * front and a fence around, with the text before it and after it.
+ * front and a fence around, with the text before it, its first character and
+ * the text after it.
  */
 function embedded(
   text: string,
-): { value: object; before: string; after: string } | undefined {
+): { value: object; before: string; opener: string; after: string } | undefined {
   const end = Math.max(text.lastIndexOf("}"), text.lastIndexOf("]"));
   for (const start of [text.indexOf("{"), text.indexOf("[")]) {
     if (start === -1 || end <= start) continue;
     const value = parsed(text.slice(start, end + 1));
     if (value !== null && typeof value === "object") {
-      return { value, before: text.slice(0, start), after: text.slice(end + 1) };
+      const opener = text.charAt(start);
+      return { value, before: text.slice(0, start), opener, after: text.slice(end + 1) };
     }
   }
   return undefined;

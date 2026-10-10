@@ -311,6 +311,8 @@ test("an answer cut short is read as it stands wherever its document opens", () 
     JSON.stringify({ result: 'Output: ["Birleştirmeyi engelleyen",' }),
     JSON.stringify({ result: '`{"position":"a \\" `x","claim":"Birleştirmeyi engelleyen","f":[' }),
     JSON.stringify({ result: `\`{"position":"It says "${TURKISH_ANSWER}\`x` }),
+    // An array opened just before a document parsed out of it is still open.
+    JSON.stringify({ result: '[{"a":1}["Birleştirmeyi",' }),
   ];
   for (const stream of cases) {
     assert.deepEqual(canaryEvidence(stream, ENGLISH_BRIEF, CANARIES), ["turkish-text-leak"], stream);
@@ -366,6 +368,8 @@ test("taken-out text separates words and matches nothing a line break would not"
   const nonAscii: Canary = { id: "non-ascii", pattern: /[^\x00-\x7F]/u, betrays: "a test layer" };
   const flag = codexStream("the `x`-flag is set");
   assert.deepEqual(canaryEvidence(flag, ENGLISH_BRIEF, [nonAscii]), []);
+  const marker: Canary = { id: "marker", pattern: /secret\Smarker/u, betrays: "a test layer" };
+  assert.deepEqual(canaryEvidence(codexStream("secret`x`marker"), ENGLISH_BRIEF, [marker]), []);
   // Left behind a parsed document in a string that is read raw, too.
   const cut = JSON.stringify({ result: 'x{"a":1}-flag and {"position":"cut' });
   assert.deepEqual(canaryEvidence(cut, ENGLISH_BRIEF, [nonAscii]), []);
