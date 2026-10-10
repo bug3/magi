@@ -231,6 +231,20 @@ test("a fenced answer and an answer cut short are both still read", () => {
   assert.deepEqual(canaryEvidence(cut, ENGLISH_BRIEF, CANARIES), ["turkish-text-leak"]);
 });
 
+// The harness closes its envelope even when the model hits its output limit,
+// so only the nested answer is broken, and its quotation marks are structure.
+test("a whole envelope around an answer cut short or slightly invalid is still read", () => {
+  const answer = JSON.stringify({ position: TURKISH_ANSWER, findings: [{ title: "Eksik" }] });
+  const cut = JSON.stringify({ type: "result", result: answer.slice(0, -10) });
+  assert.deepEqual(canaryEvidence(cut, ENGLISH_BRIEF, CANARIES), ["turkish-text-leak"]);
+  const fenced = JSON.stringify({ result: `Here it is:\n\`\`\`json\n${answer.slice(0, -10)}` });
+  assert.deepEqual(canaryEvidence(fenced, ENGLISH_BRIEF, CANARIES), ["turkish-text-leak"]);
+  const invalid = JSON.stringify({ result: `${answer.slice(0, -1)},}` });
+  assert.deepEqual(canaryEvidence(invalid, ENGLISH_BRIEF, CANARIES), ["turkish-text-leak"]);
+  const tagged = JSON.stringify({ result: '[High] A word like "ölçümü" is new.' });
+  assert.deepEqual(canaryEvidence(tagged, ENGLISH_BRIEF, CANARIES), []);
+});
+
 test("an escaped line break does not glue itself to the next word", () => {
   const brief = `const contents = '{"seal":"ok","unicode":"ölçüm"}';`;
   const stream = JSON.stringify({ position: "First line.\nölçüm is the fixture's word." });

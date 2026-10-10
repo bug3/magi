@@ -414,7 +414,9 @@ echo and not evidence. That is judged per match, on the seat's own voice:
   in it, the whole stream, a line, or the span from a first `{` or `[` to a
   last `}` or `]`, is read down to its strings, and a string holding such a
   document is opened in turn, up to eight deep. Text that is not JSON, a
-  preamble or an answer cut short, is read exactly as it stands.
+  preamble or an answer cut short, is read exactly as it stands. So is a
+  string with a line that opens an object or array but does not parse: the
+  harness closes its envelope even when the answer inside was cut short.
 - Inside the strings the seat wrote, a quotation in straight or curly double
   quotes on one line and an inline code span are what it cites, and are
   skipped. A single letter is skipped everywhere.

@@ -15,13 +15,21 @@ export interface Spoken {
   readonly text: string;
   /**
    * "json": the content of a string the seat wrote, where a quotation mark is
-   * the seat's own. "raw": text outside any document, read as it stands.
+   * the seat's own. "raw": text outside any document, or a document that
+   * does not parse, read as it stands.
    */
   readonly from: "json" | "raw";
 }
 
 /** How many documents nested in strings are opened, one inside another. */
 const MAX_NESTING = 8;
+
+/**
+ * A line that opens a JSON object or array. A string carrying one that was
+ * not opened, an answer cut short or slightly invalid, is read as raw text:
+ * its quotation marks are structure, and stripping them would strip its prose.
+ */
+const OPENS_DOCUMENT = /(?:^|\n)[ \t]*(?:\{\s*"|\[\s*[[{"])/u;
 
 export function spokenText(stream: string): readonly Spoken[] {
   const found: Spoken[] = [];
@@ -56,7 +64,7 @@ function walk(root: object, found: Spoken[]): void {
     if (typeof value === "string") {
       const document = depth < MAX_NESTING ? embedded(value) : undefined;
       if (document === undefined) {
-        found.push({ text: value, from: "json" });
+        found.push({ text: value, from: OPENS_DOCUMENT.test(value) ? "raw" : "json" });
       } else {
         pending.push({ value: document.value, depth: depth + 1 });
         found.push({ text: document.around, from: "json" });
