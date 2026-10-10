@@ -86,16 +86,23 @@ function standsAlone(span: string, { text, starts }: IndexedText): boolean {
     const at = starts.get(match[0]) ?? [];
     if (rarest === undefined || at.length < rarest.at.length) rarest = { offset: match.index, at };
   }
-  // A span with no word in it is never looked up, and is never an echo.
-  if (rarest === undefined) return false;
-  for (const position of rarest.at) {
-    const start = position - rarest.offset;
+  // A span with no word in it has nothing to index by, so the whole text is
+  // searched; the canary scan never asks, since it skips any such span.
+  const candidates = rarest === undefined ? occurrences(span, text) : rarest.at;
+  const offset = rarest?.offset ?? 0;
+  for (const position of candidates) {
+    const start = position - offset;
     if (start < 0 || !text.startsWith(span, start)) continue;
     const before = charBefore(text, start);
     const after = charAfter(text, start + span.length);
     if (!WORD_CHARACTER.test(before) && !WORD_CHARACTER.test(after)) return true;
   }
   return false;
+}
+
+/** Every position `span` starts at in `text`. */
+function* occurrences(span: string, text: string): Generator<number> {
+  for (let at = text.indexOf(span); at !== -1; at = text.indexOf(span, at + 1)) yield at;
 }
 
 /**
