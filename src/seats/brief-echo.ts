@@ -102,9 +102,19 @@ function standsAlone(span: string, { text, starts }: IndexedText): boolean {
   return false;
 }
 
-/** Every position `span` starts at in `text`. */
+/**
+ * Every position `span` starts at in `text`, ending at the end of the text:
+ * `indexOf` clamps a start past the end, so an empty span would otherwise be
+ * found there forever.
+ */
 function* occurrences(span: string, text: string): Generator<number> {
-  for (let at = text.indexOf(span); at !== -1; at = text.indexOf(span, at + 1)) yield at;
+  for (
+    let at = text.indexOf(span);
+    at !== -1;
+    at = at < text.length ? text.indexOf(span, at + 1) : -1
+  ) {
+    yield at;
+  }
 }
 
 /**
