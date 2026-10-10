@@ -34,31 +34,65 @@ export function charAfter(text: string, at: number): string {
 export function echoJudge(brief: string): (word: string) => boolean {
   const briefText = brief.normalize("NFC");
   const briefWords = new Set((briefText.match(WORD) ?? []).flatMap(folds));
-  const briefForms = folds(briefText);
+  // Indexed only once a span needs it: most seats never widen across a space.
+  let briefForms: readonly IndexedText[] | undefined;
   // A word is judged once: looking a repeat up in the brief again would cost
-  // a pass over the brief per match.
+  // a lookup per match.
   const judged = new Map<string, boolean>();
   return (word) => {
     let echo = judged.get(word);
     if (echo === undefined) {
-      echo = ONE_WORD.test(word)
-        ? folds(word).some((form) => briefWords.has(form))
-        : folds(word).some((form) => briefForms.some((text) => standsAlone(form, text)));
+      if (ONE_WORD.test(word)) {
+        echo = folds(word).some((form) => briefWords.has(form));
+      } else {
+        briefForms ??= folds(briefText).map(indexed);
+        const forms = briefForms;
+        echo = folds(word).some((form) => forms.some((text) => standsAlone(form, text)));
+      }
       judged.set(word, echo);
     }
     return echo;
   };
 }
 
+/** A text and where each of its words starts, by word. */
+interface IndexedText {
+  readonly text: string;
+  readonly starts: ReadonlyMap<string, readonly number[]>;
+}
+
+function indexed(text: string): IndexedText {
+  const starts = new Map<string, number[]>();
+  for (const match of text.matchAll(WORD)) {
+    const at = starts.get(match[0]);
+    if (at === undefined) starts.set(match[0], [match.index]);
+    else at.push(match.index);
+  }
+  return { text, starts };
+}
+
 /**
- * Whether `span` occurs in `text` with no word character on either side. A
+ * Whether `span` occurs in the text with no word character on either side. A
  * span a token canary widened across a space or punctuation is never one of
  * the brief's words, so it is looked up in the brief's text instead.
+ *
+ * Where it stands alone, each of its words is a whole word of the text, so it
+ * is looked for only where its rarest word starts: a pass over the brief per
+ * distinct span made a seat echoing many of them cost the square of the brief.
  */
-function standsAlone(span: string, text: string): boolean {
-  for (let at = text.indexOf(span); at !== -1; at = text.indexOf(span, at + 1)) {
-    const before = charBefore(text, at);
-    const after = charAfter(text, at + span.length);
+function standsAlone(span: string, { text, starts }: IndexedText): boolean {
+  let rarest: { readonly offset: number; readonly at: readonly number[] } | undefined;
+  for (const match of span.matchAll(WORD)) {
+    const at = starts.get(match[0]) ?? [];
+    if (rarest === undefined || at.length < rarest.at.length) rarest = { offset: match.index, at };
+  }
+  // A span with no word in it is never looked up, and is never an echo.
+  if (rarest === undefined) return false;
+  for (const position of rarest.at) {
+    const start = position - rarest.offset;
+    if (start < 0 || !text.startsWith(span, start)) continue;
+    const before = charBefore(text, start);
+    const after = charAfter(text, start + span.length);
     if (!WORD_CHARACTER.test(before) && !WORD_CHARACTER.test(after)) return true;
   }
   return false;
