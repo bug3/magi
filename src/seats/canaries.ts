@@ -109,10 +109,19 @@ export function canaryEvidence(
   const briefText = brief.normalize("NFC");
   const briefWords = new Set((briefText.match(WORD) ?? []).flatMap(folds));
   const briefForms = folds(briefText);
-  const echoed = (word: string): boolean =>
-    ONE_WORD.test(word)
-      ? folds(word).some((form) => briefWords.has(form))
-      : folds(word).some((form) => briefForms.some((text) => standsAlone(form, text)));
+  // A word is judged once: looking a repeat up in the brief again would cost
+  // a pass over the brief per match.
+  const judged = new Map<string, boolean>();
+  const echoed = (word: string): boolean => {
+    let echo = judged.get(word);
+    if (echo === undefined) {
+      echo = ONE_WORD.test(word)
+        ? folds(word).some((form) => briefWords.has(form))
+        : folds(word).some((form) => briefForms.some((text) => standsAlone(form, text)));
+      judged.set(word, echo);
+    }
+    return echo;
+  };
   const text = spokenText(output)
     .map(({ text: piece, from }) => {
       const normal = piece.normalize("NFC");

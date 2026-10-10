@@ -219,6 +219,15 @@ test("a line of opening curly quotes with no closing one is skipped in one pass"
   assert.ok(Date.now() - started < 1_000, "the quotation pattern is linear in the text");
 });
 
+test("an echo repeated in the text is looked up in the brief once", () => {
+  // Searching the brief again for every repeat takes seconds here; once, milliseconds.
+  const phrase: Canary = { id: "phrase", pattern: /secret phrase/u, betrays: "a test layer" };
+  const brief = `${"secret phrasex ".repeat(20_000)}secret phrase.`;
+  const started = Date.now();
+  assert.deepEqual(canaryEvidence("secret phrase. ".repeat(20_000), brief, [phrase]), []);
+  assert.ok(Date.now() - started < 1_000, "an echo is judged once per word");
+});
+
 /** A seat's answer the way codex prints it: JSON lines, the answer a nested document. */
 function codexStream(position: string): string {
   return [
